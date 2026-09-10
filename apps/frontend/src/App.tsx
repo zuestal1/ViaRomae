@@ -4,6 +4,8 @@
  * Screens (simple state machine – no router dependency needed for Epic 2):
  *   "login"  →  LoginPage   (unauthenticated)
  *   "lobby"  →  LobbyPage   (authenticated, before entering the game world)
+ *   "class-selection" → binding class confirmation
+ *   "preflight" → GPS check and server-side map release
  *   "map"    →  GameMap     (authenticated, active play)
  *
  * The AuthProvider is mounted here so all child components can use useAuth().
@@ -16,10 +18,12 @@ import { ConnectionIndicator } from "./components/common/connection-indicator.js
 import { LoginPage } from "./pages/login.page.js";
 import { LobbyPage } from "./pages/lobby.page.js";
 import { GameMap } from "./components/map/game-map.js";
+import { ClassSelectionPage } from "./pages/class-selection.page.js";
+import { PreflightPage } from "./pages/preflight.page.js";
 
 // ── Screen type ───────────────────────────────────────────────────────────────
 
-type Screen = "login" | "lobby" | "map";
+type Screen = "login" | "lobby" | "class-selection" | "preflight" | "map";
 
 // ── Inner shell (needs AuthContext) ──────────────────────────────────────────
 
@@ -42,9 +46,9 @@ function AppShell() {
     }
   }, [isAuthenticated]); // intentionally omit `screen` to avoid loop
 
-  // Callback fired by LobbyPage when "Zur Karte" is pressed
+  // Start the mandatory setup flow from the lobby.
   function handleEnterMap() {
-    setScreen("map");
+    setScreen("class-selection");
   }
 
   // Callback fired by GameMap to return to lobby
@@ -75,6 +79,12 @@ function AppShell() {
       } else {
         content = <GameMap onBack={handleBackToLobby} />;
       }
+      break;
+    case "class-selection":
+      content = isAuthenticated ? <ClassSelectionPage onConfirmed={() => setScreen("preflight")} /> : <LoginPage />;
+      break;
+    case "preflight":
+      content = isAuthenticated ? <PreflightPage onGranted={() => setScreen("map")} /> : <LoginPage />;
       break;
   }
 
