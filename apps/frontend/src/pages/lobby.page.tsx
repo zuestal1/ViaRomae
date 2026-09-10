@@ -9,7 +9,7 @@ import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../contexts/auth.context.js";
 import { api } from "../lib/api.js";
-import type { MeResponse } from "@jlw/contracts";
+import type { MeResponse, PlayerClass } from "@jlw/contracts";
 
 interface LobbyPageProps {
   /** Called when the player presses "Zur Karte". */

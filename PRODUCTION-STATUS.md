@@ -32,8 +32,8 @@
 - [x] **Respawn-Script** (`~/respawn-team.sh`)
 
 ### Getestete Accounts
-- **Team 1**: `prototyp_player1` / Access Code: `test123` (GARDIST, Pfäffikon Test Team)
-- **Team 2**: `prototyp_player2` / Access Code: `team2code` (SPÄHER, Test Team 2)
+- **Team 1**: `prototyp_player1` / Access Code: `test123` (Schweizer Gardist, Pfäffikon Test Team)
+- **Team 2**: `prototyp_player2` / Access Code: `team2code` (Condottiere, Test Team 2)
 - **GM**: `prototyp_gm` (kein Passwort nötig)
 
 ---
