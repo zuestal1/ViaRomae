@@ -6,6 +6,8 @@ export type { PlayerClass } from "./character-class.js";
 
 export const PlayerStatusSchema = z.enum(["ACTIVE", "DOWNED"]);
 export type PlayerStatus = z.infer<typeof PlayerStatusSchema>;
+export const FameTierSchema = z.enum(["N", "R", "SR", "SSR", "E", "L"]);
+export type FameTier = z.infer<typeof FameTierSchema>;
 
 export const LocationSchema = z.object({
   lat: z.number(),
@@ -20,6 +22,10 @@ export const PlayerSchema = z.object({
   teamId: z.string().uuid(),
   class: PlayerClassSchema,
   hpCurrent: z.number().int().nonnegative(),
+  maxHp: z.number().int().positive(),
+  fameTierHpBonus: z.number().int().nonnegative(),
+  highestFameTierReached: FameTierSchema,
+  lastRegenCalculationAt: z.string().datetime(),
   ...CharacterStatsSchema.shape,
   status: PlayerStatusSchema,
   lastLocation: LocationSchema.nullable(),
@@ -32,5 +38,6 @@ export const TeamSchema = z.object({
   fame: z.number().int(),
   denarii: z.number().int(),
   inventoryCapacity: z.number().int().default(40),
+  highestFameTierReached: FameTierSchema,
 });
 export type Team = z.infer<typeof TeamSchema>;
