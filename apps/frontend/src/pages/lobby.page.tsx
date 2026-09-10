@@ -5,7 +5,7 @@
  * and presents a "Zur Karte" button that transitions to the game map.
  */
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../contexts/auth.context.js";
 import { api } from "../lib/api.js";
@@ -23,9 +23,11 @@ const CLASS_LABELS: Record<string, string> = {
   BILDHAUER: "🗿 Bildhauer",
   CONDOTTIERE: "⚔️ Condottiere",
 };
+const SLOT_LABELS: Record<string, string> = { WEAPON: "Waffe", ARMOR: "Rüstung", ACCESSORY: "Accessoire", CONSUMABLE: "Verbrauchsitem" };
 
 export function LobbyPage({ onEnterMap }: LobbyPageProps) {
   const { account, setProfile, logout } = useAuth();
+  const [tab, setTab] = useState<"CHARACTER" | "TEAM">("CHARACTER");
 
   // Fetch full profile; the token is attached automatically by api.ts
   const { data, isLoading, isError, error } = useQuery({
@@ -77,7 +79,7 @@ export function LobbyPage({ onEnterMap }: LobbyPageProps) {
       </div>
 
       {/* Profile Card */}
-      <div className="w-full max-w-sm rounded-xl border border-[#cd7f32]/30 bg-[#0d0d1a] p-6 shadow-2xl">
+      <div className="w-full max-w-2xl rounded-xl border border-[#cd7f32]/30 bg-[#0d0d1a] p-6 shadow-2xl">
         {/* Account info */}
         <div className="flex items-center justify-between">
           <div>
@@ -97,9 +99,14 @@ export function LobbyPage({ onEnterMap }: LobbyPageProps) {
 
         <hr className="my-5 border-[#cd7f32]/20" />
 
-        {/* Player / Team info */}
+        <div className="mb-5 grid grid-cols-2 rounded-lg bg-[#1a1a2e] p-1" role="tablist" aria-label="Profilansicht">
+          <button role="tab" aria-selected={tab === "CHARACTER"} onClick={() => setTab("CHARACTER")} className={`rounded-md py-2 text-sm font-bold ${tab === "CHARACTER" ? "bg-[#cd7f32] text-[#0d0d1a]" : "text-[#aaa]"}`}>Charakter</button>
+          <button role="tab" aria-selected={tab === "TEAM"} onClick={() => setTab("TEAM")} className={`rounded-md py-2 text-sm font-bold ${tab === "TEAM" ? "bg-[#cd7f32] text-[#0d0d1a]" : "text-[#aaa]"}`}>Team</button>
+        </div>
+
         {me.player ? (
           <div className="space-y-3">
+            {tab === "CHARACTER" ? <>
             {/* Class */}
             <div className="flex items-center justify-between">
               <span className="text-xs uppercase tracking-widest text-[#888]">
@@ -119,6 +126,15 @@ export function LobbyPage({ onEnterMap }: LobbyPageProps) {
                 {me.player.hpCurrent} / {me.player.hpMax}
               </span>
             </div>
+
+            <div className="grid grid-cols-3 gap-2 text-center">
+              {Object.entries({ ATK: me.player.stats.atk, DEF: me.player.stats.def, INIT: me.player.stats.init }).map(([label, value]) => <div key={label} className="rounded-lg bg-[#1a1a2e] p-2"><div className="text-xs text-[#888]">{label}</div><div className="font-bold text-[#f4e4c1]">{value}</div></div>)}
+            </div>
+            <section><h2 className="mb-2 text-xs uppercase tracking-widest text-[#cd7f32]">Ausrüstung</h2><div className="grid grid-cols-2 gap-2">{me.player.equipment.map((item) => <div key={item.slot} className="rounded border border-[#444] p-2 text-xs"><span className="text-[#888]">{SLOT_LABELS[item.slot]}</span><p className="text-[#f4e4c1]">{item.icon} {item.name ?? "Leer"}</p></div>)}</div></section>
+            <section><h2 className="mb-2 text-xs uppercase tracking-widest text-[#cd7f32]">Fähigkeiten</h2><div className="space-y-2">{me.player.abilities.map((ability) => <div key={ability.id} className="rounded bg-[#1a1a2e] p-3"><div className="font-bold text-[#f4e4c1]">{ability.icon} {ability.name} <span className="text-xs font-normal text-[#888]">{ability.kind === "STANDARD" ? "Standardangriff" : `Cooldown: ${ability.cooldownRounds}`}</span></div><p className="text-xs text-[#aaa]">{ability.description}{ability.valueLabel && ` · ${ability.value} ${ability.valueLabel}`}</p></div>)}</div></section>
+            <section className="rounded border border-[#cd7f32]/20 p-3"><h2 className="font-bold text-[#f4e4c1]">{me.player.passive.icon} Passiv: {me.player.passive.name}</h2><p className="text-xs text-[#aaa]">{me.player.passive.description}</p></section>
+            <section><h2 className="mb-2 text-xs uppercase tracking-widest text-[#cd7f32]">Aktive Statuseffekte</h2>{me.player.statusEffects.length ? me.player.statusEffects.map((effect) => <div key={effect.id} className="text-sm text-[#f4e4c1]">{effect.icon} {effect.name}: {effect.description} ({effect.remainingRounds} Runden)</div>) : <p className="text-xs text-[#888]">Keine aktiven Effekte</p>}</section>
+            </> : <>
 
             {/* Status */}
             <div className="flex items-center justify-between">
@@ -157,8 +173,10 @@ export function LobbyPage({ onEnterMap }: LobbyPageProps) {
                     {me.player.team.denarii}
                   </span>
                 </div>
+                <div className="mt-3 space-y-2">{me.player.team.members.map((member) => <div key={member.id} className="rounded bg-[#0d0d1a] p-3"><div className="flex justify-between text-sm"><span className="font-semibold text-[#f4e4c1]">{member.name}</span><span className="text-[#cd7f32]">{CLASS_LABELS[member.class]}</span></div><div className="mt-1 text-xs text-green-400">HP {member.hpCurrent} / {member.hpMax}</div><div className="mt-1 h-1.5 overflow-hidden rounded bg-[#333]"><div className="h-full bg-green-500" style={{ width: `${Math.max(0, Math.min(100, member.hpCurrent / member.hpMax * 100))}%` }} /></div></div>)}</div>
               </div>
             )}
+            </>}
           </div>
         ) : (
           <p className="text-center text-sm text-[#888]">

@@ -1,4 +1,7 @@
 import { z } from "zod";
+import { PlayerClassSchema, PlayerStatusSchema } from "./player.js";
+import { AbilityDefinitionSchema, StatusEffectSchema } from "./combat.js";
+import { ItemSlotSchema } from "./economy.js";
 import { FameTierSchema, PlayerClassSchema, PlayerStatusSchema } from "./player.js";
 import { CharacterStatsSchema, PlayerClassSchema } from "./character-class.js";
 import { PlayerStatusSchema } from "./player.js";
@@ -38,11 +41,17 @@ export const MeResponseSchema = z.object({
       classConfirmed: z.boolean(),
       preflightCompleted: z.boolean(),
       hpCurrent: z.number().int().nonnegative(),
-      maxHp: z.number().int().positive(),
-      fameTierHpBonus: z.number().int().nonnegative(),
-      highestFameTierReached: FameTierSchema,
-      lastRegenCalculationAt: z.string().datetime(),
-      ...CharacterStatsSchema.shape,
+      hpMax: z.number().int().positive().default(100),
+      stats: z.object({ atk: z.number(), def: z.number(), init: z.number() }),
+      icon: z.string(),
+      passive: z.object({ name: z.string(), description: z.string(), icon: z.string() }),
+      abilities: z.array(AbilityDefinitionSchema),
+      statusEffects: z.array(StatusEffectSchema),
+      equipment: z.array(z.object({
+        slot: ItemSlotSchema,
+        name: z.string().nullable(),
+        icon: z.string().optional(),
+      })),
       status: PlayerStatusSchema,
       team: z
         .object({
@@ -51,6 +60,13 @@ export const MeResponseSchema = z.object({
           inventoryCapacity: z.number().int(),
           fame: z.number().int(),
           denarii: z.number().int(),
+          members: z.array(z.object({
+            id: z.string().uuid(),
+            name: z.string(),
+            class: PlayerClassSchema,
+            hpCurrent: z.number().int().nonnegative(),
+            hpMax: z.number().int().positive(),
+          })),
           highestFameTierReached: FameTierSchema,
         })
         .nullable(),
