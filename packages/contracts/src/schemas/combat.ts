@@ -84,6 +84,8 @@ export const CombatantSchema = z.object({
   initiative: z.number(),
   name: z.string(),
   isDowned: z.boolean(),
+  attack: z.number(),
+  defense: z.number(),
   abilityDefinitions: z.array(AbilityDefinitionSchema).optional(),
   abilityCooldowns: z.record(AbilityIdSchema, z.number().int().nonnegative()).optional(),
   class: z.string().optional(),

@@ -142,7 +142,7 @@ async function seedPrototype() {
           accountId: p.accountId,
           teamId:    IDS.team,
           class:     p.playerClass,
-          hpCurrent: 100,
+          hpCurrent: p.hp,
           status:    'ACTIVE',
           playerName: p.playerName,
         })
@@ -150,7 +150,7 @@ async function seedPrototype() {
           target: players.id,
           set: {
             teamId:    IDS.team,
-            hpCurrent: 100,
+            hpCurrent: p.hp,
             status:    'ACTIVE',
             playerName: p.playerName,
           },

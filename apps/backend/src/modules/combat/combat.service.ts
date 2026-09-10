@@ -32,6 +32,8 @@ import {
   type EquipmentRarity,
 } from "./combat-calculation.js";
 import { randomUUID } from "node:crypto";
+import { CLASSES, damage as calculateGddDamage } from "../classes/class-rules.js";
+import type { ClassId } from "@jlw/contracts";
 import { ABILITY_DEFINITIONS, CLASS_LOADOUTS, type AbilityClass, type AbilityDefinition, type AbilityId } from "@jlw/contracts";
 import { computeEquippedStats } from "../economy/inventory.service.js";
 import type { AbilityDefinition, StatusEffect } from "@jlw/contracts";
@@ -78,6 +80,8 @@ export interface Combatant {
   shield?: number;
   name: string;
   isDowned: boolean;
+  attack?: number;
+  defense?: number;
   abilityDefinitions?: AbilityDefinition[];
   abilityCooldowns?: Partial<Record<AbilityId, number>>;
   class?: string;
@@ -296,10 +300,9 @@ export async function getCombatInstance(combatId: string): Promise<CombatInstanc
     combatantsData.map(async (c) => {
       let name = "Unknown";
       let hpMax = 100;
-      let initiative = 50;
-      let attack = 0;
-      let defense = 0;
-      let initiativeTieBreaker = 0;
+      let attack = 10;
+      let defense = 10;
+      let initiative = 8;
 
       if (c.entityType === "PLAYER") {
         const [player] = await db
@@ -867,13 +870,7 @@ async function applyAbilityModifiers(combat: CombatInstance, attacker: Combatant
  * Calculate damage for an attack.
  */
 function calculateDamage(attacker: Combatant, defender: Combatant): number {
-  // Base damage
-  let damage = 10 + Math.floor(Math.random() * 10); // 10-20
-
-  damage += (attacker.attack ?? 0) - (defender.defense ?? 0);
-  // TODO: Apply buffs/debuffs
-
-  return Math.max(1, damage);
+  return calculateGddDamage(attacker.attack ?? 10, 1, defender.defense ?? 10);
 }
 
 /**

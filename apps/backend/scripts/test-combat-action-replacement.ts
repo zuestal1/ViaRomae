@@ -15,8 +15,8 @@ try {
   const enemyId = randomUUID();
   await db.insert(combatInstances).values({ id: combatId, type: "PVE", state: "AWAITING_ACTIONS", roundNumber: 1 });
   await db.insert(combatants).values([
-    { id: actorId, combatInstanceId: combatId, entityType: "PLAYER", entityId: playerId, hpCurrent: 100 },
-    { id: enemyId, combatInstanceId: combatId, entityType: "ENEMY", entityId: randomUUID(), hpCurrent: 100 },
+    { id: actorId, combatInstanceId: combatId, entityType: "PLAYER", entityId: playerId, hpCurrent: 120 },
+    { id: enemyId, combatInstanceId: combatId, entityType: "ENEMY", entityId: randomUUID(), hpCurrent: 90 },
   ]);
 
   const firstKey = randomUUID();
@@ -42,8 +42,8 @@ try {
   const automaticEnemyId = randomUUID();
   await db.insert(combatInstances).values({ id: automaticCombatId, type: "PVE", state: "AWAITING_ACTIONS", roundNumber: 1 });
   await db.insert(combatants).values([
-    { id: automaticActorId, combatInstanceId: automaticCombatId, entityType: "PLAYER", entityId: automaticPlayerId, hpCurrent: 100 },
-    { id: automaticEnemyId, combatInstanceId: automaticCombatId, entityType: "ENEMY", entityId: randomUUID(), hpCurrent: 100 },
+    { id: automaticActorId, combatInstanceId: automaticCombatId, entityType: "PLAYER", entityId: automaticPlayerId, hpCurrent: 100 }, // Bildhauer 100/11/10/8
+    { id: automaticEnemyId, combatInstanceId: automaticCombatId, entityType: "ENEMY", entityId: randomUUID(), hpCurrent: 100 }, // Condottiere 100/14/8/12
   ]);
   await lockAndResolveRound(automaticCombatId);
   const [automatic] = await db.select().from(combatActions).where(and(

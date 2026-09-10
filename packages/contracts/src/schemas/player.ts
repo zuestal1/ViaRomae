@@ -1,15 +1,11 @@
 import { z } from "zod";
 import { CharacterStatsSchema, PlayerClassSchema } from "./character-class.js";
 
-export { PlayerClassSchema } from "./character-class.js";
-export type { PlayerClass } from "./character-class.js";
-
-/** The four playable classes defined by the GDD (MAGIER is legacy data only). */
-export const SelectablePlayerClassSchema = z.enum([
-  "GARDIST",
-  "MÖNCH",
-  "HÄNDLER",
-  "SPÄHER",
+export const PlayerClassSchema = z.enum([
+  "guard",
+  "cleric",
+  "sculptor",
+  "condottiere",
 ]);
 export type SelectablePlayerClass = z.infer<typeof SelectablePlayerClassSchema>;
 

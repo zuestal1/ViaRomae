@@ -1,0 +1,8 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { ClassService, type ClassBinding, type ClassRepository } from "../src/modules/classes/class.service.js";
+
+function fixture(){ const rows=new Map<string,ClassBinding>([["p1",{playerId:"p1",teamId:"t",classId:"guard",bound:false}],["p2",{playerId:"p2",teamId:"t",classId:"cleric",bound:true}]]); const audits:unknown[]=[]; const repo:ClassRepository={find:async id=>rows.get(id),classTaken:async(team,c,except)=>[...rows.values()].some(p=>p.teamId===team&&p.classId===c&&p.playerId!==except),bind:async(id,c)=>{const p=rows.get(id)!;rows.set(id,{...p,classId:c,bound:true});},correctAndAudit:async input=>{audits.push(input);const p=rows.get(input.playerId)!;rows.set(input.playerId,{...p,classId:input.newClass,bound:true});}}; return {rows,audits,service:new ClassService(repo)}; }
+test("service binds a selected class permanently",async()=>{const f=fixture();await f.service.choose("p1","sculptor");assert.equal(f.rows.get("p1")?.classId,"sculptor");await assert.rejects(()=>f.service.choose("p1","condottiere"),/PERMANENTLY_BOUND/);});
+test("service prevents duplicate team classes before commit",async()=>{const f=fixture();await assert.rejects(()=>f.service.choose("p1","cleric"),/CLASS_ALREADY_TAKEN/);});
+test("GM correction requires a reason and creates an audit record",async()=>{const f=fixture();await assert.rejects(()=>f.service.gmCorrect("p2","condottiere","gm"," "),/AUDIT_REASON_REQUIRED/);await f.service.gmCorrect("p2","condottiere","gm","Fehlzuweisung");assert.deepEqual(f.audits,[{playerId:"p2",previousClass:"cleric",newClass:"condottiere",gmId:"gm",reason:"Fehlzuweisung"}]);});
