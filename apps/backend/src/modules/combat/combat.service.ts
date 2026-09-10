@@ -16,6 +16,8 @@ import { worldObjects } from "../../db/schema/world.js";
 import { ledgerEntries } from "../../db/schema/economy.js";
 import type { WsHub } from "../ws/ws.hub.js";
 import { randomUUID } from "node:crypto";
+import type { AbilityDefinition, StatusEffect } from "@jlw/contracts";
+import { CLASS_DEFINITIONS } from "./ability-definitions.js";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -36,6 +38,7 @@ export interface CombatInstance {
   startedAt: Date;
   combatants: Combatant[];
   actions: CombatAction[];
+  actionDeadline?: Date;
 }
 
 export interface Combatant {
@@ -48,6 +51,10 @@ export interface Combatant {
   initiative: number;
   name: string;
   isDowned: boolean;
+  class?: string;
+  shield: number;
+  statusEffects: StatusEffect[];
+  abilities?: AbilityDefinition[];
 }
 
 export interface CombatAction {
@@ -217,15 +224,17 @@ export async function getCombatInstance(combatId: string): Promise<CombatInstanc
     combatantsData.map(async (c) => {
       let name = "Unknown";
       let hpMax = 100;
+      let playerClass: keyof typeof CLASS_DEFINITIONS | undefined;
 
       if (c.entityType === "PLAYER") {
         const [player] = await db
-          .select({ accountId: players.accountId })
+          .select({ accountId: players.accountId, class: players.class })
           .from(players)
           .where(eq(players.id, c.entityId));
         // For simplicity, use entityId as name
         name = player?.accountId.substring(0, 8) ?? "Player";
         hpMax = 100; // Default player HP
+        playerClass = player?.class;
       } else if (c.entityType === "ENEMY") {
         const [enemy] = await db
           .select()
@@ -248,6 +257,9 @@ export async function getCombatInstance(combatId: string): Promise<CombatInstanc
         initiative: 50, // TODO: calculate from stats
         name,
         isDowned: c.hpCurrent <= 0,
+        shield: 0,
+        statusEffects: [],
+        ...(playerClass ? { class: playerClass, abilities: CLASS_DEFINITIONS[playerClass].abilities } : {}),
       };
     })
   );
@@ -268,6 +280,7 @@ export async function getCombatInstance(combatId: string): Promise<CombatInstanc
       isLocked: a.isLocked,
       origin: a.origin,
     })),
+    actionDeadline: new Date(Date.now() + ROUND_TIMER_MS),
   };
 }
 

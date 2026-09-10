@@ -9,12 +9,14 @@
 
 import crypto from "node:crypto";
 import { promisify } from "node:util";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { db } from "../../db/client.js";
 import { accounts, sessions } from "../../db/schema/account.js";
 import { players, teams } from "../../db/schema/player.js";
 import type { MeResponse } from "@jlw/contracts";
 import { getTeamBalance } from "../economy/ledger.service.js";
+import { itemDefs, itemInstances } from "../../db/schema/economy_v2.js";
+import { CLASS_DEFINITIONS } from "../combat/ability-definitions.js";
 
 const scryptAsync = promisify<
   crypto.BinaryLike,
@@ -156,12 +158,30 @@ export async function getMe(accountId: string): Promise<MeResponse> {
     .from(teams)
     .where(eq(teams.id, player.teamId));
 
+  const teamPlayers = team ? await db.select().from(players).where(eq(players.teamId, team.id)) : [];
+  const accountIds = teamPlayers.map((member) => member.accountId);
+  const teamAccounts = accountIds.length ? await db.select().from(accounts).where(inArray(accounts.id, accountIds)) : [];
+  const accountNames = new Map(teamAccounts.map((entry) => [entry.id, entry.username]));
+  const equipped = await db.select({ slot: itemInstances.slot, name: itemDefs.name })
+    .from(itemInstances).leftJoin(itemDefs, eq(itemInstances.definitionId, itemDefs.key))
+    .where(eq(itemInstances.ownerId, player.id));
+  const definition = CLASS_DEFINITIONS[player.class];
+
   return {
     account: { id: account.id, username: account.username, role: account.role },
     player: {
       id: player.id,
       class: player.class,
       hpCurrent: player.hpCurrent,
+      hpMax: 100,
+      icon: definition.icon,
+      stats: definition.stats,
+      passive: definition.passive,
+      abilities: definition.abilities,
+      statusEffects: [],
+      equipment: (["WEAPON", "ARMOR", "ACCESSORY", "CONSUMABLE"] as const).map((slot) => ({
+        slot, name: equipped.find((item) => item.slot === slot)?.name ?? null,
+      })),
       status: player.status,
       team: team
         ? {
@@ -170,6 +190,13 @@ export async function getMe(accountId: string): Promise<MeResponse> {
             inventoryCapacity: team.inventoryCapacity,
             fame: await getTeamBalance(team.id, "FAME"),
             denarii: await getTeamBalance(team.id, "DENARII"),
+            members: teamPlayers.map((member) => ({
+              id: member.id,
+              name: member.playerName ?? accountNames.get(member.accountId) ?? "Unbekannt",
+              class: member.class,
+              hpCurrent: member.hpCurrent,
+              hpMax: 100,
+            })),
           }
         : null,
     },

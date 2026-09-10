@@ -441,6 +441,8 @@ async function loadCombatInstance(combatId: string): Promise<CombatInstance> {
         initiative,
         name,
         isDowned: c.hpCurrent <= 0,
+        shield: 0,
+        statusEffects: [],
       };
     }),
   );
