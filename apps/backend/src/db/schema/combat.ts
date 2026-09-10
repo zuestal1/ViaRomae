@@ -6,6 +6,7 @@ import {
   timestamp,
   boolean,
   varchar,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { teams } from "./player.js";
 
@@ -23,6 +24,11 @@ export const actionTypeEnum = pgEnum("action_type", [
   "DEFEND",
   "SKILL",
   "FLEE",
+]);
+export const combatActionOriginEnum = pgEnum("combat_action_origin", [
+  "PLAYER_SUBMITTED",
+  "AUTOMATIC",
+  "ENEMY_AI",
 ]);
 export const pvpChallengeStateEnum = pgEnum("pvp_challenge_state", [
   "WARNING",
@@ -61,7 +67,26 @@ export const combatActions = pgTable("combat_action", {
   actionType: actionTypeEnum("action_type").notNull(),
   targetId: uuid("target_id"),
   isLocked: boolean("is_locked").notNull().default(false),
+  origin: combatActionOriginEnum("origin").notNull().default("PLAYER_SUBMITTED"),
   idempotencyKey: uuid("idempotency_key").notNull().unique(),
+}, (table) => [
+  uniqueIndex("combat_action_instance_round_actor_unique").on(
+    table.combatInstanceId,
+    table.roundNumber,
+    table.actorId
+  ),
+]);
+
+/** Immutable request receipts keep retries idempotent after a later replacement. */
+export const combatActionSubmissions = pgTable("combat_action_submission", {
+  idempotencyKey: uuid("idempotency_key").primaryKey(),
+  actionId: uuid("action_id").notNull(),
+  combatInstanceId: uuid("combat_instance_id").notNull(),
+  roundNumber: integer("round_number").notNull(),
+  actorId: uuid("actor_id").notNull(),
+  actionType: actionTypeEnum("action_type").notNull(),
+  targetId: uuid("target_id"),
+  acceptedAt: timestamp("accepted_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const pvpChallenges = pgTable("pvp_challenge", {

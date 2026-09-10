@@ -21,6 +21,13 @@ export type CombatState = z.infer<typeof CombatStateSchema>;
 export const ActionTypeSchema = z.enum(["ATTACK", "DEFEND", "SKILL", "FLEE"]);
 export type ActionType = z.infer<typeof ActionTypeSchema>;
 
+export const CombatActionOriginSchema = z.enum([
+  "PLAYER_SUBMITTED",
+  "AUTOMATIC",
+  "ENEMY_AI",
+]);
+export type CombatActionOrigin = z.infer<typeof CombatActionOriginSchema>;
+
 export const EntityTypeSchema = z.enum(["PLAYER", "ENEMY"]);
 export type EntityType = z.infer<typeof EntityTypeSchema>;
 
@@ -49,6 +56,7 @@ export const CombatActionSchema = z.object({
   actionType: ActionTypeSchema,
   targetId: z.string().uuid().optional(),
   isLocked: z.boolean(),
+  origin: CombatActionOriginSchema,
   damage: z.number().optional(),
   effect: z.string().optional(),
 });

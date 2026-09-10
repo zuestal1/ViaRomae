@@ -8,6 +8,7 @@ import {
   combatInstances,
   combatants,
   combatActions,
+  combatActionSubmissions,
   pvpChallenges,
 } from "../../db/schema/combat.js";
 import { players, teams } from "../../db/schema/player.js";
@@ -56,6 +57,7 @@ export interface CombatAction {
   actionType: ActionType;
   targetId?: string | undefined;
   isLocked: boolean;
+  origin: "PLAYER_SUBMITTED" | "AUTOMATIC" | "ENEMY_AI";
   damage?: number;
   effect?: string;
 }
@@ -264,6 +266,7 @@ export async function getCombatInstance(combatId: string): Promise<CombatInstanc
       actionType: a.actionType as ActionType,
       targetId: a.targetId ?? undefined,
       isLocked: a.isLocked,
+      origin: a.origin,
     })),
   };
 }
@@ -280,61 +283,70 @@ export async function submitCombatAction(opts: {
 }): Promise<CombatAction> {
   const { combatId, playerId, actionType, targetId, idempotencyKey } = opts;
 
-  // Get combat instance
-  const combat = await getCombatInstance(combatId);
+  return db.transaction(async (tx) => {
+    // Serialize submission and lock. This makes the last transaction accepted
+    // before LOCKED the authoritative action for the round.
+    await tx.execute(sql`select id from combat_instance where id = ${combatId} for update`);
 
-  if (combat.state !== "AWAITING_ACTIONS") {
-    throw new Error("Combat is not accepting actions");
-  }
+    const [receipt] = await tx.select().from(combatActionSubmissions)
+      .where(eq(combatActionSubmissions.idempotencyKey, idempotencyKey));
+    if (receipt) {
+      return {
+        id: receipt.actionId, roundNumber: receipt.roundNumber, actorId: receipt.actorId,
+        actionType: receipt.actionType as ActionType,
+        targetId: receipt.targetId ?? undefined, isLocked: false,
+        origin: "PLAYER_SUBMITTED" as const,
+      };
+    }
 
-  // Check if player is in combat
-  const playerCombatant = combat.combatants.find(
-    (c) => c.entityId === playerId && c.entityType === "PLAYER"
-  );
+    const [combat] = await tx.select().from(combatInstances)
+      .where(eq(combatInstances.id, combatId));
+    if (!combat || combat.state !== "AWAITING_ACTIONS") {
+      throw new Error("Combat is not accepting actions");
+    }
+    const [actor] = await tx.select().from(combatants).where(and(
+      eq(combatants.combatInstanceId, combatId),
+      eq(combatants.entityId, playerId),
+      eq(combatants.entityType, "PLAYER")
+    ));
+    if (!actor) throw new Error("Player not in combat");
+    if (actor.hpCurrent <= 0) throw new Error("Player is downed");
 
-  if (!playerCombatant) {
-    throw new Error("Player not in combat");
-  }
+    if (actionType === "ATTACK") {
+      if (!targetId) throw new Error("Attack requires a target");
+      const [target] = await tx.select().from(combatants).where(and(
+        eq(combatants.id, targetId), eq(combatants.combatInstanceId, combatId)
+      ));
+      if (!target || target.hpCurrent <= 0 || !areOpponents(actor, target)) {
+        throw new Error("Invalid attack target");
+      }
+    }
 
-  if (playerCombatant.isDowned) {
-    throw new Error("Player is downed");
-  }
+    const [action] = await tx.insert(combatActions).values({
+      combatInstanceId: combatId, roundNumber: combat.roundNumber, actorId: actor.id,
+      actionType, targetId: targetId ?? null, isLocked: false,
+      origin: "PLAYER_SUBMITTED", idempotencyKey,
+    }).onConflictDoUpdate({
+      target: [combatActions.combatInstanceId, combatActions.roundNumber, combatActions.actorId],
+      set: { actionType, targetId: targetId ?? null, idempotencyKey, origin: "PLAYER_SUBMITTED" },
+      setWhere: eq(combatActions.isLocked, false),
+    }).returning();
+    if (!action) throw new Error("Combat action is locked");
 
-  // Check if player already submitted action for this round
-  const existingAction = combat.actions.find(
-    (a) => a.actorId === playerCombatant.id && a.roundNumber === combat.roundNumber
-  );
-
-  if (existingAction) {
-    return existingAction;
-  }
-
-  // Insert action
-  const [action] = await db
-    .insert(combatActions)
-    .values({
-      combatInstanceId: combatId,
-      roundNumber: combat.roundNumber,
-      actorId: playerCombatant.id,
-      actionType,
+    await tx.insert(combatActionSubmissions).values({
+      idempotencyKey, actionId: action.id, combatInstanceId: combatId,
+      roundNumber: action.roundNumber, actorId: actor.id, actionType,
       targetId: targetId ?? null,
-      isLocked: false,
-      idempotencyKey,
-    })
-    .returning();
+    });
+    return { id: action.id, roundNumber: action.roundNumber, actorId: action.actorId,
+      actionType: action.actionType as ActionType, targetId: action.targetId ?? undefined,
+      isLocked: action.isLocked, origin: action.origin };
+  });
+}
 
-  if (!action) {
-    throw new Error("Failed to create action");
-  }
-
-  return {
-    id: action.id,
-    roundNumber: action.roundNumber,
-    actorId: action.actorId,
-    actionType: action.actionType as ActionType,
-    targetId: action.targetId ?? undefined,
-    isLocked: action.isLocked,
-  };
+function areOpponents(a: typeof combatants.$inferSelect, b: typeof combatants.$inferSelect) {
+  if (a.teamId && b.teamId) return a.teamId !== b.teamId;
+  return a.entityType !== b.entityType;
 }
 
 /**
@@ -357,28 +369,36 @@ export async function lockAndResolveRound(
   combatId: string,
   wsHub?: WsHub
 ): Promise<CombatLog[]> {
-  const combat = await getCombatInstance(combatId);
+  const roundNumber = await db.transaction(async (tx) => {
+    await tx.execute(sql`select id from combat_instance where id = ${combatId} for update`);
+    const [combat] = await tx.select().from(combatInstances).where(eq(combatInstances.id, combatId));
+    if (!combat || combat.state !== "AWAITING_ACTIONS") throw new Error("Combat round already locked");
 
-  if (combat.state !== "AWAITING_ACTIONS") {
-    throw new Error("Combat round already locked");
-  }
-
-  // Lock combat state
-  await db
-    .update(combatInstances)
-    .set({ state: "LOCKED" })
-    .where(eq(combatInstances.id, combatId));
-
-  // Lock all actions
-  await db
-    .update(combatActions)
-    .set({ isLocked: true })
-    .where(
-      and(
-        eq(combatActions.combatInstanceId, combatId),
-        eq(combatActions.roundNumber, combat.roundNumber)
-      )
-    );
+    const participants = await tx.select().from(combatants)
+      .where(eq(combatants.combatInstanceId, combatId));
+    const alive = participants.filter((c) => c.hpCurrent > 0);
+    for (const actor of alive) {
+      const targets = alive.filter((target) => areOpponents(actor, target))
+        .sort((a, b) => a.id.localeCompare(b.id));
+      const target = targets[0];
+      if (!target) continue;
+      await tx.insert(combatActions).values({
+        combatInstanceId: combatId, roundNumber: combat.roundNumber, actorId: actor.id,
+        actionType: "ATTACK", targetId: target.id, isLocked: true,
+        origin: actor.entityType === "PLAYER" ? "AUTOMATIC" : "ENEMY_AI",
+        idempotencyKey: randomUUID(),
+      }).onConflictDoNothing({
+        target: [combatActions.combatInstanceId, combatActions.roundNumber, combatActions.actorId],
+      });
+    }
+    await tx.update(combatActions).set({ isLocked: true }).where(and(
+      eq(combatActions.combatInstanceId, combatId),
+      eq(combatActions.roundNumber, combat.roundNumber)
+    ));
+    await tx.update(combatInstances).set({ state: "LOCKED" })
+      .where(eq(combatInstances.id, combatId));
+    return combat.roundNumber;
+  });
 
   // Resolve round
   const logs = await resolveRound(combatId, wsHub);
@@ -405,7 +425,7 @@ export async function lockAndResolveRound(
       .update(combatInstances)
       .set({
         state: "AWAITING_ACTIONS",
-        roundNumber: combat.roundNumber + 1,
+        roundNumber: roundNumber + 1,
       })
       .where(eq(combatInstances.id, combatId));
 
@@ -414,7 +434,7 @@ export async function lockAndResolveRound(
     if (wsHub && updatedCombat.combatants[0]?.teamId) {
       wsHub.sendToTeam(updatedCombat.combatants[0].teamId, {
         event: "combat:round_resolved",
-        data: { combatId, round: combat.roundNumber + 1, logs },
+        data: { combatId, round: roundNumber + 1, logs },
       });
     }
   }
@@ -433,47 +453,6 @@ async function resolveRound(combatId: string, wsHub?: WsHub): Promise<CombatLog[
   const roundActions = combat.actions.filter(
     (a) => a.roundNumber === combat.roundNumber
   );
-
-  // Add AI actions for enemies
-  const enemyCombatants = combat.combatants.filter(
-    (c) => c.entityType === "ENEMY" && !c.isDowned
-  );
-
-  for (const enemy of enemyCombatants) {
-    // Simple AI: attack random player
-    const alivePlayers = combat.combatants.filter(
-      (c) => c.entityType === "PLAYER" && !c.isDowned
-    );
-
-    if (alivePlayers.length > 0) {
-      const targetPlayer = alivePlayers[Math.floor(Math.random() * alivePlayers.length)];
-      if (!targetPlayer) continue;
-
-      const [aiAction] = await db
-        .insert(combatActions)
-        .values({
-          combatInstanceId: combatId,
-          roundNumber: combat.roundNumber,
-          actorId: enemy.id,
-          actionType: "ATTACK",
-          targetId: targetPlayer.id,
-          isLocked: true,
-          idempotencyKey: randomUUID(),
-        })
-        .returning();
-
-      if (aiAction) {
-        roundActions.push({
-          id: aiAction.id,
-          roundNumber: aiAction.roundNumber,
-          actorId: aiAction.actorId,
-          actionType: aiAction.actionType as ActionType,
-          targetId: aiAction.targetId ?? undefined,
-          isLocked: aiAction.isLocked,
-        });
-      }
-    }
-  }
 
   // Sort by initiative (higher goes first)
   const sortedActions = roundActions.sort((a, b) => {

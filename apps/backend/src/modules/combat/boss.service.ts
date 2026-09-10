@@ -459,6 +459,7 @@ async function loadCombatInstance(combatId: string): Promise<CombatInstance> {
       actionType: a.actionType,
       targetId: a.targetId ?? undefined,
       isLocked: a.isLocked,
+      origin: a.origin,
     })),
   };
 }
