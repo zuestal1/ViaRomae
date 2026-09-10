@@ -14,7 +14,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "../contexts/auth.context.js";
-import type { RadiusEvent, WsConnectedEvent } from "@jlw/contracts";
+import type {
+  PvPChallengeEscapedEvent,
+  PvPChallengeStartedEvent,
+  RadiusEvent,
+  WsConnectedEvent,
+} from "@jlw/contracts";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -25,7 +30,9 @@ export type WsEvent =
   | CombatEvent
   | QuestEvent
   | TeamEvent
-  | PvPEvent;
+  | PvPEvent
+  | PvPChallengeStartedEvent
+  | PvPChallengeEscapedEvent;
 
 /** Combat update events */
 export interface CombatEvent {

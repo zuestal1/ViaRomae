@@ -60,6 +60,9 @@ import { QuestHUD } from "../quest/quest-hud.js";
 import { QuestBottomSheet } from "../quest/quest-bottom-sheet.js";
 import { EconomySheet } from "../inventory/economy-sheet.js";
 import { useEconomySummary } from "../../hooks/use-economy.js";
+import { useCombat } from "../../hooks/use-combat.js";
+import { CombatScreen } from "../combat/combat-screen.js";
+import { PvPChallengeWarning } from "../combat/pvp-challenge-warning.js";
 
 // ── Map style ─────────────────────────────────────────────────────────────────
 
@@ -106,6 +109,11 @@ interface GameMapProps {
 
 export function GameMap({ onBack }: GameMapProps) {
   const { profile, token } = useAuth();
+  const playerId = profile?.player?.id ?? "";
+  const { activeCombat, activeChallenge, logs, submitAction } = useCombat(
+    playerId,
+    token ?? undefined,
+  );
   const { position, error: geoError, isReady } = useGeolocation();
   
   // ── State Recovery (Epic 7) ───────────────────────────────────────────────
@@ -448,6 +456,19 @@ export function GameMap({ onBack }: GameMapProps) {
 
       {inventoryOpen && (
         <EconomySheet token={token} onClose={() => setInventoryOpen(false)} />
+      )}
+
+      {activeChallenge && !activeCombat && (
+        <PvPChallengeWarning {...activeChallenge} />
+      )}
+
+      {activeCombat && (
+        <CombatScreen
+          combat={activeCombat}
+          playerId={playerId}
+          logs={logs}
+          onSubmitAction={submitAction}
+        />
       )}
     </div>
   );

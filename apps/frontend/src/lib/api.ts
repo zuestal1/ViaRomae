@@ -2,14 +2,24 @@
  * Typed API client – thin fetch wrapper.
  * Uses the shared @jlw/contracts types for request/response shapes.
  */
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api/v1";
+const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") ?? "";
+
+/**
+ * API root shared by all frontend clients. A configured value may either be a
+ * host (for example `https://api.example.com`) or the complete `/api/v1` root.
+ */
+export const API_BASE = configuredBaseUrl
+  ? configuredBaseUrl.endsWith("/api/v1")
+    ? configuredBaseUrl
+    : `${configuredBaseUrl}/api/v1`
+  : "/api/v1";
 
 async function request<T>(
   path: string,
   options?: RequestInit,
 ): Promise<T> {
   const token = localStorage.getItem("jlw_token");
-  const res = await fetch(`${BASE_URL}${path}`, {
+  const res = await fetch(`${API_BASE}${path}`, {
     headers: {
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
