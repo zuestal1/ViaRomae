@@ -61,7 +61,7 @@ export function useCombat(playerId: string, token?: string) {
 
   // Submit combat action
   const submitAction = useCallback(
-    async (actionType: ActionType, targetId?: string) => {
+    async (actionType: ActionType, targetId?: string, details?: { abilityId: string; targetIds: string[] }) => {
       if (!activeCombat || !token) return;
 
       // Generate UUID (browser-compatible)
@@ -79,6 +79,7 @@ export function useCombat(playerId: string, token?: string) {
             body: JSON.stringify({
               actionType,
               targetId,
+              ...details,
               idempotencyKey,
             }),
           }

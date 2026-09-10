@@ -31,6 +31,8 @@ import {
 } from "./combat-calculation.js";
 import { randomUUID } from "node:crypto";
 import { computeEquippedStats } from "../economy/inventory.service.js";
+import type { AbilityDefinition, StatusEffect } from "@jlw/contracts";
+import { CLASS_DEFINITIONS } from "./ability-definitions.js";
 import { materializeHealthRegeneration, markTeamRegenStopped } from "./health-regeneration.service.js";
 import { getPlayerStats } from "../player/player-stats.service.js";
 
@@ -52,6 +54,7 @@ export interface CombatInstance {
   startedAt: Date;
   combatants: Combatant[];
   actions: CombatAction[];
+  actionDeadline?: Date;
 }
 
 export interface Combatant {
@@ -72,34 +75,10 @@ export interface Combatant {
   shield?: number;
   name: string;
   isDowned: boolean;
-  activeEffects: ActiveStatusEffect[];
+  class?: string;
   shield: number;
-  cooldowns: AbilityCooldownState[];
-}
-
-export interface ActiveStatusEffect {
-  id: string;
-  effectId: string;
-  sourceId: string;
-  targetId: string;
-  appliedRound: number;
-  expiresAfterRound: number | null;
-  stacks: number;
-  magnitudeOverrides?: Record<string, number>;
-  remainingTriggers?: number;
-  remainingDurationRounds: number | null;
-  shieldRemaining?: number;
-}
-
-export interface AbilityCooldownState {
-  id: string;
-  combatantId: string;
-  abilityId: string;
-  activatedRound: number;
-  readyAfterRound: number;
-  remainingRounds: number;
-  isReady: boolean;
-  deactivationReason?: string;
+  statusEffects: StatusEffect[];
+  abilities?: AbilityDefinition[];
 }
 
 export interface CombatAction {
@@ -366,6 +345,9 @@ export async function getCombatInstance(combatId: string): Promise<CombatInstanc
         initiativeTieBreaker,
         name,
         isDowned: c.hpCurrent <= 0,
+        shield: 0,
+        statusEffects: [],
+        ...(playerClass ? { class: playerClass, abilities: CLASS_DEFINITIONS[playerClass].abilities } : {}),
         activeEffects: effectsData.filter((effect) => effect.targetId === c.id
           && (effect.expiresAfterRound === null || effect.expiresAfterRound >= combat.roundNumber)
           && (effect.remainingTriggers === null || effect.remainingTriggers > 0)).map((effect) => ({
@@ -424,6 +406,7 @@ export async function getCombatInstance(combatId: string): Promise<CombatInstanc
       isLocked: a.isLocked,
       origin: a.origin,
     })),
+    actionDeadline: new Date(Date.now() + ROUND_TIMER_MS),
   };
 }
 

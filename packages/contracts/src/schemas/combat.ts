@@ -34,190 +34,40 @@ export type EntityType = z.infer<typeof EntityTypeSchema>;
 export const PvPChallengeStateSchema = z.enum(["WARNING", "ESCAPED", "COMBAT"]);
 export type PvPChallengeState = z.infer<typeof PvPChallengeStateSchema>;
 
-// ── Status effects & cooldowns ──────────────────────────────────────
+export const AbilityTargetTypeSchema = z.enum([
+  "SELF", "ALLY", "ENEMY", "ALL_ALLIES", "ALL_ENEMIES", "ANY",
+]);
+export type AbilityTargetType = z.infer<typeof AbilityTargetTypeSchema>;
 
-export const StatusEffectPolaritySchema = z.enum(["BUFF", "DEBUFF", "NEUTRAL"]);
-export const StatusEffectTagSchema = z.enum([
-  "CONTROL",
-  "DAMAGE_TAKEN",
-  "DAMAGE_DEALT",
-  "DEF",
-  "INIT",
-  "SHIELD",
-]);
-export const StatusEffectDurationTypeSchema = z.enum([
-  "ROUNDS",
-  "TRIGGERS",
-  "PERMANENT",
-]);
-export const StatusEffectStackPolicySchema = z.enum([
-  "NONE",
-  "REFRESH",
-  "REPLACE_STRONGER",
-  "STACK",
-]);
-export const StatusEffectPersistenceScopeSchema = z.enum([
-  "COMBAT",
-  "ENCOUNTER",
-  "PLAYER",
-]);
-export const StatusModifierTypeSchema = z.enum([
-  "DAMAGE_DEALT_PERCENT",
-  "DAMAGE_TAKEN_PERCENT",
-  "DEF_PERCENT",
-  "INIT_PERCENT",
-  "SHIELD",
-]);
-
-export type StatusEffectTag = z.infer<typeof StatusEffectTagSchema>;
-export type StatusEffectStackPolicy = z.infer<typeof StatusEffectStackPolicySchema>;
-
-export const StatusEffectModifierSchema = z.object({
-  type: StatusModifierTypeSchema,
-  value: z.number(),
+/** Presentation and validation data is authoritative and supplied by the server. */
+export const AbilityDefinitionSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string(),
+  icon: z.string(),
+  kind: z.enum(["STANDARD", "CLASS"]),
+  targetType: AbilityTargetTypeSchema,
+  value: z.number().optional(),
+  valueLabel: z.string().optional(),
+  cooldownRounds: z.number().int().nonnegative().default(0),
+  cooldownRemaining: z.number().int().nonnegative().default(0),
+  condition: z.object({
+    type: z.enum(["HP_BELOW_PERCENT", "HP_ABOVE_PERCENT"]),
+    value: z.number(),
+    description: z.string(),
+  }).optional(),
 });
+export type AbilityDefinition = z.infer<typeof AbilityDefinitionSchema>;
 
-export const StatusEffectTriggerSchema = z.object({
-  trigger: z.string().min(1),
-  effectId: z.string().min(1),
-  chance: z.number().min(0).max(1).default(1),
-  maxTriggers: z.number().int().positive().optional(),
-});
-
-/** Static, data-driven status-effect catalogue entry. */
-export const StatusEffectDefinitionSchema = z.object({
-  id: z.string().min(1),
-  polarity: StatusEffectPolaritySchema,
-  tags: z.array(StatusEffectTagSchema),
-  durationType: StatusEffectDurationTypeSchema,
-  baseDuration: z.number().int().nonnegative(),
-  stackPolicy: StatusEffectStackPolicySchema.default("REPLACE_STRONGER"),
-  maxStacks: z.number().int().positive(),
-  modifiers: z.array(StatusEffectModifierSchema),
-  triggerEffects: z.array(StatusEffectTriggerSchema),
-  removable: z.boolean(),
-  dispelTags: z.array(StatusEffectTagSchema),
-  persistenceScope: StatusEffectPersistenceScopeSchema,
-});
-export type StatusEffectDefinition = z.infer<typeof StatusEffectDefinitionSchema>;
-
-/** A persisted application of a definition to one combatant. */
-export const StatusEffectInstanceSchema = z.object({
-  id: z.string().uuid(),
-  effectId: z.string().min(1),
-  sourceId: z.string().uuid(),
-  targetId: z.string().uuid(),
-  appliedRound: z.number().int().nonnegative(),
-  expiresAfterRound: z.number().int().nonnegative().nullable(),
-  stacks: z.number().int().positive(),
-  magnitudeOverrides: z.record(z.number()).optional(),
-  remainingTriggers: z.number().int().nonnegative().optional(),
-  remainingDurationRounds: z.number().int().nonnegative().nullable(),
-  shieldRemaining: z.number().nonnegative().optional(),
-});
-export type StatusEffectInstance = z.infer<typeof StatusEffectInstanceSchema>;
-
-export const AbilityCooldownSchema = z.object({
-  id: z.string().uuid(),
-  combatantId: z.string().uuid(),
-  abilityId: z.string().min(1),
-  activatedRound: z.number().int().nonnegative(),
-  readyAfterRound: z.number().int().nonnegative(),
+export const StatusEffectSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  icon: z.string(),
+  color: z.string(),
+  description: z.string(),
   remainingRounds: z.number().int().nonnegative(),
-  isReady: z.boolean(),
-  deactivationReason: z.string().min(1).optional(),
 });
-export type AbilityCooldown = z.infer<typeof AbilityCooldownSchema>;
-
-/** GDD global modifier/shield limits; values are percentage points. */
-export const COMBAT_EFFECT_CAPS = {
-  DAMAGE_DEALT_PERCENT: { min: -60, max: 100 },
-  DAMAGE_TAKEN_PERCENT: { min: -60, max: 100 },
-  DEF_PERCENT: { min: -60, max: 100 },
-  SHIELD_MAX_HP_PERCENT: 50,
-} as const;
-
-export const FUERBITTE_DISPEL_PRIORITY: readonly StatusEffectTag[] = [
-  "CONTROL", "DAMAGE_TAKEN", "DAMAGE_DEALT", "DEF", "INIT",
-];
-
-/** Rounds are inclusive: a two-round effect applied in round 3 expires after 4. */
-export function getExpiresAfterRound(appliedRound: number, durationRounds: number): number {
-  if (!Number.isInteger(durationRounds) || durationRounds <= 0) {
-    throw new RangeError("durationRounds must be a positive integer");
-  }
-  return appliedRound + durationRounds - 1;
-}
-
-export function getRemainingRounds(expiresAfterRound: number | null, currentRound: number): number | null {
-  return expiresAfterRound === null ? null : Math.max(0, expiresAfterRound - currentRound + 1);
-}
-
-export function clampCombatModifier(
-  type: "DAMAGE_DEALT_PERCENT" | "DAMAGE_TAKEN_PERCENT" | "DEF_PERCENT",
-  total: number,
-): number {
-  const cap = COMBAT_EFFECT_CAPS[type];
-  return Math.min(cap.max, Math.max(cap.min, total));
-}
-
-export function clampShield(totalShield: number, maxHp: number): number {
-  return Math.max(0, Math.min(totalShield, maxHp * COMBAT_EFFECT_CAPS.SHIELD_MAX_HP_PERCENT / 100));
-}
-
-export type StatusEffectStackResolution =
-  | { action: "IGNORED" }
-  | { action: "UPDATED"; stacks: number; expiresAfterRound: number | null };
-
-/**
- * Resolves a second application of the same effect ID. Different IDs never
- * enter this function and therefore combine independently up to global caps.
- */
-export function resolveStatusEffectStack(options: {
-  policy?: StatusEffectStackPolicy;
-  currentStacks: number;
-  maxStacks: number;
-  currentMagnitude: number;
-  incomingMagnitude: number;
-  currentExpiresAfterRound: number | null;
-  incomingExpiresAfterRound: number | null;
-}): StatusEffectStackResolution {
-  const policy = options.policy ?? "REPLACE_STRONGER";
-  if (policy === "NONE") return { action: "IGNORED" };
-  if (policy === "REPLACE_STRONGER" && options.incomingMagnitude <= options.currentMagnitude) {
-    return { action: "IGNORED" };
-  }
-  if (policy === "STACK") {
-    return {
-      action: "UPDATED",
-      stacks: Math.min(options.maxStacks, options.currentStacks + 1),
-      expiresAfterRound: options.incomingExpiresAfterRound,
-    };
-  }
-  return {
-    action: "UPDATED",
-    stacks: policy === "REFRESH" ? options.currentStacks : 1,
-    expiresAfterRound: options.incomingExpiresAfterRound,
-  };
-}
-
-/** Selects the removable debuff Fürbitte removes, with oldest as final tie-breaker. */
-export function selectFuerbitteDispel<T extends {
-  polarity: "BUFF" | "DEBUFF" | "NEUTRAL";
-  tags: readonly StatusEffectTag[];
-  removable: boolean;
-  appliedRound: number;
-}>(effects: readonly T[]): T | undefined {
-  return effects.filter((effect) => effect.polarity === "DEBUFF" && effect.removable)
-    .sort((a, b) => {
-      const rank = (effect: T) => {
-        const ranks = effect.tags.map((tag) => FUERBITTE_DISPEL_PRIORITY.indexOf(tag))
-          .filter((value) => value >= 0);
-        return ranks.length === 0 ? FUERBITTE_DISPEL_PRIORITY.length : Math.min(...ranks);
-      };
-      return rank(a) - rank(b) || a.appliedRound - b.appliedRound;
-    })[0];
-}
+export type StatusEffect = z.infer<typeof StatusEffectSchema>;
 
 // ── Combat Instance ───────────────────────────────────────────────────────────
 
@@ -233,9 +83,10 @@ export const CombatantSchema = z.object({
   initiative: z.number(),
   name: z.string(),
   isDowned: z.boolean(),
-  activeEffects: z.array(StatusEffectInstanceSchema),
-  shield: z.number().nonnegative(),
-  cooldowns: z.array(AbilityCooldownSchema),
+  class: z.string().optional(),
+  shield: z.number().nonnegative().default(0),
+  statusEffects: z.array(StatusEffectSchema).default([]),
+  abilities: z.array(AbilityDefinitionSchema).optional(),
 });
 export type Combatant = z.infer<typeof CombatantSchema>;
 
@@ -245,6 +96,8 @@ export const CombatActionSchema = z.object({
   actorId: z.string().uuid(),
   actionType: ActionTypeSchema,
   targetId: z.string().uuid().optional(),
+  targetIds: z.array(z.string().uuid()).optional(),
+  abilityId: z.string().optional(),
   isLocked: z.boolean(),
   origin: CombatActionOriginSchema,
   damage: z.number().optional(),
@@ -260,6 +113,7 @@ export const CombatInstanceSchema = z.object({
   startedAt: z.string().datetime(),
   combatants: z.array(CombatantSchema),
   actions: z.array(CombatActionSchema),
+  actionDeadline: z.string().datetime().optional(),
 });
 export type CombatInstance = z.infer<typeof CombatInstanceSchema>;
 
