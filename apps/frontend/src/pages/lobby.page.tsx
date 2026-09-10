@@ -9,7 +9,7 @@ import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../contexts/auth.context.js";
 import { api } from "../lib/api.js";
-import type { MeResponse } from "@jlw/contracts";
+import type { MeResponse, PlayerClass } from "@jlw/contracts";
 
 interface LobbyPageProps {
   /** Called when the player presses "Zur Karte". */
@@ -19,10 +19,9 @@ interface LobbyPageProps {
 // Class display names (German)
 const CLASS_LABELS: Record<string, string> = {
   GARDIST: "⚔️ Gardist",
-  MÖNCH: "🙏 Mönch",
-  HÄNDLER: "💰 Händler",
-  SPÄHER: "🏹 Späher",
-  MAGIER: "🔮 Magier",
+  CLERIC: "🙏 Nonne/Mönch",
+  BILDHAUER: "🗿 Bildhauer",
+  CONDOTTIERE: "⚔️ Condottiere",
 };
 
 export function LobbyPage({ onEnterMap }: LobbyPageProps) {
@@ -117,7 +116,7 @@ export function LobbyPage({ onEnterMap }: LobbyPageProps) {
                 HP
               </span>
               <span className="font-semibold text-green-400">
-                {me.player.hpCurrent} / 100
+                {me.player.hpCurrent} / {me.player.hpMax}
               </span>
             </div>
 

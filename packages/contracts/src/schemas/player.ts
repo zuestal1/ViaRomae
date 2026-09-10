@@ -1,13 +1,8 @@
 import { z } from "zod";
+import { CharacterStatsSchema, PlayerClassSchema } from "./character-class.js";
 
-export const PlayerClassSchema = z.enum([
-  "GARDIST",
-  "MÖNCH",
-  "HÄNDLER",
-  "SPÄHER",
-  "MAGIER",
-]);
-export type PlayerClass = z.infer<typeof PlayerClassSchema>;
+export { PlayerClassSchema } from "./character-class.js";
+export type { PlayerClass } from "./character-class.js";
 
 export const PlayerStatusSchema = z.enum(["ACTIVE", "DOWNED"]);
 export type PlayerStatus = z.infer<typeof PlayerStatusSchema>;
@@ -31,6 +26,7 @@ export const PlayerSchema = z.object({
   fameTierHpBonus: z.number().int().nonnegative(),
   highestFameTierReached: FameTierSchema,
   lastRegenCalculationAt: z.string().datetime(),
+  ...CharacterStatsSchema.shape,
   status: PlayerStatusSchema,
   lastLocation: LocationSchema.nullable(),
 });

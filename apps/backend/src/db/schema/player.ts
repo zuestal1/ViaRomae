@@ -11,10 +11,9 @@ import { accounts } from "./account.js";
 
 export const playerClassEnum = pgEnum("player_class", [
   "GARDIST",
-  "MÖNCH",
-  "HÄNDLER",
-  "SPÄHER",
-  "MAGIER",
+  "CLERIC",
+  "BILDHAUER",
+  "CONDOTTIERE",
 ]);
 
 export const playerStatusEnum = pgEnum("player_status", ["ACTIVE", "DOWNED"]);
@@ -25,7 +24,7 @@ export const teams = pgTable("team", {
   name: varchar("name", { length: 64 }).notNull().unique(),
   inventoryCapacity: integer("inventory_capacity").notNull().default(40),
   // Epic 9: Team-wide HP (sum of all player HP)
-  hp: integer("hp").notNull().default(400), // 4 players × 100 HP
+  hp: integer("hp").notNull().default(0), // maintained as the sum of derived player HP
   // Epic 9: Team active status
   isActive: integer("is_active").notNull().default(1), // 1 = active, 0 = inactive
   highestFameTierReached: fameTierEnum("highest_fame_tier_reached").notNull().default("N"),
@@ -40,13 +39,21 @@ export const players = pgTable("player", {
     .notNull()
     .references(() => teams.id),
   class: playerClassEnum("class").notNull(),
-  hpCurrent: integer("hp_current").notNull().default(100),
-  maxHp: integer("max_hp").notNull().default(100),
-  fameTierHpBonus: integer("fame_tier_hp_bonus").notNull().default(0),
-  highestFameTierReached: fameTierEnum("highest_fame_tier_reached").notNull().default("N"),
-  lastRegenCalculationAt: timestamp("last_regen_calculation_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
+  // Current HP is persisted; maximum HP and combat stats are always derived server-side.
+  hpCurrent: integer("hp_current").notNull(),
+  fameTierHp: integer("fame_tier_hp").notNull().default(0),
+  permanentHp: integer("permanent_hp").notNull().default(0),
+  temporaryHp: integer("temporary_hp").notNull().default(0),
+  permanentAttack: integer("permanent_attack").notNull().default(0),
+  temporaryAttack: integer("temporary_attack").notNull().default(0),
+  permanentDefense: integer("permanent_defense").notNull().default(0),
+  temporaryDefense: integer("temporary_defense").notNull().default(0),
+  permanentInitiative: integer("permanent_initiative").notNull().default(0),
+  temporaryInitiative: integer("temporary_initiative").notNull().default(0),
+  hpPercent: integer("hp_percent").notNull().default(0),
+  attackPercent: integer("attack_percent").notNull().default(0),
+  defensePercent: integer("defense_percent").notNull().default(0),
+  initiativePercent: integer("initiative_percent").notNull().default(0),
   status: playerStatusEnum("status").notNull().default("ACTIVE"),
   // PostGIS point stored as raw lat/lng for initial Epic 2; migrate to geometry later.
   lastLat: doublePrecision("last_lat"),
