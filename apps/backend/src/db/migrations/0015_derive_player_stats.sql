@@ -1,12 +1,5 @@
-
--- Convert prototype-only class names to the four GDD classes.
-UPDATE "player" SET "class" = 'CLERIC' WHERE "class" IN ('MÖNCH', 'MAGIER');
---> statement-breakpoint
-UPDATE "player" SET "class" = 'BILDHAUER' WHERE "class" = 'SPÄHER';
---> statement-breakpoint
-UPDATE "player" SET "class" = 'CONDOTTIERE' WHERE "class" = 'HÄNDLER';
---> statement-breakpoint
-UPDATE "player" SET "hp_current" = LEAST("hp_current", 90) WHERE "class" = 'CLERIC';
+-- Player classes are already canonical; add authoritative derived-stat storage.
+UPDATE "player" SET "hp_current" = LEAST("hp_current", 90) WHERE "class" = 'cleric';
 --> statement-breakpoint
 
 ALTER TABLE "player"

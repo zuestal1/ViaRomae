@@ -1,10 +1,9 @@
 import { z } from "zod";
-import { PlayerClassSchema, PlayerStatusSchema } from "./player.js";
-import { AbilityDefinitionSchema, StatusEffectSchema } from "./combat.js";
+import { StatusEffectSchema } from "./combat.js";
+import { AbilityDefinitionSchema } from "./ability.js";
 import { ItemSlotSchema } from "./economy.js";
-import { FameTierSchema, PlayerClassSchema, PlayerStatusSchema } from "./player.js";
+import { FameTierSchema, PlayerStatusSchema } from "./player.js";
 import { CharacterStatsSchema, PlayerClassSchema } from "./character-class.js";
-import { PlayerStatusSchema } from "./player.js";
 
 export const RoleSchema = z.enum(["PLAYER", "GM", "ADMIN"]);
 export type Role = z.infer<typeof RoleSchema>;

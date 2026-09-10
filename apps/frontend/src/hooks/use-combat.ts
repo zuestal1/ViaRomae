@@ -15,7 +15,6 @@ import type {
   CombatInstance,
   CombatLog,
   ActionType,
-  AbilityId,
   CombatStartedEvent,
   CombatRoundResolvedEvent,
   CombatCompletedEvent,
@@ -78,7 +77,7 @@ export function useCombat(playerId: string, token?: string) {
               Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify({
-              ...(abilityId ? { abilityId } : { actionType }),
+              actionType,
               targetId,
               ...details,
               idempotencyKey,

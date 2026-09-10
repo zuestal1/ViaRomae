@@ -131,8 +131,8 @@ async function seedPrototype() {
     console.log('\n🎮 Creating test players...');
 
     const testPlayers = [
-      { id: IDS.player1, accountId: IDS.account1, playerName: 'Spieler 1', playerClass: 'GARDIST' as const },
-      { id: IDS.player2, accountId: IDS.account2, playerName: 'Spieler 2', playerClass: 'BILDHAUER' as const },
+      { id: IDS.player1, accountId: IDS.account1, playerName: 'Spieler 1', playerClass: 'guard' as const, hp: 120 },
+      { id: IDS.player2, accountId: IDS.account2, playerName: 'Spieler 2', playerClass: 'sculptor' as const, hp: 100 },
     ];
 
     for (const p of testPlayers) {

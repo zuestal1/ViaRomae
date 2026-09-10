@@ -3,6 +3,7 @@
  */
 import type { FastifyInstance } from "fastify";
 import { SubmitActionBodySchema } from "@jlw/contracts";
+import { z } from "zod";
 import { db } from "../../db/client.js";
 import { players } from "../../db/schema/player.js";
 import { eq } from "drizzle-orm";

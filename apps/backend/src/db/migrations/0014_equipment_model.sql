@@ -47,11 +47,10 @@ INSERT INTO item_def
  (id, key, name, equip_slot, category, rarity, allowed_classes, stats,
   stackable, max_stack, buy_price, sell_price)
 VALUES
- (gen_random_uuid(), 'starter_gardist_hellebarde', 'Hellebarde', 'WEAPON', 'EQUIPMENT', 'N', '["GARDIST"]', '{"maxHP":0,"ATK":8,"DEF":0,"INIT":0,"INIT_TIE_BREAKER":0}', false, 1, NULL, NULL),
- (gen_random_uuid(), 'starter_moench_pilgerstab', 'Pilgerstab', 'WEAPON', 'EQUIPMENT', 'N', '["MÖNCH"]', '{"maxHP":0,"ATK":5,"DEF":2,"INIT":0,"INIT_TIE_BREAKER":0}', false, 1, NULL, NULL),
- (gen_random_uuid(), 'starter_haendler_hammer', 'Hammer', 'WEAPON', 'EQUIPMENT', 'N', '["HÄNDLER"]', '{"maxHP":0,"ATK":6,"DEF":1,"INIT":0,"INIT_TIE_BREAKER":0}', false, 1, NULL, NULL),
- (gen_random_uuid(), 'starter_spaeher_schwert', 'Schwert', 'WEAPON', 'EQUIPMENT', 'N', '["SPÄHER"]', '{"maxHP":0,"ATK":6,"DEF":0,"INIT":2,"INIT_TIE_BREAKER":1}', false, 1, NULL, NULL),
- (gen_random_uuid(), 'starter_magier_pilgerstab', 'Pilgerstab', 'WEAPON', 'EQUIPMENT', 'N', '["MAGIER"]', '{"maxHP":0,"ATK":5,"DEF":0,"INIT":1,"INIT_TIE_BREAKER":0}', false, 1, NULL, NULL)
+ (gen_random_uuid(), 'starter_halberd', 'Hellebarde', 'WEAPON', 'EQUIPMENT', 'N', '["guard"]', '{"maxHP":0,"ATK":8,"DEF":0,"INIT":0,"INIT_TIE_BREAKER":0}', false, 1, NULL, NULL),
+ (gen_random_uuid(), 'starter_pilgrim_staff', 'Pilgerstab', 'WEAPON', 'EQUIPMENT', 'N', '["cleric"]', '{"maxHP":0,"ATK":5,"DEF":2,"INIT":0,"INIT_TIE_BREAKER":0}', false, 1, NULL, NULL),
+ (gen_random_uuid(), 'starter_chisel_hammer', 'Meisselhammer', 'WEAPON', 'EQUIPMENT', 'N', '["sculptor"]', '{"maxHP":0,"ATK":6,"DEF":1,"INIT":0,"INIT_TIE_BREAKER":0}', false, 1, NULL, NULL),
+ (gen_random_uuid(), 'starter_side_sword', 'Seitenschwert', 'WEAPON', 'EQUIPMENT', 'N', '["condottiere"]', '{"maxHP":0,"ATK":6,"DEF":0,"INIT":2,"INIT_TIE_BREAKER":1}', false, 1, NULL, NULL),
 ON CONFLICT (key) DO UPDATE SET name=EXCLUDED.name, equip_slot=EXCLUDED.equip_slot,
  category=EXCLUDED.category, rarity=EXCLUDED.rarity,
  allowed_classes=EXCLUDED.allowed_classes, stats=EXCLUDED.stats;

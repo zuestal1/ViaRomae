@@ -24,20 +24,18 @@ import type { WsHub } from "../ws/ws.hub.js";
 import { randomInt, randomUUID } from "node:crypto";
 import {
   applyDamage,
-  calculateDamage,
+  calculateDamage as calculateCombatDamage,
   calculateEffectiveInitiative,
   compareRoundOrder,
   calculateEquipmentRarityScore,
   type CombatStats,
   type EquipmentRarity,
 } from "./combat-calculation.js";
-import { randomUUID } from "node:crypto";
 import { CLASSES, damage as calculateGddDamage } from "../classes/class-rules.js";
 import type { ClassId } from "@jlw/contracts";
 import { ABILITY_DEFINITIONS, CLASS_LOADOUTS, type AbilityClass, type AbilityDefinition, type AbilityId } from "@jlw/contracts";
 import { computeEquippedStats } from "../economy/inventory.service.js";
-import type { AbilityDefinition, StatusEffect } from "@jlw/contracts";
-import { CLASS_DEFINITIONS } from "./ability-definitions.js";
+import type { StatusEffect } from "@jlw/contracts";
 import { materializeHealthRegeneration, markTeamRegenStopped } from "./health-regeneration.service.js";
 import { getPlayerStats } from "../player/player-stats.service.js";
 
@@ -77,11 +75,8 @@ export interface Combatant {
   initiativeTieBreaker?: number;
   stats?: CombatStats;
   equipmentRarityScore?: number;
-  shield?: number;
   name: string;
   isDowned: boolean;
-  attack?: number;
-  defense?: number;
   abilityDefinitions?: AbilityDefinition[];
   abilityCooldowns?: Partial<Record<AbilityId, number>>;
   class?: string;
@@ -287,129 +282,51 @@ export async function getCombatInstance(combatId: string): Promise<CombatInstanc
     .select()
     .from(combatActions)
     .where(eq(combatActions.combatInstanceId, combatId));
-  const cooldownData = await db.select().from(combatAbilityCooldowns)
+  const abilityCooldownData = await db.select().from(combatAbilityCooldowns)
     .where(eq(combatAbilityCooldowns.combatInstanceId, combatId));
-
   const effectsData = await db.select().from(statusEffectInstances)
     .where(eq(statusEffectInstances.combatInstanceId, combatId));
-  const cooldownData = await db.select().from(abilityCooldowns)
-    .where(eq(abilityCooldowns.combatInstanceId, combatId));
 
-  // Enrich combatants with names
-  const enrichedCombatants: Combatant[] = await Promise.all(
-    combatantsData.map(async (c) => {
-      let name = "Unknown";
-      let hpMax = 100;
-      let attack = 10;
-      let defense = 10;
-      let initiative = 8;
+  const enrichedCombatants: Combatant[] = await Promise.all(combatantsData.map(async (c) => {
+    let name = "Unknown";
+    let hpMax = 100;
+    let atk = 10;
+    let def = 0;
+    let initiative = 0;
+    let playerClass: ClassId | undefined;
+    let profile = { stats: { attack: 10, defense: 0, initiative: 0 }, equipmentRarityScore: 0 };
 
-      if (c.entityType === "PLAYER") {
-        const [player] = await db
-          .select({ accountId: players.accountId, class: players.class })
-          .select()
-          .from(players)
-          .where(eq(players.id, c.entityId));
-        // For simplicity, use entityId as name
-        name = player?.accountId.substring(0, 8) ?? "Player";
-        hpMax = 100; // Default player HP
-        const abilityClass = player ? toAbilityClass(player.class) : undefined;
-        const loadout = abilityClass ? CLASS_LOADOUTS[abilityClass] : [];
-        const abilityDefinitions = loadout.map((id) => ABILITY_DEFINITIONS[id]);
-        const abilityCooldowns = Object.fromEntries(cooldownData.filter((row) => row.combatantId === c.id)
-          .map((row) => [row.abilityId, Math.max(0, row.availableAtRound - combat.roundNumber)])) as Partial<Record<AbilityId, number>>;
-        return { id: c.id, entityType: "PLAYER" as const, entityId: c.entityId,
-          teamId: c.teamId ?? undefined, hpCurrent: c.hpCurrent, hpMax, initiative: 50,
-          name, isDowned: c.hpCurrent <= 0, abilityDefinitions, abilityCooldowns };
-        const equipment = await computeEquippedStats("PLAYER", c.entityId);
-        hpMax = 100 + (equipment.maxHP ?? 0);
-        initiative = 50 + (equipment.INIT ?? 0);
-        attack = equipment.ATK ?? 0;
-        defense = equipment.DEF ?? 0;
-        initiativeTieBreaker = equipment.INIT_TIE_BREAKER ?? 0;
-      } else if (c.entityType === "ENEMY") {
-        const [enemy] = await db
-          .select()
-          .from(worldObjects)
-          .where(eq(worldObjects.id, c.entityId));
-        name = enemy?.name ?? "Enemy";
-        enemyProps = enemy?.rawPropertiesJson
-          ? JSON.parse(enemy.rawPropertiesJson)
-          : {};
-        hpMax = enemyProps.hp ?? 100;
-        atk = enemyProps.atk ?? enemyProps.attack ?? 10;
-        def = enemyProps.def ?? enemyProps.defense ?? 0;
-        initiative = enemyProps.initiative ?? 0;
+    if (c.entityType === "PLAYER") {
+      const [player] = await db.select().from(players).where(eq(players.id, c.entityId));
+      if (player?.class) {
+        playerClass = player.class;
+        name = player.playerName ?? player.accountId.substring(0, 8);
+        const stats = await getPlayerStats(player);
+        ({ hpMax, atk, def, initiative } = stats);
+        profile = await loadPlayerProfile(c.entityId);
       }
-
-      const profile = c.entityType === "PLAYER"
-        ? await loadPlayerProfile(c.entityId)
-        : {
-            stats: {
-              attack: Number(enemyProps.atk ?? enemyProps.attack ?? 15),
-              defense: Number(enemyProps.def ?? enemyProps.defense ?? 0),
-              initiative: Number(enemyProps.initiative ?? 50),
-            },
-            equipmentRarityScore: 0,
-          };
-
-      return {
-        id: c.id,
-        entityType: c.entityType as "PLAYER" | "ENEMY",
-        entityId: c.entityId,
-        teamId: c.teamId ?? undefined,
-        hpCurrent: Math.min(c.hpCurrent, hpMax),
-        hpMax,
-        initiative,
-        attack,
-        defense,
-        initiativeTieBreaker,
-        name,
-        isDowned: c.hpCurrent <= 0,
-        shield: 0,
-        statusEffects: [],
-        ...(playerClass ? { class: playerClass, abilities: CLASS_DEFINITIONS[playerClass].abilities } : {}),
-        activeEffects: effectsData.filter((effect) => effect.targetId === c.id
-          && (effect.expiresAfterRound === null || effect.expiresAfterRound >= combat.roundNumber)
-          && (effect.remainingTriggers === null || effect.remainingTriggers > 0)).map((effect) => ({
-          id: effect.id,
-          effectId: effect.effectId,
-          sourceId: effect.sourceId,
-          targetId: effect.targetId,
-          appliedRound: effect.appliedRound,
-          expiresAfterRound: effect.expiresAfterRound,
-          stacks: effect.stacks,
-          ...(effect.magnitudeOverrides ? { magnitudeOverrides: effect.magnitudeOverrides } : {}),
-          ...(effect.remainingTriggers !== null ? { remainingTriggers: effect.remainingTriggers } : {}),
-          remainingDurationRounds: effect.expiresAfterRound === null
-            ? null
-            : Math.max(0, effect.expiresAfterRound - combat.roundNumber + 1),
-          ...(effect.shieldRemaining !== null ? { shieldRemaining: effect.shieldRemaining } : {}),
-        })),
-        // Shields from distinct effects and sources add, but never above 50% maxHP.
-        shield: Math.min(hpMax * 0.5, effectsData.filter((effect) => effect.targetId === c.id
-          && (effect.expiresAfterRound === null || effect.expiresAfterRound >= combat.roundNumber)
-          && (effect.remainingTriggers === null || effect.remainingTriggers > 0))
-          .reduce((sum, effect) => sum + (effect.shieldRemaining ?? 0), 0)),
-        cooldowns: cooldownData.filter((cooldown) => cooldown.combatantId === c.id).map((cooldown) => {
-          const remainingRounds = Math.max(0, cooldown.readyAfterRound - combat.roundNumber + 1);
-          return {
-            id: cooldown.id,
-            combatantId: cooldown.combatantId,
-            abilityId: cooldown.abilityId,
-            activatedRound: cooldown.activatedRound,
-            readyAfterRound: cooldown.readyAfterRound,
-            remainingRounds,
-            isReady: remainingRounds === 0,
-            ...(remainingRounds > 0 ? {
-              deactivationReason: cooldown.deactivationReason
-                ?? `Noch ${remainingRounds} ${remainingRounds === 1 ? "Runde" : "Runden"} Abklingzeit`,
-            } : {}),
-          };
-        }),
-      };
-    })
-  );
+    } else {
+      const [enemy] = await db.select().from(worldObjects).where(eq(worldObjects.id, c.entityId));
+      name = enemy?.name ?? "Enemy";
+      const props = enemy?.rawPropertiesJson ? JSON.parse(enemy.rawPropertiesJson) : {};
+      hpMax = Number(props.hp ?? 100); atk = Number(props.atk ?? props.attack ?? 10);
+      def = Number(props.def ?? props.defense ?? 0); initiative = Number(props.initiative ?? 0);
+      profile = { stats: { attack: atk, defense: def, initiative }, equipmentRarityScore: 0 };
+    }
+    const abilityClass = playerClass ? toAbilityClass(playerClass) : undefined;
+    const abilityDefinitions = abilityClass ? CLASS_LOADOUTS[abilityClass].map((id) => ABILITY_DEFINITIONS[id]) : [];
+    return {
+      id: c.id, entityType: c.entityType as "PLAYER" | "ENEMY", entityId: c.entityId,
+      teamId: c.teamId ?? undefined, hpCurrent: Math.min(c.hpCurrent, hpMax), hpMax,
+      atk, def, initiative, attack: atk, defense: def, initiativeTieBreaker: 0,
+      stats: profile.stats, equipmentRarityScore: profile.equipmentRarityScore,
+      name, isDowned: c.hpCurrent <= 0, shield: Math.min(hpMax * .5,
+        effectsData.filter((e) => e.targetId === c.id).reduce((sum, e) => sum + (e.shieldRemaining ?? 0), 0)),
+      statusEffects: [], ...(playerClass ? { class: playerClass } : {}), abilityDefinitions, abilities: abilityDefinitions,
+      abilityCooldowns: Object.fromEntries(abilityCooldownData.filter((row) => row.combatantId === c.id)
+        .map((row) => [row.abilityId, Math.max(0, row.availableAtRound - combat.roundNumber)])),
+    };
+  }));
 
   return {
     id: combat.id,
@@ -486,7 +403,7 @@ export async function submitCombatAction(opts: {
     if (abilityId) {
       const definition = ABILITY_DEFINITIONS[abilityId];
       const [player] = await tx.select({ class: players.class }).from(players).where(eq(players.id, playerId));
-      const abilityClass = player ? toAbilityClass(player.class) : undefined;
+      const abilityClass = player?.class ? toAbilityClass(player.class) : undefined;
       if (!abilityClass || !CLASS_LOADOUTS[abilityClass].includes(abilityId)) throw new Error("Ability is not in fighter loadout");
       if (definition.passive) throw new Error("Passive abilities cannot be submitted");
       const [cooldown] = await tx.select().from(combatAbilityCooldowns).where(and(
@@ -719,14 +636,13 @@ async function resolveRound(combatId: string, wsHub?: WsHub): Promise<CombatLog[
       if (!targetMaybe || targetMaybe.isDowned) continue;
       
       // Calculate damage
-      const damage = calculateDamage(
+      const damage = calculateCombatDamage(
         actor.stats ?? { attack: 15, defense: 0, initiative: actor.initiative },
         targetMaybe.stats ?? { attack: 15, defense: 0, initiative: targetMaybe.initiative },
       );
 
       // Apply damage
       const dealt = await applyAbilityModifiers(combat, actor, targetMaybe, damage);
-      const newHp = targetMaybe.hpCurrent;
       // Shields are consumed before HP according to GDD 7.10.
       const result = applyDamage(targetMaybe.hpCurrent, targetMaybe.shield ?? 0, damage);
       const newHp = result.hpAfter;
@@ -934,7 +850,8 @@ export async function handleTeamWipe(opts: {
     .where(eq(players.teamId, teamId));
 
   for (const player of teamPlayers) {
-    const respawnHp = Math.floor(player.maxHp * RESPAWN_HP_PERCENTAGE);
+    if (!player.class) continue;
+    const respawnHp = Math.floor((await getPlayerStats(player)).hpMax * RESPAWN_HP_PERCENTAGE);
     await db
       .update(players)
       .set({
@@ -976,15 +893,8 @@ export async function regenerateHPOutOfCombat(playerId: string): Promise<void> {
   const activeCombat = await getActiveCombatForTeam(player.teamId);
   if (activeCombat) return;
 
-  // Regenerate HP
-  const equipment = await computeEquippedStats("PLAYER", playerId);
-  const newHp = Math.min(100 + (equipment.maxHP ?? 0), player.hpCurrent + HP_REGEN_OUT_OF_COMBAT);
-  if (newHp > player.hpCurrent) {
-    await db
-      .update(players)
-      .set({ hpCurrent: newHp })
-      .where(eq(players.id, playerId));
-  }
+  // The GDD-defined 900-second linear regeneration is materialized centrally.
+  await materializeHealthRegeneration(playerId);
 }
 
 // ── PvP Challenge System (Epic 6) ────────────────────────────────────────────

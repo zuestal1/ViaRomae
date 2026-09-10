@@ -2,10 +2,10 @@ import { z } from "zod";
 
 /** The four playable classes defined by GDD 5.6. */
 export const PlayerClassSchema = z.enum([
-  "GARDIST",
-  "CLERIC",
-  "BILDHAUER",
-  "CONDOTTIERE",
+  "guard",
+  "cleric",
+  "sculptor",
+  "condottiere",
 ]);
 export type PlayerClass = z.infer<typeof PlayerClassSchema>;
 

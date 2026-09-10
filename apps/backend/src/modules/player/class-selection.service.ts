@@ -3,8 +3,10 @@ import type { SelectablePlayerClass } from "@jlw/contracts";
 import { db } from "../../db/client.js";
 import { players, teams } from "../../db/schema/player.js";
 import { auditEvents } from "../../db/schema/media.js";
+import { itemInstances } from "../../db/schema/economy_v2.js";
+import { STARTER_WEAPONS } from "../classes/class-rules.js";
 
-const CLASSES: SelectablePlayerClass[] = ["GARDIST", "MÖNCH", "HÄNDLER", "SPÄHER"];
+const CLASSES: SelectablePlayerClass[] = ["guard", "cleric", "sculptor", "condottiere"];
 
 function httpError(statusCode: number, message: string): Error {
   return Object.assign(new Error(message), { statusCode });
@@ -42,6 +44,16 @@ async function stateFor(executor: any, player: typeof players.$inferSelect) {
   };
 }
 
+async function grantStarterWeapon(executor: any, playerId: string, playerClass: SelectablePlayerClass) {
+  const definitionId = STARTER_WEAPONS[playerClass].id;
+  const [existing] = await executor.select({ id: itemInstances.id }).from(itemInstances)
+    .where(and(eq(itemInstances.ownerId, playerId), eq(itemInstances.definitionId, definitionId))).limit(1);
+  if (!existing) await executor.insert(itemInstances).values({
+    definitionId, ownerType: "PLAYER", ownerId: playerId, quantity: 1,
+    category: "EQUIPMENT", slot: "WEAPON", isEquipped: true, isBound: true,
+  });
+}
+
 export async function getClassSelectionState(accountId: string) {
   const player = await playerForAccount(db, accountId);
   return stateFor(db, player);
@@ -76,6 +88,7 @@ export async function confirmClass(accountId: string, playerClass: SelectablePla
         class: playerClass, classConfirmed: true, classSelectedAt: player.classSelectedAt ?? now,
         classConfirmedAt: now, classAssignedBy: accountId, preflightCompletedAt: null,
       }).where(eq(players.id, player.id));
+      await grantStarterWeapon(tx, player.id, playerClass);
       return stateFor(tx, { ...player, class: playerClass, classConfirmed: true, classConfirmedAt: now, classAssignedBy: accountId, preflightCompletedAt: null });
     });
   } catch (error) {
@@ -107,6 +120,7 @@ export async function overrideClass(actorId: string, playerId: string, playerCla
       const previousClass = player.class;
       const now = new Date();
       await tx.update(players).set({ class: playerClass, classConfirmed: true, classSelectedAt: now, classConfirmedAt: now, classAssignedBy: actorId, preflightCompletedAt: null }).where(eq(players.id, player.id));
+      await grantStarterWeapon(tx, player.id, playerClass);
       await tx.insert(auditEvents).values({
         actorId, action: "CLASS_ASSIGNMENT_OVERRIDE", targetRefs: player.id,
         payload: { playerId, teamId: player.teamId, previousClass, newClass: playerClass, reason },

@@ -35,31 +35,6 @@ export type EntityType = z.infer<typeof EntityTypeSchema>;
 export const PvPChallengeStateSchema = z.enum(["WARNING", "ESCAPED", "COMBAT"]);
 export type PvPChallengeState = z.infer<typeof PvPChallengeStateSchema>;
 
-export const AbilityTargetTypeSchema = z.enum([
-  "SELF", "ALLY", "ENEMY", "ALL_ALLIES", "ALL_ENEMIES", "ANY",
-]);
-export type AbilityTargetType = z.infer<typeof AbilityTargetTypeSchema>;
-
-/** Presentation and validation data is authoritative and supplied by the server. */
-export const AbilityDefinitionSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  description: z.string(),
-  icon: z.string(),
-  kind: z.enum(["STANDARD", "CLASS"]),
-  targetType: AbilityTargetTypeSchema,
-  value: z.number().optional(),
-  valueLabel: z.string().optional(),
-  cooldownRounds: z.number().int().nonnegative().default(0),
-  cooldownRemaining: z.number().int().nonnegative().default(0),
-  condition: z.object({
-    type: z.enum(["HP_BELOW_PERCENT", "HP_ABOVE_PERCENT"]),
-    value: z.number(),
-    description: z.string(),
-  }).optional(),
-});
-export type AbilityDefinition = z.infer<typeof AbilityDefinitionSchema>;
-
 export const StatusEffectSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -103,7 +78,6 @@ export const CombatActionSchema = z.object({
   abilityId: AbilityIdSchema.optional(),
   targetId: z.string().uuid().optional(),
   targetIds: z.array(z.string().uuid()).optional(),
-  abilityId: z.string().optional(),
   isLocked: z.boolean(),
   origin: CombatActionOriginSchema,
   damage: z.number().optional(),
