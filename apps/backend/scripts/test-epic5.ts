@@ -48,7 +48,7 @@ async function main(): Promise<void> {
 
   const pl = await db.execute(sql`
     INSERT INTO player (id, account_id, team_id, class, hp_current, status)
-    VALUES (gen_random_uuid(), ${accountId}::uuid, ${team1Id}::uuid, 'GARDIST', 100, 'ACTIVE')
+    VALUES (gen_random_uuid(), ${accountId}::uuid, ${team1Id}::uuid, 'swiss_guard', 100, 'ACTIVE')
     RETURNING id
   `);
   const playerId = (pl.rows as { id: string }[])[0]!.id;
@@ -245,7 +245,7 @@ async function main(): Promise<void> {
   const account2Id = (acc2.rows as { id: string }[])[0]!.id;
   const pl2 = await db.execute(sql`
     INSERT INTO player (id, account_id, team_id, class, hp_current, status)
-    VALUES (gen_random_uuid(), ${account2Id}::uuid, ${team2Id}::uuid, 'GARDIST', 100, 'ACTIVE')
+    VALUES (gen_random_uuid(), ${account2Id}::uuid, ${team2Id}::uuid, 'swiss_guard', 100, 'ACTIVE')
     RETURNING id
   `);
   const player2Id = (pl2.rows as { id: string }[])[0]!.id;
