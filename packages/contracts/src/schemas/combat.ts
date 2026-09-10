@@ -3,6 +3,7 @@
  */
 
 import { z } from "zod";
+import { AbilityDefinitionSchema, AbilityIdSchema } from "./ability.js";
 
 // ── Enums ─────────────────────────────────────────────────────────────────────
 
@@ -85,6 +86,8 @@ export const CombatantSchema = z.object({
   isDowned: z.boolean(),
   attack: z.number(),
   defense: z.number(),
+  abilityDefinitions: z.array(AbilityDefinitionSchema).optional(),
+  abilityCooldowns: z.record(AbilityIdSchema, z.number().int().nonnegative()).optional(),
   class: z.string().optional(),
   shield: z.number().nonnegative().default(0),
   statusEffects: z.array(StatusEffectSchema).default([]),
@@ -97,6 +100,7 @@ export const CombatActionSchema = z.object({
   roundNumber: z.number(),
   actorId: z.string().uuid(),
   actionType: ActionTypeSchema,
+  abilityId: AbilityIdSchema.optional(),
   targetId: z.string().uuid().optional(),
   targetIds: z.array(z.string().uuid()).optional(),
   abilityId: z.string().optional(),
@@ -133,11 +137,10 @@ export type CombatLog = z.infer<typeof CombatLogSchema>;
 
 // ── Request Bodies ────────────────────────────────────────────────────────────
 
-export const SubmitActionBodySchema = z.object({
-  actionType: ActionTypeSchema,
-  targetId: z.string().uuid().optional(),
-  idempotencyKey: z.string().uuid(),
-});
+export const SubmitActionBodySchema = z.union([
+  z.object({ abilityId: AbilityIdSchema, targetId: z.string().uuid().optional(), idempotencyKey: z.string().uuid() }),
+  z.object({ actionType: z.enum(["ATTACK", "DEFEND", "FLEE"]), targetId: z.string().uuid().optional(), idempotencyKey: z.string().uuid() }),
+]);
 export type SubmitActionBody = z.infer<typeof SubmitActionBodySchema>;
 
 // ── WebSocket Events ──────────────────────────────────────────────────────────

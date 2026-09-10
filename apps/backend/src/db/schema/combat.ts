@@ -6,6 +6,7 @@ import {
   timestamp,
   boolean,
   varchar,
+  jsonb,
   uniqueIndex,
   jsonb,
   index,
@@ -75,6 +76,7 @@ export const combatActions = pgTable("combat_action", {
   isLocked: boolean("is_locked").notNull().default(false),
   origin: combatActionOriginEnum("origin").notNull().default("PLAYER_SUBMITTED"),
   idempotencyKey: uuid("idempotency_key").notNull().unique(),
+  abilityId: varchar("ability_id", { length: 64 }),
 }, (table) => [
   uniqueIndex("combat_action_instance_round_actor_unique").on(
     table.combatInstanceId,
@@ -108,9 +110,28 @@ export const combatActionSubmissions = pgTable("combat_action_submission", {
   actorId: uuid("actor_id").notNull(),
   actionType: actionTypeEnum("action_type").notNull(),
   targetId: uuid("target_id"),
+  abilityId: varchar("ability_id", { length: 64 }),
   acceptedAt: timestamp("accepted_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/** Cooldowns are durable combat state, keyed by fighter and stable ability id. */
+export const combatAbilityCooldowns = pgTable("combat_ability_cooldown", {
+  combatInstanceId: uuid("combat_instance_id").notNull().references(() => combatInstances.id, { onDelete: "cascade" }),
+  combatantId: uuid("combatant_id").notNull().references(() => combatants.id, { onDelete: "cascade" }),
+  abilityId: varchar("ability_id", { length: 64 }).notNull(),
+  availableAtRound: integer("available_at_round").notNull(),
+}, (table) => [uniqueIndex("combat_cooldown_fighter_ability_unique").on(table.combatantId, table.abilityId)]);
+
+/** Timed effects are data-driven snapshots referencing their originating definition. */
+export const combatEffects = pgTable("combat_effect", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  combatInstanceId: uuid("combat_instance_id").notNull().references(() => combatInstances.id, { onDelete: "cascade" }),
+  sourceCombatantId: uuid("source_combatant_id").notNull().references(() => combatants.id, { onDelete: "cascade" }),
+  targetCombatantId: uuid("target_combatant_id").references(() => combatants.id, { onDelete: "cascade" }),
+  abilityId: varchar("ability_id", { length: 64 }).notNull(),
+  expiresAtRound: integer("expires_at_round"),
+  state: jsonb("state").$type<Record<string, number | boolean>>().notNull().default({}),
+});
 /** Data-driven status effect catalogue. JSON columns retain ordered GDD payloads. */
 export const statusEffectDefinitions = pgTable("status_effect_definition", {
   id: varchar("id", { length: 128 }).primaryKey(),

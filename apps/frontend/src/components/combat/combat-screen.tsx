@@ -1,3 +1,17 @@
+/**
+ * Combat Screen (Epic 6)
+ * Fullscreen combat UI with action buttons, HP bars, and combat log.
+ */
+
+import { useState, useEffect } from "react";
+import { Shield, Zap, ArrowRight } from "lucide-react";
+import type {
+  CombatInstance,
+  CombatLog,
+  ActionType,
+  Combatant,
+  AbilityId,
+} from "@jlw/contracts";
 import { useEffect, useMemo, useState } from "react";
 import { Backpack, ChevronDown, ChevronUp, Clock3 } from "lucide-react";
 import type { AbilityDefinition, ActionType, Combatant, CombatInstance, CombatLog } from "@jlw/contracts";
@@ -68,6 +82,140 @@ export function CombatScreen({ combat, playerId, logs, onSubmitAction, onOpenIte
     onSubmitAction(selectedAbility.kind === "STANDARD" ? "ATTACK" : "SKILL", targetIds[0], { abilityId: selectedAbility.id, targetIds });
   };
 
+  const handleAbility = (abilityId: AbilityId, needsTarget: boolean) => {
+    if (hasSubmittedAction || (needsTarget && !selectedTarget)) return;
+    onSubmitAction(undefined, needsTarget ? selectedTarget ?? undefined : undefined, abilityId);
+  };
+
+  const isActionDisabled =
+    hasSubmittedAction ||
+    combat.state === "LOCKED" ||
+    combat.state === "RESOLVING" ||
+    combat.state === "COMPLETED" ||
+    playerCombatant?.isDowned;
+
+  return (
+    <div className="fixed inset-0 z-50 bg-gradient-to-b from-gray-900 via-red-900/20 to-gray-900 flex flex-col">
+      {/* Header */}
+      <div className="flex items-center justify-between p-4 bg-black/50 backdrop-blur">
+        <div>
+          <h1 className="text-2xl font-bold text-white">
+            {combat.type === "PVE" ? "⚔️ Combat" : "⚔️ PvP Battle"}
+          </h1>
+          <p className="text-sm text-gray-300">
+            Round {combat.roundNumber} • {combat.state}
+          </p>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {/* Enemies Section */}
+        <div className="space-y-2">
+          <h2 className="text-lg font-semibold text-red-400">
+            {combat.type === "PVE" ? "Enemies" : "Opponents"}
+          </h2>
+          {enemies.map((enemy) => (
+            <CombatantCard
+              key={enemy.id}
+              combatant={enemy}
+              isSelected={selectedTarget === enemy.id}
+              onSelect={() => setSelectedTarget(enemy.id)}
+              isEnemy
+            />
+          ))}
+        </div>
+
+        {/* Player Section */}
+        {playerCombatant && (
+          <div className="space-y-2">
+            <h2 className="text-lg font-semibold text-blue-400">You</h2>
+            <CombatantCard combatant={playerCombatant} isSelected={selectedTarget === playerCombatant.id} onSelect={() => setSelectedTarget(playerCombatant.id)} />
+          </div>
+        )}
+
+        {/* Allies Section */}
+        {allies.length > 0 && (
+          <div className="space-y-2">
+            <h2 className="text-lg font-semibold text-green-400">Allies</h2>
+            {allies.map((ally) => (
+              <CombatantCard key={ally.id} combatant={ally} isSelected={selectedTarget === ally.id} onSelect={() => setSelectedTarget(ally.id)} />
+            ))}
+          </div>
+        )}
+
+        {/* Combat Log */}
+        {logs.length > 0 && (
+          <div className="bg-black/50 backdrop-blur rounded-lg p-3 space-y-1">
+            <h3 className="text-sm font-semibold text-gray-300">Combat Log</h3>
+            {logs.slice(-5).map((log, i) => (
+              <p
+                key={i}
+                className={`text-xs ${
+                  log.type === "DAMAGE"
+                    ? "text-red-400"
+                    : log.type === "STATE"
+                    ? "text-yellow-400"
+                    : "text-gray-400"
+                }`}
+              >
+                {log.message}
+              </p>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Action Bar */}
+      <div className="bg-black/70 backdrop-blur p-4 border-t border-gray-700">
+        {playerCombatant?.isDowned ? (
+          <div className="text-center py-4">
+            <p className="text-red-400 font-semibold">You are downed!</p>
+            <p className="text-sm text-gray-400">Waiting for combat to end...</p>
+          </div>
+        ) : hasSubmittedAction ? (
+          <div className="text-center py-4">
+            <p className="text-green-400 font-semibold">Action submitted!</p>
+            <p className="text-sm text-gray-400">
+              Waiting for other players ({combat.state})...
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {playerCombatant?.abilityDefinitions?.filter((ability) => !ability.passive).map((ability) => {
+              const cooldown = playerCombatant.abilityCooldowns?.[ability.id] ?? 0;
+              const needsTarget = !ability.allowedTargetTypes.includes("ALL_ACTIVE_ALLIES");
+              return <button key={ability.id} title={ability.description}
+                onClick={() => handleAbility(ability.id, needsTarget)}
+                disabled={isActionDisabled || cooldown > 0 || (needsTarget && !selectedTarget)}
+                className="flex flex-col items-center justify-center p-3 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:opacity-50">
+                <Zap className="w-6 h-6 text-white" />
+                <span className="text-xs text-white mt-1">{ability.displayName}</span>
+                <span className="text-[10px] text-purple-100">{cooldown ? `Cooldown: ${cooldown}` : ability.description}</span>
+              </button>;
+            })}
+            <button
+              onClick={() => handleAction("DEFEND")}
+              disabled={isActionDisabled}
+              className="flex flex-col items-center justify-center p-3 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:opacity-50"
+            >
+              <Shield className="w-6 h-6 text-white" />
+              <span className="text-xs text-white mt-1">Defend</span>
+            </button>
+
+            <button
+              onClick={() => handleAction("FLEE")}
+              disabled={isActionDisabled || combat.type === "PVP"}
+              className="flex flex-col items-center justify-center p-3 rounded-lg bg-yellow-600 hover:bg-yellow-700 disabled:bg-gray-600 disabled:opacity-50"
+            >
+              <ArrowRight className="w-6 h-6 text-white" />
+              <span className="text-xs text-white mt-1">Flee</span>
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
   return <div className="fixed inset-0 z-50 flex flex-col bg-gradient-to-b from-gray-950 via-red-950 to-gray-950 text-white">
     <header className="flex items-center justify-between border-b border-white/10 bg-black/50 p-4"><div><h1 className="text-xl font-bold">⚔️ Kampf</h1><p className="text-sm text-gray-300">Runde {combat.roundNumber} · {STATE_LABELS[combat.state]}</p></div><div className={`flex items-center gap-2 rounded-full border px-4 py-2 font-mono text-xl ${seconds <= 5 ? "border-red-400 text-red-300" : "border-amber-500/50 text-amber-300"}`}><Clock3 className="h-5 w-5" /> 00:{String(seconds).padStart(2, "0")}</div></header>
     <main className="flex-1 space-y-5 overflow-y-auto p-4">

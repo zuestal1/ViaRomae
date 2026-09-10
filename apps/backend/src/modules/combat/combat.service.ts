@@ -9,6 +9,8 @@ import {
   combatants,
   combatActions,
   combatActionSubmissions,
+  combatAbilityCooldowns,
+  combatEffects,
   combatRoundOrders,
   pvpChallenges,
   statusEffectInstances,
@@ -32,6 +34,7 @@ import {
 import { randomUUID } from "node:crypto";
 import { CLASSES, damage as calculateGddDamage } from "../classes/class-rules.js";
 import type { ClassId } from "@jlw/contracts";
+import { ABILITY_DEFINITIONS, CLASS_LOADOUTS, type AbilityClass, type AbilityDefinition, type AbilityId } from "@jlw/contracts";
 import { computeEquippedStats } from "../economy/inventory.service.js";
 import type { AbilityDefinition, StatusEffect } from "@jlw/contracts";
 import { CLASS_DEFINITIONS } from "./ability-definitions.js";
@@ -79,6 +82,8 @@ export interface Combatant {
   isDowned: boolean;
   attack?: number;
   defense?: number;
+  abilityDefinitions?: AbilityDefinition[];
+  abilityCooldowns?: Partial<Record<AbilityId, number>>;
   class?: string;
   shield: number;
   statusEffects: StatusEffect[];
@@ -90,6 +95,7 @@ export interface CombatAction {
   roundNumber: number;
   actorId: string;
   actionType: ActionType;
+  abilityId?: AbilityId | undefined;
   targetId?: string | undefined;
   isLocked: boolean;
   origin: "PLAYER_SUBMITTED" | "AUTOMATIC" | "ENEMY_AI";
@@ -281,6 +287,8 @@ export async function getCombatInstance(combatId: string): Promise<CombatInstanc
     .select()
     .from(combatActions)
     .where(eq(combatActions.combatInstanceId, combatId));
+  const cooldownData = await db.select().from(combatAbilityCooldowns)
+    .where(eq(combatAbilityCooldowns.combatInstanceId, combatId));
 
   const effectsData = await db.select().from(statusEffectInstances)
     .where(eq(statusEffectInstances.combatInstanceId, combatId));
@@ -299,10 +307,20 @@ export async function getCombatInstance(combatId: string): Promise<CombatInstanc
       if (c.entityType === "PLAYER") {
         const [player] = await db
           .select({ accountId: players.accountId, class: players.class })
+          .select()
           .from(players)
           .where(eq(players.id, c.entityId));
         // For simplicity, use entityId as name
         name = player?.accountId.substring(0, 8) ?? "Player";
+        hpMax = 100; // Default player HP
+        const abilityClass = player ? toAbilityClass(player.class) : undefined;
+        const loadout = abilityClass ? CLASS_LOADOUTS[abilityClass] : [];
+        const abilityDefinitions = loadout.map((id) => ABILITY_DEFINITIONS[id]);
+        const abilityCooldowns = Object.fromEntries(cooldownData.filter((row) => row.combatantId === c.id)
+          .map((row) => [row.abilityId, Math.max(0, row.availableAtRound - combat.roundNumber)])) as Partial<Record<AbilityId, number>>;
+        return { id: c.id, entityType: "PLAYER" as const, entityId: c.entityId,
+          teamId: c.teamId ?? undefined, hpCurrent: c.hpCurrent, hpMax, initiative: 50,
+          name, isDowned: c.hpCurrent <= 0, abilityDefinitions, abilityCooldowns };
         const equipment = await computeEquippedStats("PLAYER", c.entityId);
         hpMax = 100 + (equipment.maxHP ?? 0);
         initiative = 50 + (equipment.INIT ?? 0);
@@ -405,12 +423,21 @@ export async function getCombatInstance(combatId: string): Promise<CombatInstanc
       roundNumber: a.roundNumber,
       actorId: a.actorId,
       actionType: a.actionType as ActionType,
+      abilityId: a.abilityId as AbilityId | undefined,
       targetId: a.targetId ?? undefined,
       isLocked: a.isLocked,
       origin: a.origin,
     })),
     actionDeadline: new Date(Date.now() + ROUND_TIMER_MS),
   };
+}
+
+function toAbilityClass(playerClass: string): AbilityClass | undefined {
+  if (playerClass === "GARDIST") return "GARDIST";
+  if (playerClass === "MÖNCH") return "MONASTIC";
+  if (playerClass === "BILDHAUER") return "SCULPTOR";
+  if (playerClass === "CONDOTTIERE") return "CONDOTTIERE";
+  return undefined;
 }
 
 /**
@@ -420,10 +447,11 @@ export async function submitCombatAction(opts: {
   combatId: string;
   playerId: string;
   actionType: ActionType;
+  abilityId?: AbilityId | undefined;
   targetId?: string | undefined;
   idempotencyKey: string;
 }): Promise<CombatAction> {
-  const { combatId, playerId, actionType, targetId, idempotencyKey } = opts;
+  const { combatId, playerId, actionType, abilityId, targetId, idempotencyKey } = opts;
 
   return db.transaction(async (tx) => {
     // Serialize submission and lock. This makes the last transaction accepted
@@ -436,6 +464,7 @@ export async function submitCombatAction(opts: {
       return {
         id: receipt.actionId, roundNumber: receipt.roundNumber, actorId: receipt.actorId,
         actionType: receipt.actionType as ActionType,
+        abilityId: receipt.abilityId as AbilityId | undefined,
         targetId: receipt.targetId ?? undefined, isLocked: false,
         origin: "PLAYER_SUBMITTED" as const,
       };
@@ -454,6 +483,22 @@ export async function submitCombatAction(opts: {
     if (!actor) throw new Error("Player not in combat");
     if (actor.hpCurrent <= 0) throw new Error("Player is downed");
 
+    if (abilityId) {
+      const definition = ABILITY_DEFINITIONS[abilityId];
+      const [player] = await tx.select({ class: players.class }).from(players).where(eq(players.id, playerId));
+      const abilityClass = player ? toAbilityClass(player.class) : undefined;
+      if (!abilityClass || !CLASS_LOADOUTS[abilityClass].includes(abilityId)) throw new Error("Ability is not in fighter loadout");
+      if (definition.passive) throw new Error("Passive abilities cannot be submitted");
+      const [cooldown] = await tx.select().from(combatAbilityCooldowns).where(and(
+        eq(combatAbilityCooldowns.combatantId, actor.id), eq(combatAbilityCooldowns.abilityId, abilityId)));
+      if (cooldown && cooldown.availableAtRound > combat.roundNumber) throw new Error("Ability is on cooldown");
+      const target = targetId ? (await tx.select().from(combatants).where(and(
+        eq(combatants.id, targetId), eq(combatants.combatInstanceId, combatId))))[0] : undefined;
+      validateAbilityTarget(definition, actor, target);
+      if (definition.conditions.some((condition) => condition.kind === "TARGET_HP_AT_MOST_PERCENT" &&
+        (!target || target.hpCurrent / 100 * 100 > condition.percent))) throw new Error("Ability condition is not met");
+    }
+
     if (actionType === "ATTACK") {
       if (!targetId) throw new Error("Attack requires a target");
       const [target] = await tx.select().from(combatants).where(and(
@@ -466,11 +511,11 @@ export async function submitCombatAction(opts: {
 
     const [action] = await tx.insert(combatActions).values({
       combatInstanceId: combatId, roundNumber: combat.roundNumber, actorId: actor.id,
-      actionType, targetId: targetId ?? null, isLocked: false,
+      actionType, abilityId: abilityId ?? null, targetId: targetId ?? null, isLocked: false,
       origin: "PLAYER_SUBMITTED", idempotencyKey,
     }).onConflictDoUpdate({
       target: [combatActions.combatInstanceId, combatActions.roundNumber, combatActions.actorId],
-      set: { actionType, targetId: targetId ?? null, idempotencyKey, origin: "PLAYER_SUBMITTED" },
+      set: { actionType, abilityId: abilityId ?? null, targetId: targetId ?? null, idempotencyKey, origin: "PLAYER_SUBMITTED" },
       setWhere: eq(combatActions.isLocked, false),
     }).returning();
     if (!action) throw new Error("Combat action is locked");
@@ -478,12 +523,25 @@ export async function submitCombatAction(opts: {
     await tx.insert(combatActionSubmissions).values({
       idempotencyKey, actionId: action.id, combatInstanceId: combatId,
       roundNumber: action.roundNumber, actorId: actor.id, actionType,
-      targetId: targetId ?? null,
+      targetId: targetId ?? null, abilityId: abilityId ?? null,
     });
     return { id: action.id, roundNumber: action.roundNumber, actorId: action.actorId,
-      actionType: action.actionType as ActionType, targetId: action.targetId ?? undefined,
+      actionType: action.actionType as ActionType, abilityId: action.abilityId as AbilityId | undefined, targetId: action.targetId ?? undefined,
       isLocked: action.isLocked, origin: action.origin };
   });
+}
+
+function validateAbilityTarget(definition: AbilityDefinition, actor: typeof combatants.$inferSelect, target?: typeof combatants.$inferSelect) {
+  if (definition.allowedTargetTypes.includes("ALL_ACTIVE_ALLIES")) {
+    if (target) throw new Error("Ability does not accept a target");
+    return;
+  }
+  if (!target) throw new Error("Ability requires a target");
+  const ownTeam = actor.teamId === target.teamId;
+  const valid = (definition.allowedTargetTypes.includes("SELF") && actor.id === target.id) ||
+    (definition.allowedTargetTypes.includes("ALLY") && ownTeam && actor.id !== target.id) ||
+    (definition.allowedTargetTypes.includes("ENEMY") && areOpponents(actor, target));
+  if (!valid || target.hpCurrent <= 0) throw new Error("Invalid ability target");
 }
 
 function areOpponents(a: typeof combatants.$inferSelect, b: typeof combatants.$inferSelect) {
@@ -654,7 +712,9 @@ async function resolveRound(combatId: string, wsHub?: WsHub): Promise<CombatLog[
     const actor = combat.combatants.find((c) => c.id === action.actorId);
     if (!actor || actor.isDowned) continue;
 
-    if (action.actionType === "ATTACK" && action.targetId) {
+    if (action.abilityId) {
+      await resolveAbility(combat, actor, action.abilityId, action.targetId, logs);
+    } else if (action.actionType === "ATTACK" && action.targetId) {
       const targetMaybe = combat.combatants.find((c) => c.id === action.targetId);
       if (!targetMaybe || targetMaybe.isDowned) continue;
       
@@ -664,6 +724,9 @@ async function resolveRound(combatId: string, wsHub?: WsHub): Promise<CombatLog[
         targetMaybe.stats ?? { attack: 15, defense: 0, initiative: targetMaybe.initiative },
       );
 
+      // Apply damage
+      const dealt = await applyAbilityModifiers(combat, actor, targetMaybe, damage);
+      const newHp = targetMaybe.hpCurrent;
       // Shields are consumed before HP according to GDD 7.10.
       const result = applyDamage(targetMaybe.hpCurrent, targetMaybe.shield ?? 0, damage);
       const newHp = result.hpAfter;
@@ -674,7 +737,7 @@ async function resolveRound(combatId: string, wsHub?: WsHub): Promise<CombatLog[
 
       logs.push({
         timestamp: new Date(),
-        message: `${actor.name} attacks ${targetMaybe.name} for ${damage} damage!`,
+        message: `${actor.name} attacks ${targetMaybe.name} for ${dealt} damage!`,
         type: "DAMAGE",
       });
 
@@ -713,6 +776,94 @@ async function resolveRound(combatId: string, wsHub?: WsHub): Promise<CombatLog[
   }
 
   return logs;
+}
+
+const BASE_ATTACK = 10;
+
+async function resolveAbility(combat: CombatInstance, actor: Combatant, abilityId: AbilityId,
+  targetId: string | undefined, logs: CombatLog[]) {
+  const definition = ABILITY_DEFINITIONS[abilityId];
+  const target = targetId ? combat.combatants.find((candidate) => candidate.id === targetId) : undefined;
+  const effect = definition.effect;
+  if (definition.cooldownRounds > 0) {
+    await db.insert(combatAbilityCooldowns).values({ combatInstanceId: combat.id, combatantId: actor.id,
+      abilityId, availableAtRound: combat.roundNumber + definition.cooldownRounds + 1 }).onConflictDoUpdate({
+      target: [combatAbilityCooldowns.combatantId, combatAbilityCooldowns.abilityId],
+      set: { availableAtRound: combat.roundNumber + definition.cooldownRounds + 1 },
+    });
+  }
+  if ((effect.kind === "DAMAGE" || effect.kind === "DAMAGE_AND_DEFENSE_REDUCTION") && target) {
+    const condition = definition.conditions.find((item) => item.kind === "TARGET_HP_AT_MOST_PERCENT");
+    if (condition?.kind === "TARGET_HP_AT_MOST_PERCENT" && target.hpCurrent / target.hpMax * 100 > condition.percent) {
+      logs.push({ timestamp: new Date(), message: `${definition.displayName} scheitert: HP-Bedingung nicht erfüllt.`, type: "EFFECT" });
+      return;
+    }
+    let damage = Math.round(BASE_ATTACK * effect.attackMultiplier);
+    if (actor.abilityDefinitions?.some((item) => item.id === "condottiere.blut_im_wasser") && target.hpCurrent / target.hpMax * 100 < 30) damage = Math.round(damage * 1.15);
+    const dealt = await applyAbilityModifiers(combat, actor, target, damage);
+    logs.push({ timestamp: new Date(), message: `${actor.name} wirkt ${definition.displayName} auf ${target.name}: ${dealt} Schaden.`, type: "DAMAGE" });
+    if (effect.kind === "DAMAGE_AND_DEFENSE_REDUCTION") await addEffect(combat, actor, target, abilityId, combat.roundNumber + 2);
+    if (effect.kind === "DAMAGE" && "selfIncomingDamagePercent" in effect && effect.selfIncomingDamagePercent) await addEffect(combat, actor, actor, abilityId, combat.roundNumber + 1);
+  } else if (effect.kind === "HEAL" && target) {
+    const amount = Math.round(effect.flat + effect.attackMultiplier * BASE_ATTACK);
+    target.hpCurrent = Math.min(target.hpMax, target.hpCurrent + amount);
+    await db.update(combatants).set({ hpCurrent: target.hpCurrent }).where(eq(combatants.id, target.id));
+    logs.push({ timestamp: new Date(), message: `${definition.displayName} heilt ${target.name} um ${amount}.`, type: "EFFECT" });
+  } else if (effect.kind === "BODYGUARD" && target) {
+    await addEffect(combat, actor, target, abilityId, combat.roundNumber + 1);
+  } else if (effect.kind === "TEAM_DAMAGE_REDUCTION") {
+    for (const ally of combat.combatants.filter((item) => item.teamId === actor.teamId && !item.isDowned)) await addEffect(combat, actor, ally, abilityId, combat.roundNumber + 1);
+  } else if (effect.kind === "NEXT_ACTION_DAMAGE_REDUCTION" && target) {
+    await addEffect(combat, actor, target, abilityId, undefined, { nextAction: true });
+  } else if (effect.kind === "CLEANSE_AND_SHIELD" && target) {
+    const negative = await db.select().from(combatEffects).where(and(eq(combatEffects.targetCombatantId, target.id), sql`${combatEffects.abilityId} IN ('sculptor.schwachstelle','sculptor.marmorstaub','condottiere.duell')`));
+    const first = negative.sort((a, b) => a.id.localeCompare(b.id))[0];
+    if (first) await db.delete(combatEffects).where(eq(combatEffects.id, first.id));
+    await addEffect(combat, actor, target, abilityId, undefined, { shield: effect.shield });
+  }
+  logs.push({ timestamp: new Date(), message: `${actor.name} verwendet ${definition.displayName}.`, type: "ACTION" });
+}
+
+async function addEffect(combat: CombatInstance, source: Combatant, target: Combatant, abilityId: AbilityId,
+  expiresAtRound?: number, state: Record<string, number | boolean> = {}) {
+  await db.insert(combatEffects).values({ combatInstanceId: combat.id, sourceCombatantId: source.id,
+    targetCombatantId: target.id, abilityId, expiresAtRound: expiresAtRound ?? null, state });
+}
+
+/** Shared damage pipeline used by normal attacks and every ability in PvE, PvP and boss instances. */
+async function applyAbilityModifiers(combat: CombatInstance, attacker: Combatant, target: Combatant,
+  rawDamage: number, allowBodyguard = true): Promise<number> {
+  const allEffects = await db.select().from(combatEffects).where(eq(combatEffects.combatInstanceId, combat.id));
+  const active = allEffects.filter((item) => item.expiresAtRound == null || item.expiresAtRound >= combat.roundNumber);
+  let damage = rawDamage;
+  const dust = active.find((item) => item.targetCombatantId === attacker.id && item.abilityId === "sculptor.marmorstaub");
+  if (dust) { damage *= .65; await db.delete(combatEffects).where(eq(combatEffects.id, dust.id)); }
+  if (target.abilityDefinitions?.some((item) => item.id === "gardist.standhaft")) damage *= .9;
+  if (active.some((item) => item.targetCombatantId === target.id && item.abilityId === "gardist.schildwall")) damage *= .7;
+  if (active.some((item) => item.targetCombatantId === target.id && item.abilityId === "condottiere.duell")) damage *= 1.15;
+
+  const guard = allowBodyguard ? active.find((item) => item.targetCombatantId === target.id && item.abilityId === "gardist.leibwache") : undefined;
+  if (guard) {
+    const guardian = combat.combatants.find((item) => item.id === guard.sourceCombatantId && !item.isDowned);
+    if (guardian) {
+      const transferred = Math.round(damage * .6);
+      damage -= transferred;
+      await applyAbilityModifiers(combat, attacker, guardian, transferred, false);
+    }
+  }
+  const shield = active.find((item) => item.targetCombatantId === target.id && item.abilityId === "monastic.fuerbitte");
+  if (shield) {
+    const shieldValue = typeof shield.state.shield === "number" ? shield.state.shield : 0;
+    const absorbed = Math.min(shieldValue, Math.round(damage));
+    damage -= absorbed;
+    if (absorbed === shieldValue) await db.delete(combatEffects).where(eq(combatEffects.id, shield.id));
+    else await db.update(combatEffects).set({ state: { ...shield.state, shield: shieldValue - absorbed } }).where(eq(combatEffects.id, shield.id));
+  }
+  const dealt = Math.max(0, Math.round(damage));
+  target.hpCurrent = Math.max(0, target.hpCurrent - dealt);
+  target.isDowned = target.hpCurrent === 0;
+  await db.update(combatants).set({ hpCurrent: target.hpCurrent }).where(eq(combatants.id, target.id));
+  return dealt;
 }
 
 /**
