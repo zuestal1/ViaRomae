@@ -17,11 +17,11 @@ interface LobbyPageProps {
 }
 
 // Class display names (German)
-const CLASS_LABELS: Record<PlayerClass, string> = {
-  swiss_guard: "🛡️ Schweizer Gardist",
-  cleric: "✝️ Nonne oder Mönch",
-  sculptor: "🔨 Bildhauer",
-  condottiere: "⚔️ Condottiere",
+const CLASS_LABELS: Record<string, string> = {
+  GARDIST: "⚔️ Gardist",
+  CLERIC: "🙏 Nonne/Mönch",
+  BILDHAUER: "🗿 Bildhauer",
+  CONDOTTIERE: "⚔️ Condottiere",
 };
 
 export function LobbyPage({ onEnterMap }: LobbyPageProps) {
@@ -116,7 +116,7 @@ export function LobbyPage({ onEnterMap }: LobbyPageProps) {
                 HP
               </span>
               <span className="font-semibold text-green-400">
-                {me.player.hpCurrent} / 100
+                {me.player.hpCurrent} / {me.player.hpMax}
               </span>
             </div>
 

@@ -228,6 +228,8 @@ export const CombatantSchema = z.object({
   teamId: z.string().uuid().optional(),
   hpCurrent: z.number(),
   hpMax: z.number(),
+  atk: z.number(),
+  def: z.number(),
   initiative: z.number(),
   name: z.string(),
   isDowned: z.boolean(),

@@ -110,7 +110,7 @@ async function setupTestData(): Promise<{
   const [player2] = await db.insert(players).values({
     accountId: account2!.id,
     teamId: team2!.id,
-    class: "cleric",
+    class: "CLERIC",
     hpCurrent: 100,
     status: "ACTIVE",
   }).returning();

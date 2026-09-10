@@ -19,6 +19,7 @@ import { worldObjects } from "../../db/schema/world.js";
 import { ledgerEntries } from "../../db/schema/economy.js";
 import type { WsHub } from "../ws/ws.hub.js";
 import { randomUUID } from "node:crypto";
+import { getPlayerStats } from "../player/player-stats.service.js";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -48,6 +49,8 @@ export interface Combatant {
   teamId?: string | undefined;
   hpCurrent: number;
   hpMax: number;
+  atk: number;
+  def: number;
   initiative: number;
   name: string;
   isDowned: boolean;
@@ -158,6 +161,7 @@ export async function startPvECombat(opts: {
   // Create combatants for players
   const playerCombatants = await Promise.all(
     teamPlayers.map(async (player) => {
+      const stats = await getPlayerStats(player);
       const results = await db
         .insert(combatants)
         .values({
@@ -165,7 +169,7 @@ export async function startPvECombat(opts: {
           entityType: "PLAYER",
           entityId: player.id,
           teamId: player.teamId,
-          hpCurrent: player.hpCurrent,
+          hpCurrent: Math.min(player.hpCurrent, stats.hpMax),
         })
         .returning();
       const combatant = results[0];
@@ -180,7 +184,6 @@ export async function startPvECombat(opts: {
     ? JSON.parse(enemy.rawPropertiesJson)
     : {};
   const enemyHp = enemyProps.hp ?? 100;
-  const enemyInitiative = enemyProps.initiative ?? 50;
 
   const enemyResults = await db
     .insert(combatants)
@@ -252,16 +255,22 @@ export async function getCombatInstance(combatId: string): Promise<CombatInstanc
   const enrichedCombatants: Combatant[] = await Promise.all(
     combatantsData.map(async (c) => {
       let name = "Unknown";
-      let hpMax = 100;
+      let hpMax = 0;
+      let atk = 0;
+      let def = 0;
+      let initiative = 0;
 
       if (c.entityType === "PLAYER") {
         const [player] = await db
-          .select({ accountId: players.accountId })
+          .select()
           .from(players)
           .where(eq(players.id, c.entityId));
         // For simplicity, use entityId as name
         name = player?.accountId.substring(0, 8) ?? "Player";
-        hpMax = 100; // Default player HP
+        if (player) {
+          const stats = await getPlayerStats(player);
+          ({ hpMax, atk, def, initiative } = stats);
+        }
       } else if (c.entityType === "ENEMY") {
         const [enemy] = await db
           .select()
@@ -272,6 +281,9 @@ export async function getCombatInstance(combatId: string): Promise<CombatInstanc
           ? JSON.parse(enemy.rawPropertiesJson)
           : {};
         hpMax = enemyProps.hp ?? 100;
+        atk = enemyProps.atk ?? enemyProps.attack ?? 10;
+        def = enemyProps.def ?? enemyProps.defense ?? 0;
+        initiative = enemyProps.initiative ?? 0;
       }
 
       return {
@@ -279,9 +291,11 @@ export async function getCombatInstance(combatId: string): Promise<CombatInstanc
         entityType: c.entityType as "PLAYER" | "ENEMY",
         entityId: c.entityId,
         teamId: c.teamId ?? undefined,
-        hpCurrent: c.hpCurrent,
+        hpCurrent: Math.min(c.hpCurrent, hpMax),
         hpMax,
-        initiative: 50, // TODO: calculate from stats
+        atk,
+        def,
+        initiative,
         name,
         isDowned: c.hpCurrent <= 0,
         activeEffects: effectsData.filter((effect) => effect.targetId === c.id
@@ -617,14 +631,7 @@ async function resolveRound(combatId: string, wsHub?: WsHub): Promise<CombatLog[
  * Calculate damage for an attack.
  */
 function calculateDamage(attacker: Combatant, defender: Combatant): number {
-  // Base damage
-  let damage = 10 + Math.floor(Math.random() * 10); // 10-20
-
-  // TODO: Apply attacker's equipped weapon bonuses
-  // TODO: Apply defender's equipped armor bonuses
-  // TODO: Apply buffs/debuffs
-
-  return Math.max(1, damage);
+  return Math.max(1, Math.round(attacker.atk - defender.def / 2));
 }
 
 /**
@@ -688,7 +695,8 @@ export async function handleTeamWipe(opts: {
     .where(eq(players.teamId, teamId));
 
   for (const player of teamPlayers) {
-    const respawnHp = Math.floor(100 * RESPAWN_HP_PERCENTAGE);
+    const { hpMax } = await getPlayerStats(player);
+    const respawnHp = Math.floor(hpMax * RESPAWN_HP_PERCENTAGE);
     await db
       .update(players)
       .set({
@@ -731,8 +739,9 @@ export async function regenerateHPOutOfCombat(playerId: string): Promise<void> {
   if (activeCombat) return;
 
   // Regenerate HP
-  const newHp = Math.min(100, player.hpCurrent + HP_REGEN_OUT_OF_COMBAT);
-  if (newHp > player.hpCurrent) {
+  const { hpMax } = await getPlayerStats(player);
+  const newHp = Math.min(hpMax, player.hpCurrent + HP_REGEN_OUT_OF_COMBAT);
+  if (newHp !== player.hpCurrent) {
     await db
       .update(players)
       .set({ hpCurrent: newHp })
@@ -1091,21 +1100,23 @@ async function startPvPCombat(opts: {
   // Create combatants for both teams
   await Promise.all([
     ...attackerPlayers.map(async (player) => {
+      const { hpMax } = await getPlayerStats(player);
       await db.insert(combatants).values({
         combatInstanceId: combat.id,
         entityType: "PLAYER",
         entityId: player.id,
         teamId: player.teamId,
-        hpCurrent: player.hpCurrent,
+        hpCurrent: Math.min(player.hpCurrent, hpMax),
       });
     }),
     ...defenderPlayers.map(async (player) => {
+      const { hpMax } = await getPlayerStats(player);
       await db.insert(combatants).values({
         combatInstanceId: combat.id,
         entityType: "PLAYER",
         entityId: player.id,
         teamId: player.teamId,
-        hpCurrent: player.hpCurrent,
+        hpCurrent: Math.min(player.hpCurrent, hpMax),
       });
     }),
   ]);

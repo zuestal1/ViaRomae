@@ -1,12 +1,8 @@
 import { z } from "zod";
+import { CharacterStatsSchema, PlayerClassSchema } from "./character-class.js";
 
-export const PlayerClassSchema = z.enum([
-  "swiss_guard",
-  "cleric",
-  "sculptor",
-  "condottiere",
-]);
-export type PlayerClass = z.infer<typeof PlayerClassSchema>;
+export { PlayerClassSchema } from "./character-class.js";
+export type { PlayerClass } from "./character-class.js";
 
 export const PlayerStatusSchema = z.enum(["ACTIVE", "DOWNED"]);
 export type PlayerStatus = z.infer<typeof PlayerStatusSchema>;
@@ -24,6 +20,7 @@ export const PlayerSchema = z.object({
   teamId: z.string().uuid(),
   class: PlayerClassSchema,
   hpCurrent: z.number().int().nonnegative(),
+  ...CharacterStatsSchema.shape,
   status: PlayerStatusSchema,
   lastLocation: LocationSchema.nullable(),
 });
