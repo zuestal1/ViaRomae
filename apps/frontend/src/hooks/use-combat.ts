@@ -15,6 +15,7 @@ import type {
   CombatInstance,
   CombatLog,
   ActionType,
+  AbilityId,
   CombatStartedEvent,
   CombatRoundResolvedEvent,
   CombatCompletedEvent,
@@ -61,7 +62,7 @@ export function useCombat(playerId: string, token?: string) {
 
   // Submit combat action
   const submitAction = useCallback(
-    async (actionType: ActionType, targetId?: string) => {
+    async (actionType: ActionType | undefined, targetId?: string, abilityId?: AbilityId) => {
       if (!activeCombat || !token) return;
 
       // Generate UUID (browser-compatible)
@@ -77,7 +78,7 @@ export function useCombat(playerId: string, token?: string) {
               Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify({
-              actionType,
+              ...(abilityId ? { abilityId } : { actionType }),
               targetId,
               idempotencyKey,
             }),

@@ -8,6 +8,7 @@ export * from "./schemas/player.js";
 export * from "./schemas/world.js";
 export * from "./schemas/quest.js";
 export * from "./schemas/combat.js";
+export * from "./schemas/ability.js";
 export * from "./schemas/economy.js";
 export * from "./schemas/media.js";
 export * from "./schemas/geo.js";

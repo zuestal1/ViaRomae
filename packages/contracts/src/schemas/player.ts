@@ -6,6 +6,8 @@ export const PlayerClassSchema = z.enum([
   "HÄNDLER",
   "SPÄHER",
   "MAGIER",
+  "BILDHAUER",
+  "CONDOTTIERE",
 ]);
 export type PlayerClass = z.infer<typeof PlayerClassSchema>;
 

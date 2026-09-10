@@ -4,19 +4,20 @@
  */
 
 import { useState, useEffect } from "react";
-import { Sword, Shield, Zap, ArrowRight } from "lucide-react";
+import { Shield, Zap, ArrowRight } from "lucide-react";
 import type {
   CombatInstance,
   CombatLog,
   ActionType,
   Combatant,
+  AbilityId,
 } from "@jlw/contracts";
 
 interface CombatScreenProps {
   combat: CombatInstance;
   playerId: string;
   logs: CombatLog[];
-  onSubmitAction: (actionType: ActionType, targetId?: string) => void;
+  onSubmitAction: (actionType: ActionType | undefined, targetId?: string, abilityId?: AbilityId) => void;
 }
 
 export function CombatScreen({
@@ -71,6 +72,11 @@ export function CombatScreen({
     onSubmitAction(actionType, selectedTarget ?? undefined);
   };
 
+  const handleAbility = (abilityId: AbilityId, needsTarget: boolean) => {
+    if (hasSubmittedAction || (needsTarget && !selectedTarget)) return;
+    onSubmitAction(undefined, needsTarget ? selectedTarget ?? undefined : undefined, abilityId);
+  };
+
   const isActionDisabled =
     hasSubmittedAction ||
     combat.state === "LOCKED" ||
@@ -114,7 +120,7 @@ export function CombatScreen({
         {playerCombatant && (
           <div className="space-y-2">
             <h2 className="text-lg font-semibold text-blue-400">You</h2>
-            <CombatantCard combatant={playerCombatant} />
+            <CombatantCard combatant={playerCombatant} isSelected={selectedTarget === playerCombatant.id} onSelect={() => setSelectedTarget(playerCombatant.id)} />
           </div>
         )}
 
@@ -123,7 +129,7 @@ export function CombatScreen({
           <div className="space-y-2">
             <h2 className="text-lg font-semibold text-green-400">Allies</h2>
             {allies.map((ally) => (
-              <CombatantCard key={ally.id} combatant={ally} />
+              <CombatantCard key={ally.id} combatant={ally} isSelected={selectedTarget === ally.id} onSelect={() => setSelectedTarget(ally.id)} />
             ))}
           </div>
         )}
@@ -165,16 +171,19 @@ export function CombatScreen({
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-4 gap-2">
-            <button
-              onClick={() => handleAction("ATTACK")}
-              disabled={isActionDisabled || !selectedTarget}
-              className="flex flex-col items-center justify-center p-3 rounded-lg bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:opacity-50"
-            >
-              <Sword className="w-6 h-6 text-white" />
-              <span className="text-xs text-white mt-1">Attack</span>
-            </button>
-
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {playerCombatant?.abilityDefinitions?.filter((ability) => !ability.passive).map((ability) => {
+              const cooldown = playerCombatant.abilityCooldowns?.[ability.id] ?? 0;
+              const needsTarget = !ability.allowedTargetTypes.includes("ALL_ACTIVE_ALLIES");
+              return <button key={ability.id} title={ability.description}
+                onClick={() => handleAbility(ability.id, needsTarget)}
+                disabled={isActionDisabled || cooldown > 0 || (needsTarget && !selectedTarget)}
+                className="flex flex-col items-center justify-center p-3 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:opacity-50">
+                <Zap className="w-6 h-6 text-white" />
+                <span className="text-xs text-white mt-1">{ability.displayName}</span>
+                <span className="text-[10px] text-purple-100">{cooldown ? `Cooldown: ${cooldown}` : ability.description}</span>
+              </button>;
+            })}
             <button
               onClick={() => handleAction("DEFEND")}
               disabled={isActionDisabled}
@@ -182,15 +191,6 @@ export function CombatScreen({
             >
               <Shield className="w-6 h-6 text-white" />
               <span className="text-xs text-white mt-1">Defend</span>
-            </button>
-
-            <button
-              onClick={() => handleAction("SKILL")}
-              disabled={isActionDisabled}
-              className="flex flex-col items-center justify-center p-3 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:opacity-50"
-            >
-              <Zap className="w-6 h-6 text-white" />
-              <span className="text-xs text-white mt-1">Skill</span>
             </button>
 
             <button
