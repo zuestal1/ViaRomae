@@ -13,11 +13,10 @@ import { sql } from "drizzle-orm";
 import { accounts } from "./account.js";
 
 export const playerClassEnum = pgEnum("player_class", [
-  "GARDIST",
-  "MÖNCH",
-  "HÄNDLER",
-  "SPÄHER",
-  "MAGIER",
+  "swiss_guard",
+  "cleric",
+  "sculptor",
+  "condottiere",
 ]);
 
 export const playerStatusEnum = pgEnum("player_status", ["ACTIVE", "DOWNED"]);
