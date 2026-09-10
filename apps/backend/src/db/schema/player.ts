@@ -6,7 +6,10 @@ import {
   pgEnum,
   doublePrecision,
   timestamp,
+  boolean,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { accounts } from "./account.js";
 
 export const playerClassEnum = pgEnum("player_class", [
@@ -37,7 +40,13 @@ export const players = pgTable("player", {
   teamId: uuid("team_id")
     .notNull()
     .references(() => teams.id),
-  class: playerClassEnum("class").notNull(),
+  // A choice may be tentative. Once confirmed it is immutable for players.
+  class: playerClassEnum("class"),
+  classConfirmed: boolean("class_confirmed").notNull().default(false),
+  classSelectedAt: timestamp("class_selected_at", { withTimezone: true }),
+  classConfirmedAt: timestamp("class_confirmed_at", { withTimezone: true }),
+  classAssignedBy: uuid("class_assigned_by").references(() => accounts.id),
+  preflightCompletedAt: timestamp("preflight_completed_at", { withTimezone: true }),
   hpCurrent: integer("hp_current").notNull().default(100),
   status: playerStatusEnum("status").notNull().default("ACTIVE"),
   // PostGIS point stored as raw lat/lng for initial Epic 2; migrate to geometry later.
@@ -47,4 +56,8 @@ export const players = pgTable("player", {
   lastLocationUpdate: timestamp("last_location_update", { withTimezone: true }),
   // Epic 9: Player display name (denormalized from account)
   playerName: varchar("player_name", { length: 64 }),
-});
+}, (table) => [
+  uniqueIndex("player_team_confirmed_class_unique")
+    .on(table.teamId, table.class)
+    .where(sql`${table.classConfirmed} = true AND ${table.class} IS NOT NULL`),
+]);
