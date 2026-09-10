@@ -83,6 +83,22 @@ export const combatActions = pgTable("combat_action", {
   ),
 ]);
 
+/** Initiative snapshots and the single random tie-breaker generated for a round. */
+export const combatRoundOrders = pgTable("combat_round_order", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  combatInstanceId: uuid("combat_instance_id").notNull()
+    .references(() => combatInstances.id, { onDelete: "cascade" }),
+  roundNumber: integer("round_number").notNull(),
+  actorId: uuid("actor_id").notNull(),
+  effectiveInitiative: integer("effective_initiative").notNull(),
+  equipmentRarityScore: integer("equipment_rarity_score").notNull(),
+  roundRandom: integer("round_random").notNull(),
+}, (table) => [
+  uniqueIndex("combat_round_order_instance_round_actor_unique").on(
+    table.combatInstanceId, table.roundNumber, table.actorId,
+  ),
+]);
+
 /** Immutable request receipts keep retries idempotent after a later replacement. */
 export const combatActionSubmissions = pgTable("combat_action_submission", {
   idempotencyKey: uuid("idempotency_key").primaryKey(),

@@ -9,6 +9,7 @@ import {
   combatants,
   combatActions,
   combatActionSubmissions,
+  combatRoundOrders,
   pvpChallenges,
   statusEffectInstances,
   statusEffectDefinitions,
@@ -18,6 +19,16 @@ import { players, teams } from "../../db/schema/player.js";
 import { worldObjects } from "../../db/schema/world.js";
 import { ledgerEntries } from "../../db/schema/economy.js";
 import type { WsHub } from "../ws/ws.hub.js";
+import { randomInt, randomUUID } from "node:crypto";
+import {
+  applyDamage,
+  calculateDamage,
+  calculateEffectiveInitiative,
+  compareRoundOrder,
+  calculateEquipmentRarityScore,
+  type CombatStats,
+  type EquipmentRarity,
+} from "./combat-calculation.js";
 import { randomUUID } from "node:crypto";
 import { materializeHealthRegeneration, markTeamRegenStopped } from "./health-regeneration.service.js";
 import { getPlayerStats } from "../player/player-stats.service.js";
@@ -52,6 +63,9 @@ export interface Combatant {
   atk: number;
   def: number;
   initiative: number;
+  stats?: CombatStats;
+  equipmentRarityScore?: number;
+  shield?: number;
   name: string;
   isDowned: boolean;
   activeEffects: ActiveStatusEffect[];
@@ -102,6 +116,41 @@ export interface CombatLog {
   timestamp: Date;
   message: string;
   type: "ACTION" | "DAMAGE" | "EFFECT" | "STATE";
+}
+
+const BASE_STATS: CombatStats = { attack: 15, defense: 0, initiative: 50 };
+
+async function loadPlayerProfile(playerId: string): Promise<{
+  stats: CombatStats;
+  equipmentRarityScore: number;
+}> {
+  const result = await db.execute<{ stats: string; slot: string }>(sql`
+    SELECT d.stats, i.slot FROM item_instance i
+    JOIN item_def d ON d.key = i.definition_id
+    WHERE i.owner_id = ${playerId} AND i.is_equipped = true
+    ORDER BY i.slot, i.id
+    LIMIT 4
+  `);
+  const stats: CombatStats = { ...BASE_STATS };
+  const rarities: EquipmentRarity[] = [];
+  for (const item of result.rows) {
+    const modifiers = JSON.parse(item.stats || "{}") as Record<string, number | string>;
+    stats.attack += Number(modifiers.atk ?? modifiers.attack ?? 0);
+    stats.defense += Number(modifiers.def ?? modifiers.defense ?? 0);
+    stats.initiative += Number(modifiers.init ?? modifiers.initiative ?? 0);
+    stats.damageDealtPercent = (stats.damageDealtPercent ?? 0) + Number(modifiers.damageDealtPercent ?? 0);
+    stats.defensePercent = (stats.defensePercent ?? 0) + Number(modifiers.defensePercent ?? 0);
+    stats.defenseFlat = (stats.defenseFlat ?? 0) + Number(modifiers.defenseFlat ?? 0);
+    stats.damageTakenPercent = (stats.damageTakenPercent ?? 0) + Number(modifiers.damageTakenPercent ?? 0);
+    stats.initiativePercent = (stats.initiativePercent ?? 0) + Number(modifiers.initiativePercent ?? 0);
+    stats.initiativeFlat = (stats.initiativeFlat ?? 0) + Number(modifiers.initiativeFlat ?? 0);
+    stats.healingPercent = (stats.healingPercent ?? 0) + Number(modifiers.healingPercent ?? 0);
+    const rarity = modifiers.rarity;
+    if (["N", "R", "SR", "SSR", "E", "L"].includes(String(rarity))) {
+      rarities.push(rarity as EquipmentRarity);
+    }
+  }
+  return { stats, equipmentRarityScore: calculateEquipmentRarityScore(rarities) };
 }
 
 // ── PvE Encounter Management ─────────────────────────────────────────────────
@@ -277,7 +326,7 @@ export async function getCombatInstance(combatId: string): Promise<CombatInstanc
           .from(worldObjects)
           .where(eq(worldObjects.id, c.entityId));
         name = enemy?.name ?? "Enemy";
-        const enemyProps = enemy?.rawPropertiesJson
+        enemyProps = enemy?.rawPropertiesJson
           ? JSON.parse(enemy.rawPropertiesJson)
           : {};
         hpMax = enemyProps.hp ?? 100;
@@ -286,6 +335,17 @@ export async function getCombatInstance(combatId: string): Promise<CombatInstanc
         initiative = enemyProps.initiative ?? 0;
       }
 
+      const profile = c.entityType === "PLAYER"
+        ? await loadPlayerProfile(c.entityId)
+        : {
+            stats: {
+              attack: Number(enemyProps.atk ?? enemyProps.attack ?? 15),
+              defense: Number(enemyProps.def ?? enemyProps.defense ?? 0),
+              initiative: Number(enemyProps.initiative ?? 50),
+            },
+            equipmentRarityScore: 0,
+          };
+
       return {
         id: c.id,
         entityType: c.entityType as "PLAYER" | "ENEMY",
@@ -293,9 +353,10 @@ export async function getCombatInstance(combatId: string): Promise<CombatInstanc
         teamId: c.teamId ?? undefined,
         hpCurrent: Math.min(c.hpCurrent, hpMax),
         hpMax,
-        atk,
-        def,
-        initiative,
+        initiative: calculateEffectiveInitiative(profile.stats),
+        stats: profile.stats,
+        equipmentRarityScore: profile.equipmentRarityScore,
+        shield: 0,
         name,
         isDowned: c.hpCurrent <= 0,
         activeEffects: effectsData.filter((effect) => effect.targetId === c.id
@@ -457,6 +518,9 @@ export async function lockAndResolveRound(
   combatId: string,
   wsHub?: WsHub
 ): Promise<CombatLog[]> {
+  // Re-read current stats/equipment at the start of every round.
+  const combatSnapshot = await getCombatInstance(combatId);
+  const snapshotByActor = new Map(combatSnapshot.combatants.map((actor) => [actor.id, actor]));
   const roundNumber = await db.transaction(async (tx) => {
     await tx.execute(sql`select id from combat_instance where id = ${combatId} for update`);
     const [combat] = await tx.select().from(combatInstances).where(eq(combatInstances.id, combatId));
@@ -485,6 +549,23 @@ export async function lockAndResolveRound(
     ));
     await tx.update(combatInstances).set({ state: "LOCKED" })
       .where(eq(combatInstances.id, combatId));
+
+    // Snapshot all ordering inputs once per round. The random value is generated
+    // server-side only and survives retries/restarts through this table.
+    for (const actor of alive) {
+      const snapshot = snapshotByActor.get(actor.id);
+      const stats = snapshot?.stats ?? BASE_STATS;
+      await tx.insert(combatRoundOrders).values({
+        combatInstanceId: combatId,
+        roundNumber: combat.roundNumber,
+        actorId: actor.id,
+        effectiveInitiative: Math.round(calculateEffectiveInitiative(stats)),
+        equipmentRarityScore: snapshot?.equipmentRarityScore ?? 0,
+        roundRandom: randomInt(0, 2_147_483_647),
+      }).onConflictDoNothing({
+        target: [combatRoundOrders.combatInstanceId, combatRoundOrders.roundNumber, combatRoundOrders.actorId],
+      });
+    }
     return combat.roundNumber;
   });
 
@@ -560,11 +641,29 @@ async function resolveRound(combatId: string, wsHub?: WsHub): Promise<CombatLog[
     (a) => a.roundNumber === combat.roundNumber
   );
 
+  const roundOrder = await db.select().from(combatRoundOrders).where(and(
+    eq(combatRoundOrders.combatInstanceId, combatId),
+    eq(combatRoundOrders.roundNumber, combat.roundNumber),
+  ));
+  const orderByActor = new Map(roundOrder.map((entry) => [entry.actorId, entry]));
+
   // Sort by initiative (higher goes first)
   const sortedActions = roundActions.sort((a, b) => {
     const actorA = combat.combatants.find((c) => c.id === a.actorId);
     const actorB = combat.combatants.find((c) => c.id === b.actorId);
-    return (actorB?.initiative ?? 0) - (actorA?.initiative ?? 0);
+    const orderA = orderByActor.get(a.actorId);
+    const orderB = orderByActor.get(b.actorId);
+    return compareRoundOrder({
+      actorId: a.actorId,
+      effectiveInitiative: orderA?.effectiveInitiative ?? actorA?.initiative ?? 0,
+      equipmentRarityScore: orderA?.equipmentRarityScore ?? actorA?.equipmentRarityScore ?? 0,
+      roundRandom: orderA?.roundRandom ?? 0,
+    }, {
+      actorId: b.actorId,
+      effectiveInitiative: orderB?.effectiveInitiative ?? actorB?.initiative ?? 0,
+      equipmentRarityScore: orderB?.equipmentRarityScore ?? actorB?.equipmentRarityScore ?? 0,
+      roundRandom: orderB?.roundRandom ?? 0,
+    });
   });
 
   // Execute actions in initiative order
@@ -577,10 +676,14 @@ async function resolveRound(combatId: string, wsHub?: WsHub): Promise<CombatLog[
       if (!targetMaybe || targetMaybe.isDowned) continue;
       
       // Calculate damage
-      const damage = calculateDamage(actor, targetMaybe);
+      const damage = calculateDamage(
+        actor.stats ?? { attack: 15, defense: 0, initiative: actor.initiative },
+        targetMaybe.stats ?? { attack: 15, defense: 0, initiative: targetMaybe.initiative },
+      );
 
-      // Apply damage
-      const newHp = Math.max(0, targetMaybe.hpCurrent - damage);
+      // Shields are consumed before HP according to GDD 7.10.
+      const result = applyDamage(targetMaybe.hpCurrent, targetMaybe.shield ?? 0, damage);
+      const newHp = result.hpAfter;
       await db
         .update(combatants)
         .set({ hpCurrent: newHp })

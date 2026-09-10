@@ -15,6 +15,7 @@ import { worldObjects } from "../../db/schema/world.js";
 import type { WsHub } from "../ws/ws.hub.js";
 import { randomUUID } from "node:crypto";
 import type { Combatant, CombatInstance } from "./combat.service.js";
+import { calculateHealing } from "./combat-calculation.js";
 import { getPlayerStats } from "../player/player-stats.service.js";
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -268,10 +269,11 @@ export async function submitGlobalAction(opts: {
     case "CHEER":
       // Heal all players by 5 HP
       effect = "All players healed by 5 HP!";
-      for (const combatant of combat.combatants.filter((entry) => entry.entityType === "PLAYER")) {
-        await db.update(combatants)
-          .set({ hpCurrent: Math.min(combatant.hpMax, combatant.hpCurrent + 5) })
-          .where(eq(combatants.id, combatant.id));
+      for (const target of combat.combatants.filter((c) => c.entityType === "PLAYER")) {
+        const healing = calculateHealing(5, target.stats?.healingPercent ?? 0, target.hpCurrent, target.hpMax);
+        if (healing === 0) continue; // Overheal changes neither HP nor contribution.
+        await db.update(combatants).set({ hpCurrent: target.hpCurrent + healing })
+          .where(eq(combatants.id, target.id));
       }
       break;
     case "COORDINATED_ATTACK":
@@ -437,6 +439,9 @@ async function loadCombatInstance(combatId: string): Promise<CombatInstance> {
         atk,
         def,
         initiative,
+        stats: { attack: 15, defense: 0, initiative },
+        equipmentRarityScore: 0,
+        shield: 0,
         name,
         isDowned: c.hpCurrent <= 0,
         activeEffects: [],
