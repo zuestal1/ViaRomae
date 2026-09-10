@@ -4,6 +4,7 @@
  */
 
 export * from "./schemas/auth.js";
+export * from "./schemas/character-class.js";
 export * from "./schemas/player.js";
 export * from "./schemas/classes.js";
 export * from "./schemas/world.js";

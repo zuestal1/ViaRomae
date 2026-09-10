@@ -19,10 +19,12 @@ export const ledgerSourceEnum = pgEnum("ledger_source", [
 ]);
 export const itemSlotEnum = pgEnum("item_slot", [
   "WEAPON",
-  "ARMOR",
-  "ACCESSORY",
-  "CONSUMABLE",
+  "CLOTHING",
+  "DEFENSE",
+  "ARTIFACT",
 ]);
+export const itemCategoryEnum = pgEnum("item_category", ["EQUIPMENT", "CONSUMABLE"]);
+export const itemRarityEnum = pgEnum("item_rarity", ["N", "R", "SR", "SSR", "E", "L"]);
 
 export const ownerTypeEnum = pgEnum("owner_type", ["PLAYER", "TEAM"]);
 
@@ -47,7 +49,8 @@ export const itemInstances = pgTable("item_instance", {
   ownerType: ownerTypeEnum("owner_type").notNull().default("PLAYER"),
   ownerId: uuid("owner_id").notNull(),
   quantity: integer("quantity").notNull().default(1),
-  slot: itemSlotEnum("slot").notNull(),
+  category: itemCategoryEnum("category").notNull().default("EQUIPMENT"),
+  slot: itemSlotEnum("slot"),
   isEquipped: boolean("is_equipped").notNull().default(false),
   isBound: boolean("is_bound").notNull().default(false),
 });
@@ -57,10 +60,12 @@ export const itemDefs = pgTable("item_def", {
   key: varchar("key", { length: 64 }).notNull().unique(),
   name: varchar("name", { length: 128 }).notNull(),
   equipSlot: itemSlotEnum("equip_slot"),
+  category: itemCategoryEnum("category").notNull().default("EQUIPMENT"),
+  rarity: itemRarityEnum("rarity").notNull().default("N"),
+  allowedClasses: varchar("allowed_classes", { length: 512 }).notNull().default("[]"),
   stats: varchar("stats", { length: 1024 }).notNull().default("{}"), // JSON stringified
   stackable: boolean("stackable").notNull().default(false),
   maxStack: integer("max_stack").notNull().default(1),
   buyPrice: integer("buy_price"),
   sellPrice: integer("sell_price"),
 });
-

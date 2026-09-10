@@ -4,6 +4,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   EconomySummary,
+  EquipItemResponse,
   InventoryListResponse,
   ItemInstance,
   TeamListEntry,
@@ -76,7 +77,7 @@ export function useEquipItem() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (itemInstanceId: string) =>
-      api.post<{ equipped: string; slot: string }>("/inventory/equip", {
+      api.post<EquipItemResponse>("/inventory/equip", {
         itemInstanceId,
       }),
     onSuccess: () => invalidateEconomy(queryClient),

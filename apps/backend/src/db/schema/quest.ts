@@ -9,7 +9,7 @@ import {
   boolean,
   unique,
 } from "drizzle-orm/pg-core";
-import { teams } from "./player.js";
+import { players, teams } from "./player.js";
 import { worldObjects } from "./world.js";
 
 // ── Enums ──────────────────────────────────────────────────────────────────────
@@ -65,6 +65,14 @@ export const stepActionTypeEnum = pgEnum("step_action_type", [
   "TEAM_DECISION",
   // Catch-all for future action types introduced before a migration.
   "OTHER",
+]);
+
+export const classUnlockKindEnum = pgEnum("class_unlock_kind", [
+  "OPTIONAL_ANSWER", "HINT", "BONUS_OBJECTIVE", "SIDE_QUEST", "HIDDEN_QUEST_TRIGGER",
+]);
+
+export const masterfulEyeSubjectEnum = pgEnum("masterful_eye_subject", [
+  "ART", "FOUNTAIN", "CHURCH", "STATUE", "ARCHITECTURE",
 ]);
 
 // ── QuestDefinition ───────────────────────────────────────────────────────────
@@ -260,3 +268,37 @@ export const questStations = pgTable("quest_station", {
     table.sequence,
   ),
 ]);
+
+/** Optional, explicitly class-gated content. Main objectives never belong here. */
+export const questClassUnlocks = pgTable("quest_class_unlock", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  questDefinitionId: uuid("quest_definition_id").notNull()
+    .references(() => questDefinitions.id, { onDelete: "cascade" }),
+  worldObjectId: uuid("world_object_id").notNull()
+    .references(() => worldObjects.id, { onDelete: "cascade" }),
+  nodeId: varchar("node_id", { length: 64 }).notNull(),
+  optionId: varchar("option_id", { length: 64 }).notNull(),
+  kind: classUnlockKindEnum("kind").notNull(),
+  requiredClass: varchar("required_class", { length: 32 }).notNull(),
+  subject: masterfulEyeSubjectEnum("subject"),
+  text: text("text").notNull(),
+  effectJson: text("effect_json").notNull().default("{}"),
+  /** Kept for defensive DB/service validation; class-gated rows must be false. */
+  required: boolean("required").notNull().default(false),
+  bonusGloryPercent: integer("bonus_glory_percent").notNull().default(0),
+  bonusDenariiPercent: integer("bonus_denarii_percent").notNull().default(0),
+}, (table) => [
+  unique("uq_quest_class_unlock_option").on(table.questDefinitionId, table.nodeId, table.optionId),
+]);
+
+/** One binding team decision per run and dialogue node. */
+export const questDialogueDecisions = pgTable("quest_dialogue_decision", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  questRunId: uuid("quest_run_id").notNull()
+    .references(() => questRuns.id, { onDelete: "cascade" }),
+  nodeId: varchar("node_id", { length: 64 }).notNull(),
+  optionId: varchar("option_id", { length: 64 }).notNull(),
+  chosenByPlayerId: uuid("chosen_by_player_id").notNull()
+    .references(() => players.id),
+  chosenAt: timestamp("chosen_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [unique("uq_quest_dialogue_decision_run_node").on(table.questRunId, table.nodeId)]);

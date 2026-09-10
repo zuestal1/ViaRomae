@@ -55,10 +55,16 @@ function mapItem(row: Record<string, unknown>) {
     ownerType: row["owner_type"] as "PLAYER" | "TEAM",
     ownerId: String(row["owner_id"]),
     quantity: Number(row["quantity"] ?? 1),
-    slot: row["slot"],
+    category: row["definition_category"] ?? row["category"],
+    slot: row["slot"] ?? null,
     isEquipped: Boolean(row["is_equipped"]),
     isBound: Boolean(row["is_bound"]),
     stats,
+    effectiveStats: row["effective_stats"],
+    rarity: row["rarity"] ?? "N",
+    allowedClasses: row["allowed_classes"] ?? [],
+    canEquip: Boolean(row["can_equip"]),
+    unusableReason: row["unusable_reason"] ?? null,
     stackable: Boolean(row["stackable"]),
   };
 }

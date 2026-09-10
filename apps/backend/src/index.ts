@@ -21,6 +21,7 @@ import { eventLifecycleRoutes } from "./modules/gm/event-lifecycle.routes.js";
 import { gmDashboardRoutes } from "./modules/gm/gm-dashboard.routes.js";
 import { seedControlRoutes } from "./modules/gm/seed-control.routes.js";
 import { classRoutes } from "./modules/classes/class.routes.js";
+import { classSelectionRoutes } from "./modules/player/class-selection.routes.js";
 import { errorHandler } from "./plugins/error-handler.js";
 import { WsHub } from "./modules/ws/ws.hub.js";
 import { WsEventCleanup } from "./modules/ws/ws.cleanup.js";
@@ -108,6 +109,7 @@ await server.register(economyRoutes, { prefix: "/api/v1/economy" });
 await server.register(inventoryRoutes, { prefix: "/api/v1/inventory" });
 await server.register(mediaRoutes, { prefix: "/api/v1/media" });
 await server.register(wsRoutes, { prefix: "/api/v1/ws" });
+await server.register(classSelectionRoutes, { prefix: "/api/v1/class-selection" });
 
 // GM Routes (Epic 9)
 await server.register(gmCommandsRoutes, { prefix: "/api/v1/gm" });

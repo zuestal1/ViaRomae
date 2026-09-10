@@ -16,6 +16,8 @@ import {
 const submitActionSchema = z.object({
   actionType: z.enum(["ATTACK", "DEFEND", "SKILL", "FLEE"]),
   targetId: z.string().uuid().optional(),
+  targetIds: z.array(z.string().uuid()).optional(),
+  abilityId: z.string().optional(),
   idempotencyKey: z.string().uuid(),
 });
 

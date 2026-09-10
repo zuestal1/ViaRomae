@@ -27,9 +27,9 @@ interface EconomySheetProps {
 function slotLabel(slot: string): string {
   const map: Record<string, string> = {
     WEAPON: "Waffe",
-    ARMOR: "Rüstung",
-    ACCESSORY: "Accessoire",
-    CONSUMABLE: "Verbrauch",
+    CLOTHING: "Kleidung",
+    DEFENSE: "Verteidigung",
+    ARTIFACT: "Artefakt",
   };
   return map[slot] ?? slot;
 }
@@ -432,7 +432,8 @@ function ItemList({
               {(item.quantity ?? 1) > 1 ? ` ×${item.quantity}` : ""}
             </p>
             <p className="text-[10px] uppercase tracking-widest text-white/40">
-              {slotLabel(item.slot)}
+              {item.category === "CONSUMABLE" ? "Verbrauch" : slotLabel(item.slot ?? "")}
+              {` · ${item.rarity}`}
               {item.stats && Object.keys(item.stats).length > 0
                 ? ` · ${Object.entries(item.stats)
                     .map(([k, v]) => `${k} ${v}`)
@@ -440,7 +441,7 @@ function ItemList({
                 : ""}
             </p>
           </div>
-          {canEquip && item.slot !== "CONSUMABLE" && (
+          {canEquip && item.category === "EQUIPMENT" && item.canEquip && (
             <button
               disabled={busy}
               onClick={() =>
@@ -451,8 +452,32 @@ function ItemList({
               {item.isEquipped ? "Ablegen" : "Anlegen"}
             </button>
           )}
+          {canEquip && item.category === "EQUIPMENT" && !item.canEquip && (
+            <span className="max-w-32 text-right text-[11px] font-semibold text-amber-400">
+              {item.unusableReason ?? "Nicht verwendbar"}
+            </span>
+          )}
+          {canEquip && item.category === "EQUIPMENT" && !item.isEquipped && item.canEquip && item.effectiveStats && (
+            <EquipmentComparison
+              oldStats={sorted.find((candidate) => candidate.isEquipped && candidate.slot === item.slot)?.effectiveStats}
+              newStats={item.effectiveStats}
+            />
+          )}
         </li>
       ))}
     </ul>
   );
+}
+
+function EquipmentComparison({ oldStats, newStats }: {
+  oldStats?: Record<string, number> | undefined;
+  newStats: Record<string, number>;
+}) {
+  return <div className="ml-3 text-right text-[10px] text-white/55" aria-label="Ausrüstungsvergleich">
+    {Object.entries(newStats).map(([key, next]) => {
+      const old = oldStats?.[key] ?? 0;
+      const delta = next - old;
+      return <div key={key}>{key}: {old} → {next} ({delta >= 0 ? "+" : ""}{delta})</div>;
+    })}
+  </div>;
 }
