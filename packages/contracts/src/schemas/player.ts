@@ -1,12 +1,8 @@
 import { z } from "zod";
+import { CharacterStatsSchema, PlayerClassSchema } from "./character-class.js";
 
-export const PlayerClassSchema = z.enum([
-  "swiss_guard",
-  "cleric",
-  "sculptor",
-  "condottiere",
-]);
-export type PlayerClass = z.infer<typeof PlayerClassSchema>;
+export { PlayerClassSchema } from "./character-class.js";
+export type { PlayerClass } from "./character-class.js";
 
 /** The four playable classes defined by the GDD (MAGIER is legacy data only). */
 export const SelectablePlayerClassSchema = z.enum([
@@ -57,6 +53,7 @@ export const PlayerSchema = z.object({
   teamId: z.string().uuid(),
   class: PlayerClassSchema.nullable(),
   hpCurrent: z.number().int().nonnegative(),
+  ...CharacterStatsSchema.shape,
   status: PlayerStatusSchema,
   lastLocation: LocationSchema.nullable(),
 });

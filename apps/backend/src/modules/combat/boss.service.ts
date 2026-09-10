@@ -15,6 +15,7 @@ import { worldObjects } from "../../db/schema/world.js";
 import type { WsHub } from "../ws/ws.hub.js";
 import { randomUUID } from "node:crypto";
 import type { Combatant, CombatInstance } from "./combat.service.js";
+import { getPlayerStats } from "../player/player-stats.service.js";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -81,15 +82,8 @@ export async function getOrCreateBossCombat(opts: {
     throw new Error("Failed to create boss combat instance");
   }
 
-  // Parse boss stats from rawPropertiesJson
-  const bossProps = boss.rawPropertiesJson
-    ? JSON.parse(boss.rawPropertiesJson)
-    : {};
-  
   // Start with base HP (will scale as teams join)
   const bossHp = BOSS_HP_BASE;
-  const bossInitiative = bossProps.initiative ?? 100; // Bosses act first
-
   // Create boss combatant (ENEMY type)
   await db.insert(combatants).values({
     combatInstanceId: combat.id,
@@ -169,12 +163,13 @@ export async function joinBossCombat(opts: {
 
   // Add player combatants
   for (const player of teamPlayers) {
+    const { hpMax } = await getPlayerStats(player);
     await db.insert(combatants).values({
       combatInstanceId: combatId,
       entityType: "PLAYER",
       entityId: player.id,
       teamId: player.teamId,
-      hpCurrent: player.hpCurrent,
+      hpCurrent: Math.min(player.hpCurrent, hpMax),
     });
   }
 
@@ -273,15 +268,11 @@ export async function submitGlobalAction(opts: {
     case "CHEER":
       // Heal all players by 5 HP
       effect = "All players healed by 5 HP!";
-      await db
-        .update(combatants)
-        .set({ hpCurrent: sql`LEAST(hp_current + 5, 100)` })
-        .where(
-          and(
-            eq(combatants.combatInstanceId, combatId),
-            eq(combatants.entityType, "PLAYER"),
-          ),
-        );
+      for (const combatant of combat.combatants.filter((entry) => entry.entityType === "PLAYER")) {
+        await db.update(combatants)
+          .set({ hpCurrent: Math.min(combatant.hpMax, combatant.hpCurrent + 5) })
+          .where(eq(combatants.id, combatant.id));
+      }
       break;
     case "COORDINATED_ATTACK":
       // All teams deal bonus damage this round
@@ -400,8 +391,10 @@ async function loadCombatInstance(combatId: string): Promise<CombatInstance> {
   const enrichedCombatants: Combatant[] = await Promise.all(
     combatantRows.map(async (c) => {
       let name = "Unknown";
-      let hpMax = 100;
-      let initiative = 50;
+      let hpMax = 0;
+      let atk = 0;
+      let def = 0;
+      let initiative = 0;
 
       if (c.entityType === "PLAYER") {
         const [player] = await db
@@ -414,7 +407,8 @@ async function loadCombatInstance(combatId: string): Promise<CombatInstance> {
           );
           const account = (accountResult.rows as { username: string }[])[0];
           name = account?.username ?? "Player";
-          hpMax = 100; // TODO: Get from player stats
+          const stats = await getPlayerStats(player);
+          ({ hpMax, atk, def, initiative } = stats);
         }
       } else {
         const [enemy] = await db
@@ -427,7 +421,9 @@ async function loadCombatInstance(combatId: string): Promise<CombatInstance> {
             ? JSON.parse(enemy.rawPropertiesJson)
             : {};
           hpMax = props.hp ?? BOSS_HP_BASE;
-          initiative = props.initiative ?? 100;
+          atk = props.atk ?? props.attack ?? 10;
+          def = props.def ?? props.defense ?? 0;
+          initiative = props.initiative ?? 0;
         }
       }
 
@@ -436,11 +432,16 @@ async function loadCombatInstance(combatId: string): Promise<CombatInstance> {
         entityType: c.entityType,
         entityId: c.entityId,
         teamId: c.teamId ?? undefined,
-        hpCurrent: c.hpCurrent,
+        hpCurrent: Math.min(c.hpCurrent, hpMax),
         hpMax,
+        atk,
+        def,
         initiative,
         name,
         isDowned: c.hpCurrent <= 0,
+        activeEffects: [],
+        shield: 0,
+        cooldowns: [],
       };
     }),
   );

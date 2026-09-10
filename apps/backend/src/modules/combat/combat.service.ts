@@ -10,12 +10,16 @@ import {
   combatActions,
   combatActionSubmissions,
   pvpChallenges,
+  statusEffectInstances,
+  statusEffectDefinitions,
+  abilityCooldowns,
 } from "../../db/schema/combat.js";
 import { players, teams } from "../../db/schema/player.js";
 import { worldObjects } from "../../db/schema/world.js";
 import { ledgerEntries } from "../../db/schema/economy.js";
 import type { WsHub } from "../ws/ws.hub.js";
 import { randomUUID } from "node:crypto";
+import { getPlayerStats } from "../player/player-stats.service.js";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -45,9 +49,39 @@ export interface Combatant {
   teamId?: string | undefined;
   hpCurrent: number;
   hpMax: number;
+  atk: number;
+  def: number;
   initiative: number;
   name: string;
   isDowned: boolean;
+  activeEffects: ActiveStatusEffect[];
+  shield: number;
+  cooldowns: AbilityCooldownState[];
+}
+
+export interface ActiveStatusEffect {
+  id: string;
+  effectId: string;
+  sourceId: string;
+  targetId: string;
+  appliedRound: number;
+  expiresAfterRound: number | null;
+  stacks: number;
+  magnitudeOverrides?: Record<string, number>;
+  remainingTriggers?: number;
+  remainingDurationRounds: number | null;
+  shieldRemaining?: number;
+}
+
+export interface AbilityCooldownState {
+  id: string;
+  combatantId: string;
+  abilityId: string;
+  activatedRound: number;
+  readyAfterRound: number;
+  remainingRounds: number;
+  isReady: boolean;
+  deactivationReason?: string;
 }
 
 export interface CombatAction {
@@ -127,6 +161,7 @@ export async function startPvECombat(opts: {
   // Create combatants for players
   const playerCombatants = await Promise.all(
     teamPlayers.map(async (player) => {
+      const stats = await getPlayerStats(player);
       const results = await db
         .insert(combatants)
         .values({
@@ -134,7 +169,7 @@ export async function startPvECombat(opts: {
           entityType: "PLAYER",
           entityId: player.id,
           teamId: player.teamId,
-          hpCurrent: player.hpCurrent,
+          hpCurrent: Math.min(player.hpCurrent, stats.hpMax),
         })
         .returning();
       const combatant = results[0];
@@ -149,7 +184,6 @@ export async function startPvECombat(opts: {
     ? JSON.parse(enemy.rawPropertiesJson)
     : {};
   const enemyHp = enemyProps.hp ?? 100;
-  const enemyInitiative = enemyProps.initiative ?? 50;
 
   const enemyResults = await db
     .insert(combatants)
@@ -212,20 +246,31 @@ export async function getCombatInstance(combatId: string): Promise<CombatInstanc
     .from(combatActions)
     .where(eq(combatActions.combatInstanceId, combatId));
 
+  const effectsData = await db.select().from(statusEffectInstances)
+    .where(eq(statusEffectInstances.combatInstanceId, combatId));
+  const cooldownData = await db.select().from(abilityCooldowns)
+    .where(eq(abilityCooldowns.combatInstanceId, combatId));
+
   // Enrich combatants with names
   const enrichedCombatants: Combatant[] = await Promise.all(
     combatantsData.map(async (c) => {
       let name = "Unknown";
-      let hpMax = 100;
+      let hpMax = 0;
+      let atk = 0;
+      let def = 0;
+      let initiative = 0;
 
       if (c.entityType === "PLAYER") {
         const [player] = await db
-          .select({ accountId: players.accountId })
+          .select()
           .from(players)
           .where(eq(players.id, c.entityId));
         // For simplicity, use entityId as name
         name = player?.accountId.substring(0, 8) ?? "Player";
-        hpMax = 100; // Default player HP
+        if (player) {
+          const stats = await getPlayerStats(player);
+          ({ hpMax, atk, def, initiative } = stats);
+        }
       } else if (c.entityType === "ENEMY") {
         const [enemy] = await db
           .select()
@@ -236,6 +281,9 @@ export async function getCombatInstance(combatId: string): Promise<CombatInstanc
           ? JSON.parse(enemy.rawPropertiesJson)
           : {};
         hpMax = enemyProps.hp ?? 100;
+        atk = enemyProps.atk ?? enemyProps.attack ?? 10;
+        def = enemyProps.def ?? enemyProps.defense ?? 0;
+        initiative = enemyProps.initiative ?? 0;
       }
 
       return {
@@ -243,11 +291,51 @@ export async function getCombatInstance(combatId: string): Promise<CombatInstanc
         entityType: c.entityType as "PLAYER" | "ENEMY",
         entityId: c.entityId,
         teamId: c.teamId ?? undefined,
-        hpCurrent: c.hpCurrent,
+        hpCurrent: Math.min(c.hpCurrent, hpMax),
         hpMax,
-        initiative: 50, // TODO: calculate from stats
+        atk,
+        def,
+        initiative,
         name,
         isDowned: c.hpCurrent <= 0,
+        activeEffects: effectsData.filter((effect) => effect.targetId === c.id
+          && (effect.expiresAfterRound === null || effect.expiresAfterRound >= combat.roundNumber)
+          && (effect.remainingTriggers === null || effect.remainingTriggers > 0)).map((effect) => ({
+          id: effect.id,
+          effectId: effect.effectId,
+          sourceId: effect.sourceId,
+          targetId: effect.targetId,
+          appliedRound: effect.appliedRound,
+          expiresAfterRound: effect.expiresAfterRound,
+          stacks: effect.stacks,
+          ...(effect.magnitudeOverrides ? { magnitudeOverrides: effect.magnitudeOverrides } : {}),
+          ...(effect.remainingTriggers !== null ? { remainingTriggers: effect.remainingTriggers } : {}),
+          remainingDurationRounds: effect.expiresAfterRound === null
+            ? null
+            : Math.max(0, effect.expiresAfterRound - combat.roundNumber + 1),
+          ...(effect.shieldRemaining !== null ? { shieldRemaining: effect.shieldRemaining } : {}),
+        })),
+        // Shields from distinct effects and sources add, but never above 50% maxHP.
+        shield: Math.min(hpMax * 0.5, effectsData.filter((effect) => effect.targetId === c.id
+          && (effect.expiresAfterRound === null || effect.expiresAfterRound >= combat.roundNumber)
+          && (effect.remainingTriggers === null || effect.remainingTriggers > 0))
+          .reduce((sum, effect) => sum + (effect.shieldRemaining ?? 0), 0)),
+        cooldowns: cooldownData.filter((cooldown) => cooldown.combatantId === c.id).map((cooldown) => {
+          const remainingRounds = Math.max(0, cooldown.readyAfterRound - combat.roundNumber + 1);
+          return {
+            id: cooldown.id,
+            combatantId: cooldown.combatantId,
+            abilityId: cooldown.abilityId,
+            activatedRound: cooldown.activatedRound,
+            readyAfterRound: cooldown.readyAfterRound,
+            remainingRounds,
+            isReady: remainingRounds === 0,
+            ...(remainingRounds > 0 ? {
+              deactivationReason: cooldown.deactivationReason
+                ?? `Noch ${remainingRounds} ${remainingRounds === 1 ? "Runde" : "Runden"} Abklingzeit`,
+            } : {}),
+          };
+        }),
       };
     })
   );
@@ -413,10 +501,21 @@ export async function lockAndResolveRound(
       .set({ state: "COMPLETED" })
       .where(eq(combatInstances.id, combatId));
 
+    // Ordinary combat effects must not leak into subsequent encounters.
+    await db.delete(statusEffectInstances).where(and(
+      eq(statusEffectInstances.combatInstanceId, combatId),
+      sql`${statusEffectInstances.effectId} in (
+        select id from ${statusEffectDefinitions}
+        where ${statusEffectDefinitions.persistenceScope} = 'COMBAT'
+      )`,
+    ));
+
+    const completedCombat = await getCombatInstance(combatId);
+
     if (wsHub && updatedCombat.combatants[0]?.teamId) {
       wsHub.sendToTeam(updatedCombat.combatants[0].teamId, {
         event: "combat:completed",
-        data: { combatId, logs },
+        data: { combatId, logs, combatants: completedCombat.combatants },
       });
     }
   } else {
@@ -434,7 +533,12 @@ export async function lockAndResolveRound(
     if (wsHub && updatedCombat.combatants[0]?.teamId) {
       wsHub.sendToTeam(updatedCombat.combatants[0].teamId, {
         event: "combat:round_resolved",
-        data: { combatId, round: roundNumber + 1, logs },
+        data: {
+          combatId,
+          round: roundNumber + 1,
+          logs,
+          combatants: (await getCombatInstance(combatId)).combatants,
+        },
       });
     }
   }
@@ -527,14 +631,7 @@ async function resolveRound(combatId: string, wsHub?: WsHub): Promise<CombatLog[
  * Calculate damage for an attack.
  */
 function calculateDamage(attacker: Combatant, defender: Combatant): number {
-  // Base damage
-  let damage = 10 + Math.floor(Math.random() * 10); // 10-20
-
-  // TODO: Apply attacker's equipped weapon bonuses
-  // TODO: Apply defender's equipped armor bonuses
-  // TODO: Apply buffs/debuffs
-
-  return Math.max(1, damage);
+  return Math.max(1, Math.round(attacker.atk - defender.def / 2));
 }
 
 /**
@@ -598,7 +695,8 @@ export async function handleTeamWipe(opts: {
     .where(eq(players.teamId, teamId));
 
   for (const player of teamPlayers) {
-    const respawnHp = Math.floor(100 * RESPAWN_HP_PERCENTAGE);
+    const { hpMax } = await getPlayerStats(player);
+    const respawnHp = Math.floor(hpMax * RESPAWN_HP_PERCENTAGE);
     await db
       .update(players)
       .set({
@@ -641,8 +739,9 @@ export async function regenerateHPOutOfCombat(playerId: string): Promise<void> {
   if (activeCombat) return;
 
   // Regenerate HP
-  const newHp = Math.min(100, player.hpCurrent + HP_REGEN_OUT_OF_COMBAT);
-  if (newHp > player.hpCurrent) {
+  const { hpMax } = await getPlayerStats(player);
+  const newHp = Math.min(hpMax, player.hpCurrent + HP_REGEN_OUT_OF_COMBAT);
+  if (newHp !== player.hpCurrent) {
     await db
       .update(players)
       .set({ hpCurrent: newHp })
@@ -1001,21 +1100,23 @@ async function startPvPCombat(opts: {
   // Create combatants for both teams
   await Promise.all([
     ...attackerPlayers.map(async (player) => {
+      const { hpMax } = await getPlayerStats(player);
       await db.insert(combatants).values({
         combatInstanceId: combat.id,
         entityType: "PLAYER",
         entityId: player.id,
         teamId: player.teamId,
-        hpCurrent: player.hpCurrent,
+        hpCurrent: Math.min(player.hpCurrent, hpMax),
       });
     }),
     ...defenderPlayers.map(async (player) => {
+      const { hpMax } = await getPlayerStats(player);
       await db.insert(combatants).values({
         combatInstanceId: combat.id,
         entityType: "PLAYER",
         entityId: player.id,
         teamId: player.teamId,
-        hpCurrent: player.hpCurrent,
+        hpCurrent: Math.min(player.hpCurrent, hpMax),
       });
     }),
   ]);
