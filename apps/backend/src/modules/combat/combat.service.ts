@@ -10,6 +10,9 @@ import {
   combatActions,
   combatActionSubmissions,
   pvpChallenges,
+  statusEffectInstances,
+  statusEffectDefinitions,
+  abilityCooldowns,
 } from "../../db/schema/combat.js";
 import { players, teams } from "../../db/schema/player.js";
 import { worldObjects } from "../../db/schema/world.js";
@@ -48,6 +51,34 @@ export interface Combatant {
   initiative: number;
   name: string;
   isDowned: boolean;
+  activeEffects: ActiveStatusEffect[];
+  shield: number;
+  cooldowns: AbilityCooldownState[];
+}
+
+export interface ActiveStatusEffect {
+  id: string;
+  effectId: string;
+  sourceId: string;
+  targetId: string;
+  appliedRound: number;
+  expiresAfterRound: number | null;
+  stacks: number;
+  magnitudeOverrides?: Record<string, number>;
+  remainingTriggers?: number;
+  remainingDurationRounds: number | null;
+  shieldRemaining?: number;
+}
+
+export interface AbilityCooldownState {
+  id: string;
+  combatantId: string;
+  abilityId: string;
+  activatedRound: number;
+  readyAfterRound: number;
+  remainingRounds: number;
+  isReady: boolean;
+  deactivationReason?: string;
 }
 
 export interface CombatAction {
@@ -212,6 +243,11 @@ export async function getCombatInstance(combatId: string): Promise<CombatInstanc
     .from(combatActions)
     .where(eq(combatActions.combatInstanceId, combatId));
 
+  const effectsData = await db.select().from(statusEffectInstances)
+    .where(eq(statusEffectInstances.combatInstanceId, combatId));
+  const cooldownData = await db.select().from(abilityCooldowns)
+    .where(eq(abilityCooldowns.combatInstanceId, combatId));
+
   // Enrich combatants with names
   const enrichedCombatants: Combatant[] = await Promise.all(
     combatantsData.map(async (c) => {
@@ -248,6 +284,44 @@ export async function getCombatInstance(combatId: string): Promise<CombatInstanc
         initiative: 50, // TODO: calculate from stats
         name,
         isDowned: c.hpCurrent <= 0,
+        activeEffects: effectsData.filter((effect) => effect.targetId === c.id
+          && (effect.expiresAfterRound === null || effect.expiresAfterRound >= combat.roundNumber)
+          && (effect.remainingTriggers === null || effect.remainingTriggers > 0)).map((effect) => ({
+          id: effect.id,
+          effectId: effect.effectId,
+          sourceId: effect.sourceId,
+          targetId: effect.targetId,
+          appliedRound: effect.appliedRound,
+          expiresAfterRound: effect.expiresAfterRound,
+          stacks: effect.stacks,
+          ...(effect.magnitudeOverrides ? { magnitudeOverrides: effect.magnitudeOverrides } : {}),
+          ...(effect.remainingTriggers !== null ? { remainingTriggers: effect.remainingTriggers } : {}),
+          remainingDurationRounds: effect.expiresAfterRound === null
+            ? null
+            : Math.max(0, effect.expiresAfterRound - combat.roundNumber + 1),
+          ...(effect.shieldRemaining !== null ? { shieldRemaining: effect.shieldRemaining } : {}),
+        })),
+        // Shields from distinct effects and sources add, but never above 50% maxHP.
+        shield: Math.min(hpMax * 0.5, effectsData.filter((effect) => effect.targetId === c.id
+          && (effect.expiresAfterRound === null || effect.expiresAfterRound >= combat.roundNumber)
+          && (effect.remainingTriggers === null || effect.remainingTriggers > 0))
+          .reduce((sum, effect) => sum + (effect.shieldRemaining ?? 0), 0)),
+        cooldowns: cooldownData.filter((cooldown) => cooldown.combatantId === c.id).map((cooldown) => {
+          const remainingRounds = Math.max(0, cooldown.readyAfterRound - combat.roundNumber + 1);
+          return {
+            id: cooldown.id,
+            combatantId: cooldown.combatantId,
+            abilityId: cooldown.abilityId,
+            activatedRound: cooldown.activatedRound,
+            readyAfterRound: cooldown.readyAfterRound,
+            remainingRounds,
+            isReady: remainingRounds === 0,
+            ...(remainingRounds > 0 ? {
+              deactivationReason: cooldown.deactivationReason
+                ?? `Noch ${remainingRounds} ${remainingRounds === 1 ? "Runde" : "Runden"} Abklingzeit`,
+            } : {}),
+          };
+        }),
       };
     })
   );
@@ -413,10 +487,21 @@ export async function lockAndResolveRound(
       .set({ state: "COMPLETED" })
       .where(eq(combatInstances.id, combatId));
 
+    // Ordinary combat effects must not leak into subsequent encounters.
+    await db.delete(statusEffectInstances).where(and(
+      eq(statusEffectInstances.combatInstanceId, combatId),
+      sql`${statusEffectInstances.effectId} in (
+        select id from ${statusEffectDefinitions}
+        where ${statusEffectDefinitions.persistenceScope} = 'COMBAT'
+      )`,
+    ));
+
+    const completedCombat = await getCombatInstance(combatId);
+
     if (wsHub && updatedCombat.combatants[0]?.teamId) {
       wsHub.sendToTeam(updatedCombat.combatants[0].teamId, {
         event: "combat:completed",
-        data: { combatId, logs },
+        data: { combatId, logs, combatants: completedCombat.combatants },
       });
     }
   } else {
@@ -434,7 +519,12 @@ export async function lockAndResolveRound(
     if (wsHub && updatedCombat.combatants[0]?.teamId) {
       wsHub.sendToTeam(updatedCombat.combatants[0].teamId, {
         event: "combat:round_resolved",
-        data: { combatId, round: roundNumber + 1, logs },
+        data: {
+          combatId,
+          round: roundNumber + 1,
+          logs,
+          combatants: (await getCombatInstance(combatId)).combatants,
+        },
       });
     }
   }
