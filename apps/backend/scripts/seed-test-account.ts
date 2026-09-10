@@ -13,19 +13,20 @@ import { accounts, sessions } from "../src/db/schema/account.js";
 import { teams, players } from "../src/db/schema/player.js";
 import { hashAccessCode } from "../src/modules/auth/auth.service.js";
 import { eq } from "drizzle-orm";
+import { CLASSES } from "../src/modules/classes/class-rules.js";
 
 const FIXTURES = [
   {
     accessCode: "test1234",
     username: "testuser",
     teamName: "Die Testgilde",
-    class: "GARDIST" as const,
+    class: "guard" as const,
   },
   {
     accessCode: "test5678",
     username: "testuser2",
     teamName: "Die Rivalen",
-    class: "HÄNDLER" as const,
+    class: "sculptor" as const,
   },
 ];
 
@@ -71,7 +72,7 @@ async function upsertFixture(opts: (typeof FIXTURES)[number]) {
     accountId: account!.id,
     teamId: team!.id,
     class: opts.class,
-    hpCurrent: 100,
+    hpCurrent: CLASSES[opts.class].baseStats.maxHP,
     status: "ACTIVE",
   });
 

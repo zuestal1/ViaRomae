@@ -20,6 +20,7 @@ import { gmCommandsRoutes } from "./modules/gm/gm-commands.routes.js";
 import { eventLifecycleRoutes } from "./modules/gm/event-lifecycle.routes.js";
 import { gmDashboardRoutes } from "./modules/gm/gm-dashboard.routes.js";
 import { seedControlRoutes } from "./modules/gm/seed-control.routes.js";
+import { classRoutes } from "./modules/classes/class.routes.js";
 import { errorHandler } from "./plugins/error-handler.js";
 import { WsHub } from "./modules/ws/ws.hub.js";
 import { WsEventCleanup } from "./modules/ws/ws.cleanup.js";
@@ -113,6 +114,7 @@ await server.register(gmCommandsRoutes, { prefix: "/api/v1/gm" });
 await server.register(eventLifecycleRoutes, { prefix: "/api/v1/gm" });
 await server.register(gmDashboardRoutes, { prefix: "/api/v1/gm" });
 await server.register(seedControlRoutes, { prefix: "/api/v1/gm" });
+await server.register(classRoutes, { prefix: "/api/v1/classes" });
 
 // ── Health check ──────────────────────────────────────────────────────────────
 server.get("/health", async () => ({ status: "ok" }));
@@ -132,4 +134,3 @@ try {
   server.log.error(err);
   process.exit(1);
 }
-

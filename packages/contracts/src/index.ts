@@ -5,6 +5,7 @@
 
 export * from "./schemas/auth.js";
 export * from "./schemas/player.js";
+export * from "./schemas/classes.js";
 export * from "./schemas/world.js";
 export * from "./schemas/quest.js";
 export * from "./schemas/combat.js";

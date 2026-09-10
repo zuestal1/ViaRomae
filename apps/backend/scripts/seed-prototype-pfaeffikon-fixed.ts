@@ -117,8 +117,8 @@ async function seedPrototype() {
     console.log('\n🎮 Creating test players...');
 
     const testPlayers = [
-      { id: IDS.player1, accountId: IDS.account1, playerName: 'Spieler 1', playerClass: 'GARDIST' as const },
-      { id: IDS.player2, accountId: IDS.account2, playerName: 'Spieler 2', playerClass: 'SPÄHER'  as const },
+      { id: IDS.player1, accountId: IDS.account1, playerName: 'Spieler 1', playerClass: 'guard' as const, hp: 120 },
+      { id: IDS.player2, accountId: IDS.account2, playerName: 'Spieler 2', playerClass: 'condottiere' as const, hp: 100 },
     ];
 
     for (const p of testPlayers) {
@@ -128,7 +128,7 @@ async function seedPrototype() {
           accountId: p.accountId,
           teamId:    IDS.team,
           class:     p.playerClass,
-          hpCurrent: 100,
+          hpCurrent: p.hp,
           status:    'ACTIVE',
           playerName: p.playerName,
         })
@@ -136,7 +136,7 @@ async function seedPrototype() {
           target: players.id,
           set: {
             teamId:    IDS.team,
-            hpCurrent: 100,
+            hpCurrent: p.hp,
             status:    'ACTIVE',
             playerName: p.playerName,
           },

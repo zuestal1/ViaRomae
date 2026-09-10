@@ -46,6 +46,8 @@ export const CombatantSchema = z.object({
   initiative: z.number(),
   name: z.string(),
   isDowned: z.boolean(),
+  attack: z.number(),
+  defense: z.number(),
 });
 export type Combatant = z.infer<typeof CombatantSchema>;
 

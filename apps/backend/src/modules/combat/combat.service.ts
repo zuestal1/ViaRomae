@@ -16,6 +16,8 @@ import { worldObjects } from "../../db/schema/world.js";
 import { ledgerEntries } from "../../db/schema/economy.js";
 import type { WsHub } from "../ws/ws.hub.js";
 import { randomUUID } from "node:crypto";
+import { CLASSES, damage as calculateGddDamage } from "../classes/class-rules.js";
+import type { ClassId } from "@jlw/contracts";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -48,6 +50,8 @@ export interface Combatant {
   initiative: number;
   name: string;
   isDowned: boolean;
+  attack?: number;
+  defense?: number;
 }
 
 export interface CombatAction {
@@ -217,15 +221,22 @@ export async function getCombatInstance(combatId: string): Promise<CombatInstanc
     combatantsData.map(async (c) => {
       let name = "Unknown";
       let hpMax = 100;
+      let attack = 10;
+      let defense = 10;
+      let initiative = 8;
 
       if (c.entityType === "PLAYER") {
         const [player] = await db
-          .select({ accountId: players.accountId })
+          .select({ accountId: players.accountId, class: players.class })
           .from(players)
           .where(eq(players.id, c.entityId));
         // For simplicity, use entityId as name
         name = player?.accountId.substring(0, 8) ?? "Player";
-        hpMax = 100; // Default player HP
+        const stats = CLASSES[player!.class as ClassId].baseStats;
+        hpMax = stats.maxHP;
+        attack = stats.atk;
+        defense = stats.def;
+        initiative = stats.initiative;
       } else if (c.entityType === "ENEMY") {
         const [enemy] = await db
           .select()
@@ -236,6 +247,9 @@ export async function getCombatInstance(combatId: string): Promise<CombatInstanc
           ? JSON.parse(enemy.rawPropertiesJson)
           : {};
         hpMax = enemyProps.hp ?? 100;
+        attack = enemyProps.atk ?? 10;
+        defense = enemyProps.def ?? 10;
+        initiative = enemyProps.initiative ?? 8;
       }
 
       return {
@@ -245,9 +259,11 @@ export async function getCombatInstance(combatId: string): Promise<CombatInstanc
         teamId: c.teamId ?? undefined,
         hpCurrent: c.hpCurrent,
         hpMax,
-        initiative: 50, // TODO: calculate from stats
+        initiative,
         name,
         isDowned: c.hpCurrent <= 0,
+        attack,
+        defense,
       };
     })
   );
@@ -527,14 +543,7 @@ async function resolveRound(combatId: string, wsHub?: WsHub): Promise<CombatLog[
  * Calculate damage for an attack.
  */
 function calculateDamage(attacker: Combatant, defender: Combatant): number {
-  // Base damage
-  let damage = 10 + Math.floor(Math.random() * 10); // 10-20
-
-  // TODO: Apply attacker's equipped weapon bonuses
-  // TODO: Apply defender's equipped armor bonuses
-  // TODO: Apply buffs/debuffs
-
-  return Math.max(1, damage);
+  return calculateGddDamage(attacker.attack ?? 10, 1, defender.defense ?? 10);
 }
 
 /**

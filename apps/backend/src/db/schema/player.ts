@@ -10,11 +10,7 @@ import {
 import { accounts } from "./account.js";
 
 export const playerClassEnum = pgEnum("player_class", [
-  "GARDIST",
-  "MÖNCH",
-  "HÄNDLER",
-  "SPÄHER",
-  "MAGIER",
+  "guard", "cleric", "sculptor", "condottiere",
 ]);
 
 export const playerStatusEnum = pgEnum("player_status", ["ACTIVE", "DOWNED"]);
@@ -38,6 +34,8 @@ export const players = pgTable("player", {
     .notNull()
     .references(() => teams.id),
   class: playerClassEnum("class").notNull(),
+  classBoundAt: timestamp("class_bound_at", { withTimezone: true }),
+  lastRegenCalculationAt: timestamp("last_regen_calculation_at", { withTimezone: true }).notNull().defaultNow(),
   hpCurrent: integer("hp_current").notNull().default(100),
   status: playerStatusEnum("status").notNull().default("ACTIVE"),
   // PostGIS point stored as raw lat/lng for initial Epic 2; migrate to geometry later.
