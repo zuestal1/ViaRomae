@@ -19,7 +19,7 @@ import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { existsSync } from 'fs';
-import { eq, sql } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 import { hashAccessCode } from '../src/modules/auth/auth.service.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -53,6 +53,20 @@ interface GeoJSONFeatureCollection {
   type: string;
   features: GeoJSONFeature[];
   metadata?: Record<string, unknown>;
+}
+
+function pointCoordinates(feature: GeoJSONFeature): [lng: number, lat: number] | null {
+  if (feature.geometry.type === 'Point') {
+    const [lng, lat] = feature.geometry.coordinates as number[];
+    return lng === undefined || lat === undefined ? null : [lng, lat];
+  }
+  if (feature.geometry.type === 'Polygon') {
+    const firstPoint = (feature.geometry.coordinates as number[][][])[0]?.[0];
+    if (!firstPoint) return null;
+    const [lng, lat] = firstPoint;
+    return lng === undefined || lat === undefined ? null : [lng, lat];
+  }
+  return null;
 }
 
 async function seedPrototype() {
@@ -165,15 +179,12 @@ async function seedPrototype() {
           continue;
         }
 
-        let lat: number, lng: number;
-        if (feature.geometry.type === 'Point') {
-          [lng, lat] = feature.geometry.coordinates as number[];
-        } else if (feature.geometry.type === 'Polygon') {
-          [lng, lat] = (feature.geometry.coordinates as number[][][])[0][0];
-        } else {
+        const coordinates = pointCoordinates(feature);
+        if (!coordinates) {
           skipped++;
           continue;
         }
+        const [lng, lat] = coordinates;
 
         let objectType: string;
         if (featureType === 'location_candidate') {
@@ -209,11 +220,12 @@ async function seedPrototype() {
             lng,
             // geom will be set via raw SQL below
             interactionRadiusM: (props['standard_interaction_radius_m'] as number) || (props['interaction_radius_m'] as number) || 15,
-            exitRadiusM:        (props['exit_radius_m'] as number) || 25,
+            exitHysteresisRadiusM: (props['exit_radius_m'] as number) || 25,
             discoveryRadiusM:   (props['discovery_radius_m'] as number) || 55,
             aggroRadiusM:       (props['aggro_radius_m'] as number) || 20,
             publishable:        true, // Prototype objects must always be discoverable
-            metadata: { featureType, day: props['day'] || 'PROTOTYPE', prototype: true, ...props },
+            day:                (props['day'] as string) || 'PROTOTYPE',
+            rawPropertiesJson: JSON.stringify({ featureType, prototype: true, ...props }),
           })
           .onConflictDoUpdate({
             target: worldObjects.externalId,
@@ -222,8 +234,7 @@ async function seedPrototype() {
               lat,
               lng,
               publishable: true, // Ensure upgrade from false → true on re-run
-              // ✅ FIX: Update PostGIS geom column so WorldObjects are discoverable
-              geom:        sql`ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)`,
+              rawPropertiesJson: JSON.stringify({ featureType, prototype: true, ...props }),
             },
           });
 
@@ -262,6 +273,10 @@ async function seedPrototype() {
         set: { title: 'Die drei Siegel der Schildwacht' },
       })
       .returning();
+
+    if (!quest) {
+      throw new Error('Quest PT-Q01 could not be created');
+    }
 
     console.log(`  ✓ Quest: ${quest.title} (${quest.id})`);
 
