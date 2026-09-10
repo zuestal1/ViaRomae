@@ -10,6 +10,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useWsEvent } from "../contexts/websocket.context.js";
+import { API_BASE } from "../lib/api.js";
 import type {
   CombatInstance,
   CombatLog,
@@ -17,24 +18,27 @@ import type {
   CombatStartedEvent,
   CombatRoundResolvedEvent,
   CombatCompletedEvent,
-  CombatActionSubmittedEvent,
+  PvPChallengeStartedEvent,
+  PvPChallengeEscapedEvent,
 } from "@jlw/contracts";
 
-const API_BASE = import.meta.env.VITE_API_URL || "/api/v1";
+export type ActivePvPChallenge = PvPChallengeStartedEvent["data"];
 
 export function useCombat(playerId: string, token?: string) {
   const [activeCombat, setActiveCombat] = useState<CombatInstance | null>(null);
   const [logs, setLogs] = useState<CombatLog[]>([]);
+  const [activeChallenge, setActiveChallenge] =
+    useState<ActivePvPChallenge | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Fetch active combat for player's team
   const fetchActiveCombat = useCallback(async () => {
-    if (!token) return;
+    if (!playerId || !token) return;
 
     setIsLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/v1/combat/team/active`, {
+      const res = await fetch(`${API_BASE}/combat/team/active`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -53,7 +57,7 @@ export function useCombat(playerId: string, token?: string) {
     } finally {
       setIsLoading(false);
     }
-  }, [token]);
+  }, [playerId, token]);
 
   // Submit combat action
   const submitAction = useCallback(
@@ -65,7 +69,7 @@ export function useCombat(playerId: string, token?: string) {
 
       try {
         const res = await fetch(
-          `${API_BASE}/api/v1/combat/${activeCombat.id}/action`,
+          `${API_BASE}/combat/${activeCombat.id}/action`,
           {
             method: "POST",
             headers: {
@@ -98,8 +102,20 @@ export function useCombat(playerId: string, token?: string) {
   // Combat Started: Fetch full combat state
   useWsEvent("combat:started", useCallback((event: CombatStartedEvent) => {
     console.log("[Combat] Combat started:", event);
+    setActiveChallenge(null);
+    setLogs([]);
     void fetchActiveCombat();
   }, [fetchActiveCombat]));
+
+  useWsEvent<PvPChallengeStartedEvent>("pvp:challenge_started", useCallback((event: PvPChallengeStartedEvent) => {
+    setActiveChallenge(event.data);
+  }, []));
+
+  useWsEvent<PvPChallengeEscapedEvent>("pvp:challenge_escaped", useCallback((event: PvPChallengeEscapedEvent) => {
+    setActiveChallenge((current) =>
+      current?.challengeId === event.data.challengeId ? null : current,
+    );
+  }, []));
 
   // Combat Round Resolved: Update logs and state
   useWsEvent("combat:round_resolved", useCallback((event: CombatRoundResolvedEvent) => {
@@ -135,6 +151,7 @@ export function useCombat(playerId: string, token?: string) {
 
   return {
     activeCombat,
+    activeChallenge,
     logs,
     isLoading,
     error,

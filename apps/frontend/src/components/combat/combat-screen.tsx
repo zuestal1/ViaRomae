@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from "react";
-import { X, Sword, Shield, Zap, ArrowRight } from "lucide-react";
+import { Sword, Shield, Zap, ArrowRight } from "lucide-react";
 import type {
   CombatInstance,
   CombatLog,
@@ -15,17 +15,16 @@ import type {
 interface CombatScreenProps {
   combat: CombatInstance;
   playerId: string;
+  logs: CombatLog[];
   onSubmitAction: (actionType: ActionType, targetId?: string) => void;
-  onClose: () => void;
 }
 
 export function CombatScreen({
   combat,
   playerId,
+  logs,
   onSubmitAction,
-  onClose,
 }: CombatScreenProps) {
-  const [logs, setLogs] = useState<CombatLog[]>([]);
   const [selectedTarget, setSelectedTarget] = useState<string | null>(null);
 
   // Find player's combatant
@@ -91,12 +90,6 @@ export function CombatScreen({
             Round {combat.roundNumber} • {combat.state}
           </p>
         </div>
-        <button
-          onClick={onClose}
-          className="p-2 rounded-full bg-gray-800 hover:bg-gray-700"
-        >
-          <X className="w-6 h-6 text-white" />
-        </button>
       </div>
 
       {/* Main Content */}

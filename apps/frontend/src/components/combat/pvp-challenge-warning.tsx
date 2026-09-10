@@ -4,14 +4,13 @@
  */
 
 import { useState, useEffect } from "react";
-import { AlertTriangle, ArrowRight } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 
 interface PvPChallengeWarningProps {
   challengeId: string;
   role: "attacker" | "defender";
   opponentTeamId: string;
   expiresAt: string;
-  onEscape?: () => void;
 }
 
 export function PvPChallengeWarning({
@@ -19,7 +18,6 @@ export function PvPChallengeWarning({
   role,
   opponentTeamId,
   expiresAt,
-  onEscape,
 }: PvPChallengeWarningProps) {
   const [timeRemaining, setTimeRemaining] = useState(0);
 
@@ -74,6 +72,9 @@ export function PvPChallengeWarning({
               </p>
             </>
           )}
+          <p className="text-xs text-gray-400">
+            Opponent team: {opponentTeamId.substring(0, 8)}
+          </p>
         </div>
 
         {/* Timer */}
@@ -102,23 +103,12 @@ export function PvPChallengeWarning({
             ) : (
               <>
                 <strong className="text-red-400">Run!</strong> Get more than{" "}
-                <strong className="text-red-400">20m away</strong> or reach a{" "}
+                <strong className="text-red-400">30m away</strong> or reach a{" "}
                 <strong className="text-green-400">safe zone</strong> to escape!
               </>
             )}
           </p>
         </div>
-
-        {/* Escape Button (for defenders) */}
-        {role === "defender" && onEscape && (
-          <button
-            onClick={onEscape}
-            className="w-full py-3 rounded-lg bg-yellow-600 hover:bg-yellow-700 flex items-center justify-center gap-2 text-white font-semibold"
-          >
-            <ArrowRight className="w-5 h-5" />
-            <span>Keep Running!</span>
-          </button>
-        )}
 
         {/* Challenge ID (debug) */}
         <p className="text-xs text-gray-500 text-center">
