@@ -102,10 +102,10 @@ async function transferBundle(
         WHERE id = ${it.itemInstanceId}::uuid
       `);
       const defRes = await tx.execute(sql`
-        SELECT stackable, COALESCE(equip_slot, 'CONSUMABLE') AS slot
+        SELECT stackable, equip_slot AS slot, category
         FROM item_def WHERE key = ${defKey}
       `);
-      const def = (defRes.rows as { stackable: boolean; slot: string }[])[0];
+      const def = (defRes.rows as { stackable: boolean; slot: string | null; category: string }[])[0];
       if (def?.stackable) {
         const upd = await tx.execute(sql`
           UPDATE item_instance
@@ -118,10 +118,10 @@ async function transferBundle(
         if (upd.rows.length === 0) {
           await tx.execute(sql`
             INSERT INTO item_instance
-              (id, definition_id, owner_type, owner_id, quantity, slot, is_equipped, is_bound)
+              (id, definition_id, owner_type, owner_id, quantity, category, slot, is_equipped, is_bound)
             VALUES (
               gen_random_uuid(), ${defKey}, 'TEAM'::owner_type, ${receiverTeamId}::uuid,
-              ${it.quantity}, ${def.slot}::item_slot, false, false
+              ${it.quantity}, ${def.category}::item_category, ${def.slot}::item_slot, false, false
             )
           `);
         }
@@ -129,10 +129,10 @@ async function transferBundle(
         for (let k = 0; k < it.quantity; k++) {
           await tx.execute(sql`
             INSERT INTO item_instance
-              (id, definition_id, owner_type, owner_id, quantity, slot, is_equipped, is_bound)
+              (id, definition_id, owner_type, owner_id, quantity, category, slot, is_equipped, is_bound)
             VALUES (
               gen_random_uuid(), ${defKey}, 'TEAM'::owner_type, ${receiverTeamId}::uuid,
-              1, ${def?.slot ?? "CONSUMABLE"}::item_slot, false, false
+              1, ${def?.category ?? "EQUIPMENT"}::item_category, ${def?.slot ?? null}::item_slot, false, false
             )
           `);
         }

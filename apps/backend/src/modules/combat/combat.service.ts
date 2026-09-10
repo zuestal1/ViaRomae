@@ -16,6 +16,7 @@ import { worldObjects } from "../../db/schema/world.js";
 import { ledgerEntries } from "../../db/schema/economy.js";
 import type { WsHub } from "../ws/ws.hub.js";
 import { randomUUID } from "node:crypto";
+import { computeEquippedStats } from "../economy/inventory.service.js";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -46,6 +47,9 @@ export interface Combatant {
   hpCurrent: number;
   hpMax: number;
   initiative: number;
+  attack?: number;
+  defense?: number;
+  initiativeTieBreaker?: number;
   name: string;
   isDowned: boolean;
 }
@@ -217,6 +221,10 @@ export async function getCombatInstance(combatId: string): Promise<CombatInstanc
     combatantsData.map(async (c) => {
       let name = "Unknown";
       let hpMax = 100;
+      let initiative = 50;
+      let attack = 0;
+      let defense = 0;
+      let initiativeTieBreaker = 0;
 
       if (c.entityType === "PLAYER") {
         const [player] = await db
@@ -225,7 +233,12 @@ export async function getCombatInstance(combatId: string): Promise<CombatInstanc
           .where(eq(players.id, c.entityId));
         // For simplicity, use entityId as name
         name = player?.accountId.substring(0, 8) ?? "Player";
-        hpMax = 100; // Default player HP
+        const equipment = await computeEquippedStats("PLAYER", c.entityId);
+        hpMax = 100 + (equipment.maxHP ?? 0);
+        initiative = 50 + (equipment.INIT ?? 0);
+        attack = equipment.ATK ?? 0;
+        defense = equipment.DEF ?? 0;
+        initiativeTieBreaker = equipment.INIT_TIE_BREAKER ?? 0;
       } else if (c.entityType === "ENEMY") {
         const [enemy] = await db
           .select()
@@ -245,7 +258,10 @@ export async function getCombatInstance(combatId: string): Promise<CombatInstanc
         teamId: c.teamId ?? undefined,
         hpCurrent: c.hpCurrent,
         hpMax,
-        initiative: 50, // TODO: calculate from stats
+        initiative,
+        attack,
+        defense,
+        initiativeTieBreaker,
         name,
         isDowned: c.hpCurrent <= 0,
       };
@@ -458,7 +474,9 @@ async function resolveRound(combatId: string, wsHub?: WsHub): Promise<CombatLog[
   const sortedActions = roundActions.sort((a, b) => {
     const actorA = combat.combatants.find((c) => c.id === a.actorId);
     const actorB = combat.combatants.find((c) => c.id === b.actorId);
-    return (actorB?.initiative ?? 0) - (actorA?.initiative ?? 0);
+    const initiativeDifference = (actorB?.initiative ?? 0) - (actorA?.initiative ?? 0);
+    const tieBreakerDifference = (actorB?.initiativeTieBreaker ?? 0) - (actorA?.initiativeTieBreaker ?? 0);
+    return initiativeDifference || tieBreakerDifference || a.actorId.localeCompare(b.actorId);
   });
 
   // Execute actions in initiative order
@@ -530,8 +548,7 @@ function calculateDamage(attacker: Combatant, defender: Combatant): number {
   // Base damage
   let damage = 10 + Math.floor(Math.random() * 10); // 10-20
 
-  // TODO: Apply attacker's equipped weapon bonuses
-  // TODO: Apply defender's equipped armor bonuses
+  damage += (attacker.attack ?? 0) - (defender.defense ?? 0);
   // TODO: Apply buffs/debuffs
 
   return Math.max(1, damage);
@@ -641,7 +658,8 @@ export async function regenerateHPOutOfCombat(playerId: string): Promise<void> {
   if (activeCombat) return;
 
   // Regenerate HP
-  const newHp = Math.min(100, player.hpCurrent + HP_REGEN_OUT_OF_COMBAT);
+  const equipment = await computeEquippedStats("PLAYER", playerId);
+  const newHp = Math.min(100 + (equipment.maxHP ?? 0), player.hpCurrent + HP_REGEN_OUT_OF_COMBAT);
   if (newHp > player.hpCurrent) {
     await db
       .update(players)

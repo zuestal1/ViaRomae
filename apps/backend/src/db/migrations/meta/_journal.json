@@ -99,6 +99,13 @@
       "when": 1789056000000,
       "tag": "0013_combat_action_replacement",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1789056000001,
+      "tag": "0014_equipment_model",
+      "breakpoints": true
     }
   ]
 }
