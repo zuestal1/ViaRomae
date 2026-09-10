@@ -15,6 +15,7 @@ export const playerClassEnum = pgEnum("player_class", [
   "HÄNDLER",
   "SPÄHER",
   "MAGIER",
+  "SCULPTOR",
 ]);
 
 export const playerStatusEnum = pgEnum("player_status", ["ACTIVE", "DOWNED"]);
