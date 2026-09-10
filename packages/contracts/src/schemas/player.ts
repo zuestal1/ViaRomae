@@ -1,13 +1,10 @@
 import { z } from "zod";
 
 export const PlayerClassSchema = z.enum([
-  "GARDIST",
-  "MÖNCH",
-  "HÄNDLER",
-  "SPÄHER",
-  "MAGIER",
-  "BILDHAUER",
-  "CONDOTTIERE",
+  "swiss_guard",
+  "cleric",
+  "sculptor",
+  "condottiere",
 ]);
 export type PlayerClass = z.infer<typeof PlayerClassSchema>;
 

@@ -10,13 +10,10 @@ import {
 import { accounts } from "./account.js";
 
 export const playerClassEnum = pgEnum("player_class", [
-  "GARDIST",
-  "MÖNCH",
-  "HÄNDLER",
-  "SPÄHER",
-  "MAGIER",
-  "BILDHAUER",
-  "CONDOTTIERE",
+  "swiss_guard",
+  "cleric",
+  "sculptor",
+  "condottiere",
 ]);
 
 export const playerStatusEnum = pgEnum("player_status", ["ACTIVE", "DOWNED"]);
