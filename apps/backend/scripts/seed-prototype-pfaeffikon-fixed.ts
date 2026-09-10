@@ -118,7 +118,7 @@ async function seedPrototype() {
 
     const testPlayers = [
       { id: IDS.player1, accountId: IDS.account1, playerName: 'Spieler 1', playerClass: 'GARDIST' as const },
-      { id: IDS.player2, accountId: IDS.account2, playerName: 'Spieler 2', playerClass: 'SPÄHER'  as const },
+      { id: IDS.player2, accountId: IDS.account2, playerName: 'Spieler 2', playerClass: 'BILDHAUER' as const },
     ];
 
     for (const p of testPlayers) {

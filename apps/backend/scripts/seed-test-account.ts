@@ -25,7 +25,7 @@ const FIXTURES = [
     accessCode: "test5678",
     username: "testuser2",
     teamName: "Die Rivalen",
-    class: "HÄNDLER" as const,
+    class: "CONDOTTIERE" as const,
   },
 ];
 

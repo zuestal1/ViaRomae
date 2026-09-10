@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { PlayerClassSchema, PlayerStatusSchema } from "./player.js";
+import { CharacterStatsSchema, PlayerClassSchema } from "./character-class.js";
+import { PlayerStatusSchema } from "./player.js";
 
 export const RoleSchema = z.enum(["PLAYER", "GM", "ADMIN"]);
 export type Role = z.infer<typeof RoleSchema>;
@@ -34,6 +35,7 @@ export const MeResponseSchema = z.object({
       id: z.string().uuid(),
       class: PlayerClassSchema,
       hpCurrent: z.number().int().nonnegative(),
+      ...CharacterStatsSchema.shape,
       status: PlayerStatusSchema,
       team: z
         .object({

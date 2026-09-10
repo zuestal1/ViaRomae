@@ -15,6 +15,7 @@ import { accounts, sessions } from "../../db/schema/account.js";
 import { players, teams } from "../../db/schema/player.js";
 import type { MeResponse } from "@jlw/contracts";
 import { getTeamBalance } from "../economy/ledger.service.js";
+import { getPlayerStats } from "../player/player-stats.service.js";
 
 const scryptAsync = promisify<
   crypto.BinaryLike,
@@ -155,13 +156,15 @@ export async function getMe(accountId: string): Promise<MeResponse> {
     .select()
     .from(teams)
     .where(eq(teams.id, player.teamId));
+  const stats = await getPlayerStats(player);
 
   return {
     account: { id: account.id, username: account.username, role: account.role },
     player: {
       id: player.id,
       class: player.class,
-      hpCurrent: player.hpCurrent,
+      hpCurrent: Math.min(player.hpCurrent, stats.hpMax),
+      ...stats,
       status: player.status,
       team: team
         ? {
