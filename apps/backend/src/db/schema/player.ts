@@ -18,6 +18,7 @@ export const playerClassEnum = pgEnum("player_class", [
 ]);
 
 export const playerStatusEnum = pgEnum("player_status", ["ACTIVE", "DOWNED"]);
+export const fameTierEnum = pgEnum("fame_tier", ["N", "R", "SR", "SSR", "E", "L"]);
 
 export const teams = pgTable("team", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -27,6 +28,7 @@ export const teams = pgTable("team", {
   hp: integer("hp").notNull().default(400), // 4 players × 100 HP
   // Epic 9: Team active status
   isActive: integer("is_active").notNull().default(1), // 1 = active, 0 = inactive
+  highestFameTierReached: fameTierEnum("highest_fame_tier_reached").notNull().default("N"),
 });
 
 export const players = pgTable("player", {
@@ -39,6 +41,12 @@ export const players = pgTable("player", {
     .references(() => teams.id),
   class: playerClassEnum("class").notNull(),
   hpCurrent: integer("hp_current").notNull().default(100),
+  maxHp: integer("max_hp").notNull().default(100),
+  fameTierHpBonus: integer("fame_tier_hp_bonus").notNull().default(0),
+  highestFameTierReached: fameTierEnum("highest_fame_tier_reached").notNull().default("N"),
+  lastRegenCalculationAt: timestamp("last_regen_calculation_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
   status: playerStatusEnum("status").notNull().default("ACTIVE"),
   // PostGIS point stored as raw lat/lng for initial Epic 2; migrate to geometry later.
   lastLat: doublePrecision("last_lat"),

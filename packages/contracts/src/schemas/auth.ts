@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { PlayerClassSchema, PlayerStatusSchema } from "./player.js";
+import { FameTierSchema, PlayerClassSchema, PlayerStatusSchema } from "./player.js";
 
 export const RoleSchema = z.enum(["PLAYER", "GM", "ADMIN"]);
 export type Role = z.infer<typeof RoleSchema>;
@@ -34,6 +34,10 @@ export const MeResponseSchema = z.object({
       id: z.string().uuid(),
       class: PlayerClassSchema,
       hpCurrent: z.number().int().nonnegative(),
+      maxHp: z.number().int().positive(),
+      fameTierHpBonus: z.number().int().nonnegative(),
+      highestFameTierReached: FameTierSchema,
+      lastRegenCalculationAt: z.string().datetime(),
       status: PlayerStatusSchema,
       team: z
         .object({
@@ -42,6 +46,7 @@ export const MeResponseSchema = z.object({
           inventoryCapacity: z.number().int(),
           fame: z.number().int(),
           denarii: z.number().int(),
+          highestFameTierReached: FameTierSchema,
         })
         .nullable(),
     })

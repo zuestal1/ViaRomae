@@ -275,7 +275,7 @@ export async function submitGlobalAction(opts: {
       effect = "All players healed by 5 HP!";
       await db
         .update(combatants)
-        .set({ hpCurrent: sql`LEAST(hp_current + 5, 100)` })
+        .set({ hpCurrent: sql`LEAST(hp_current + 5, max_hp)` })
         .where(
           and(
             eq(combatants.combatInstanceId, combatId),
@@ -414,7 +414,7 @@ async function loadCombatInstance(combatId: string): Promise<CombatInstance> {
           );
           const account = (accountResult.rows as { username: string }[])[0];
           name = account?.username ?? "Player";
-          hpMax = 100; // TODO: Get from player stats
+          hpMax = player.maxHp;
         }
       } else {
         const [enemy] = await db

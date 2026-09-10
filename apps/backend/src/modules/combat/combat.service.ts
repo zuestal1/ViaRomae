@@ -16,6 +16,7 @@ import { worldObjects } from "../../db/schema/world.js";
 import { ledgerEntries } from "../../db/schema/economy.js";
 import type { WsHub } from "../ws/ws.hub.js";
 import { randomUUID } from "node:crypto";
+import { materializeHealthRegeneration, markTeamRegenStopped } from "./health-regeneration.service.js";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -23,7 +24,6 @@ const ROUND_TIMER_MS = 15_000; // 15 seconds per round
 const PVP_WARNING_TIMER_MS = 20_000; // 20 seconds warning before PvP
 const PVP_AGGRO_RADIUS_M = 20;
 const PVP_VISIBILITY_RADIUS_M = 60;
-const HP_REGEN_OUT_OF_COMBAT = 5; // HP per second when not in combat
 const RESPAWN_HP_PERCENTAGE = 0.5; // 50% HP after respawn
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -220,12 +220,12 @@ export async function getCombatInstance(combatId: string): Promise<CombatInstanc
 
       if (c.entityType === "PLAYER") {
         const [player] = await db
-          .select({ accountId: players.accountId })
+          .select({ accountId: players.accountId, maxHp: players.maxHp })
           .from(players)
           .where(eq(players.id, c.entityId));
         // For simplicity, use entityId as name
         name = player?.accountId.substring(0, 8) ?? "Player";
-        hpMax = 100; // Default player HP
+        hpMax = player?.maxHp ?? 100;
       } else if (c.entityType === "ENEMY") {
         const [enemy] = await db
           .select()
@@ -412,6 +412,8 @@ export async function lockAndResolveRound(
       .update(combatInstances)
       .set({ state: "COMPLETED" })
       .where(eq(combatInstances.id, combatId));
+    const completedTeamIds = [...new Set(updatedCombat.combatants.flatMap((c) => c.teamId ? [c.teamId] : []))];
+    await Promise.all(completedTeamIds.map((teamId) => markTeamRegenStopped(teamId)));
 
     if (wsHub && updatedCombat.combatants[0]?.teamId) {
       wsHub.sendToTeam(updatedCombat.combatants[0].teamId, {
@@ -598,7 +600,7 @@ export async function handleTeamWipe(opts: {
     .where(eq(players.teamId, teamId));
 
   for (const player of teamPlayers) {
-    const respawnHp = Math.floor(100 * RESPAWN_HP_PERCENTAGE);
+    const respawnHp = Math.floor(player.maxHp * RESPAWN_HP_PERCENTAGE);
     await db
       .update(players)
       .set({
@@ -629,25 +631,7 @@ export async function handleTeamWipe(opts: {
  * Regenerate HP out of combat.
  */
 export async function regenerateHPOutOfCombat(playerId: string): Promise<void> {
-  const [player] = await db
-    .select()
-    .from(players)
-    .where(eq(players.id, playerId));
-
-  if (!player || player.status === "DOWNED") return;
-
-  // Check if player is in combat
-  const activeCombat = await getActiveCombatForTeam(player.teamId);
-  if (activeCombat) return;
-
-  // Regenerate HP
-  const newHp = Math.min(100, player.hpCurrent + HP_REGEN_OUT_OF_COMBAT);
-  if (newHp > player.hpCurrent) {
-    await db
-      .update(players)
-      .set({ hpCurrent: newHp })
-      .where(eq(players.id, playerId));
-  }
+  await materializeHealthRegeneration(playerId);
 }
 
 // ── PvP Challenge System (Epic 6) ────────────────────────────────────────────
