@@ -10,10 +10,10 @@ type EquipmentStats = Partial<Record<StatName | `${StatName}Percent`, number>>;
 // GDD 5.6/7.2 values live only on the authoritative server. The shared package
 // describes the class identifiers and response shape, not a client-side table.
 const CLASS_BASE_STATS: Record<PlayerClass, CharacterStats> = {
-  GARDIST: { hpMax: 120, atk: 8, def: 14, initiative: 8 },
-  CLERIC: { hpMax: 90, atk: 7, def: 9, initiative: 10 },
-  BILDHAUER: { hpMax: 100, atk: 11, def: 10, initiative: 8 },
-  CONDOTTIERE: { hpMax: 100, atk: 14, def: 8, initiative: 12 },
+  guard: { hpMax: 120, atk: 8, def: 14, initiative: 8 },
+  cleric: { hpMax: 90, atk: 7, def: 9, initiative: 10 },
+  sculptor: { hpMax: 100, atk: 11, def: 10, initiative: 8 },
+  condottiere: { hpMax: 100, atk: 14, def: 8, initiative: 12 },
 };
 
 export interface StatModifiers {
@@ -73,6 +73,7 @@ function parseEquipmentStats(value: unknown): EquipmentStats {
 }
 
 export async function getPlayerStats(player: typeof players.$inferSelect): Promise<CharacterStats> {
+  if (!player.class) throw new Error("PLAYER_CLASS_NOT_CONFIRMED");
   const equipped = await db.select({ stats: itemDefs.stats }).from(itemInstances)
     .innerJoin(itemDefs, eq(itemDefs.key, itemInstances.definitionId))
     .where(and(eq(itemInstances.ownerId, player.id), eq(itemInstances.isEquipped, true)));

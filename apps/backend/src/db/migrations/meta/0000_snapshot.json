@@ -1574,11 +1574,10 @@
       "name": "player_class",
       "schema": "public",
       "values": [
-        "GARDIST",
-        "MÖNCH",
-        "HÄNDLER",
-        "SPÄHER",
-        "MAGIER"
+        "guard",
+        "cleric",
+        "sculptor",
+        "condottiere"
       ]
     },
     "public.player_status": {

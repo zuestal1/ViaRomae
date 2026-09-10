@@ -7,7 +7,7 @@ CREATE TYPE "public"."pvp_challenge_state" AS ENUM('WARNING', 'ESCAPED', 'COMBAT
 CREATE TYPE "public"."currency_type" AS ENUM('FAME', 'DENARII');--> statement-breakpoint
 CREATE TYPE "public"."item_slot" AS ENUM('WEAPON', 'ARMOR', 'ACCESSORY', 'CONSUMABLE');--> statement-breakpoint
 CREATE TYPE "public"."ledger_source" AS ENUM('QUEST', 'COMBAT', 'TRADE', 'STORE', 'ADMIN');--> statement-breakpoint
-CREATE TYPE "public"."player_class" AS ENUM('GARDIST', 'MÖNCH', 'HÄNDLER', 'SPÄHER', 'MAGIER');--> statement-breakpoint
+CREATE TYPE "public"."player_class" AS ENUM('guard', 'cleric', 'sculptor', 'condottiere');--> statement-breakpoint
 CREATE TYPE "public"."player_status" AS ENUM('ACTIVE', 'DOWNED');--> statement-breakpoint
 CREATE TYPE "public"."content_status" AS ENUM('DRAFT', 'FIELD_CHECK_REQUIRED', 'EDITORIAL_REVIEW', 'APPROVED');--> statement-breakpoint
 CREATE TYPE "public"."world_object_type" AS ENUM('LOCATION', 'ENEMY', 'NPC', 'STORE', 'BOSS', 'SAFE_ZONE');--> statement-breakpoint

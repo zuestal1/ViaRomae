@@ -72,9 +72,11 @@ export class EventLifecycleService {
       await tx.update(combatInstances).set({ state: "COMPLETED" })
         .where(sql`${combatInstances.state} <> 'COMPLETED' AND ${combatInstances.type} <> 'BOSS'`);
       const restored = await tx.update(players).set({
-        hpCurrent: sql`${players.maxHp}`,
+        hpCurrent: sql`CASE ${players.class}
+          WHEN 'guard' THEN 120 WHEN 'cleric' THEN 90
+          WHEN 'sculptor' THEN 100 WHEN 'condottiere' THEN 100
+          ELSE 100 END + ${players.fameTierHp} + ${players.permanentHp}`,
         status: "ACTIVE",
-        lastRegenCalculationAt: new Date(),
       }).returning({ id: players.id });
       await tx.update(eventState).set({ metadata: { ...metadata, currentDay: 2 }, updatedAt: new Date() })
         .where(eq(eventState.id, row.id));

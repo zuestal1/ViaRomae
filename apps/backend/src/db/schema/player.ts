@@ -45,10 +45,8 @@ export const players = pgTable("player", {
   classConfirmedAt: timestamp("class_confirmed_at", { withTimezone: true }),
   classAssignedBy: uuid("class_assigned_by").references(() => accounts.id),
   preflightCompletedAt: timestamp("preflight_completed_at", { withTimezone: true }),
-  hpCurrent: integer("hp_current").notNull().default(100),
-  class: playerClassEnum("class").notNull(),
   // Current HP is persisted; maximum HP and combat stats are always derived server-side.
-  hpCurrent: integer("hp_current").notNull(),
+  hpCurrent: integer("hp_current").notNull().default(100),
   fameTierHp: integer("fame_tier_hp").notNull().default(0),
   permanentHp: integer("permanent_hp").notNull().default(0),
   temporaryHp: integer("temporary_hp").notNull().default(0),

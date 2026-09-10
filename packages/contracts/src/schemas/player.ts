@@ -1,12 +1,7 @@
 import { z } from "zod";
 import { CharacterStatsSchema, PlayerClassSchema } from "./character-class.js";
 
-export const PlayerClassSchema = z.enum([
-  "guard",
-  "cleric",
-  "sculptor",
-  "condottiere",
-]);
+export const SelectablePlayerClassSchema = PlayerClassSchema;
 export type SelectablePlayerClass = z.infer<typeof SelectablePlayerClassSchema>;
 
 export const SelectClassRequestSchema = z.object({ class: SelectablePlayerClassSchema });

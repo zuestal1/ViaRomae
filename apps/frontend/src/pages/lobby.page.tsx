@@ -18,12 +18,12 @@ interface LobbyPageProps {
 
 // Class display names (German)
 const CLASS_LABELS: Record<string, string> = {
-  GARDIST: "⚔️ Gardist",
-  CLERIC: "🙏 Nonne/Mönch",
-  BILDHAUER: "🗿 Bildhauer",
-  CONDOTTIERE: "⚔️ Condottiere",
+  guard: "🛡️ Schweizer Gardist",
+  cleric: "🙏 Nonne/Mönch",
+  sculptor: "🗿 Bildhauer",
+  condottiere: "⚔️ Condottiere",
 };
-const SLOT_LABELS: Record<string, string> = { WEAPON: "Waffe", ARMOR: "Rüstung", ACCESSORY: "Accessoire", CONSUMABLE: "Verbrauchsitem" };
+const SLOT_LABELS: Record<string, string> = { WEAPON: "Waffe", CLOTHING: "Kleidung", DEFENSE: "Verteidigung", ARTIFACT: "Artefakt" };
 
 export function LobbyPage({ onEnterMap }: LobbyPageProps) {
   const { account, setProfile, logout } = useAuth();
@@ -131,7 +131,7 @@ export function LobbyPage({ onEnterMap }: LobbyPageProps) {
               {Object.entries({ ATK: me.player.stats.atk, DEF: me.player.stats.def, INIT: me.player.stats.init }).map(([label, value]) => <div key={label} className="rounded-lg bg-[#1a1a2e] p-2"><div className="text-xs text-[#888]">{label}</div><div className="font-bold text-[#f4e4c1]">{value}</div></div>)}
             </div>
             <section><h2 className="mb-2 text-xs uppercase tracking-widest text-[#cd7f32]">Ausrüstung</h2><div className="grid grid-cols-2 gap-2">{me.player.equipment.map((item) => <div key={item.slot} className="rounded border border-[#444] p-2 text-xs"><span className="text-[#888]">{SLOT_LABELS[item.slot]}</span><p className="text-[#f4e4c1]">{item.icon} {item.name ?? "Leer"}</p></div>)}</div></section>
-            <section><h2 className="mb-2 text-xs uppercase tracking-widest text-[#cd7f32]">Fähigkeiten</h2><div className="space-y-2">{me.player.abilities.map((ability) => <div key={ability.id} className="rounded bg-[#1a1a2e] p-3"><div className="font-bold text-[#f4e4c1]">{ability.icon} {ability.name} <span className="text-xs font-normal text-[#888]">{ability.kind === "STANDARD" ? "Standardangriff" : `Cooldown: ${ability.cooldownRounds}`}</span></div><p className="text-xs text-[#aaa]">{ability.description}{ability.valueLabel && ` · ${ability.value} ${ability.valueLabel}`}</p></div>)}</div></section>
+            <section><h2 className="mb-2 text-xs uppercase tracking-widest text-[#cd7f32]">Fähigkeiten</h2><div className="space-y-2">{me.player.abilities.map((ability) => <div key={ability.id} className="rounded bg-[#1a1a2e] p-3"><div className="font-bold text-[#f4e4c1]">⚔️ {ability.displayName} <span className="text-xs font-normal text-[#888]">{ability.passive ? "Passiv" : ability.cooldownRounds ? `Cooldown: ${ability.cooldownRounds}` : "Basisangriff"}</span></div><p className="text-xs text-[#aaa]">{ability.description}</p></div>)}</div></section>
             <section className="rounded border border-[#cd7f32]/20 p-3"><h2 className="font-bold text-[#f4e4c1]">{me.player.passive.icon} Passiv: {me.player.passive.name}</h2><p className="text-xs text-[#aaa]">{me.player.passive.description}</p></section>
             <section><h2 className="mb-2 text-xs uppercase tracking-widest text-[#cd7f32]">Aktive Statuseffekte</h2>{me.player.statusEffects.length ? me.player.statusEffects.map((effect) => <div key={effect.id} className="text-sm text-[#f4e4c1]">{effect.icon} {effect.name}: {effect.description} ({effect.remainingRounds} Runden)</div>) : <p className="text-xs text-[#888]">Keine aktiven Effekte</p>}</section>
             </> : <>

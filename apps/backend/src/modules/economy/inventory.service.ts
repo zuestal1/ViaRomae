@@ -11,8 +11,8 @@ export const RARITY_MULTIPLIERS = {
   N: 1, R: 1.25, SR: 1.55, SSR: 1.9, E: 2.3, L: 2.8,
 } as const;
 const CLASS_LABELS: Record<string, string> = {
-  GARDIST: "Schweizer Gardist", "MÖNCH": "Pilger", "HÄNDLER": "Händler",
-  "SPÄHER": "Späher", MAGIER: "Magier",
+  guard: "Schweizer Gardist", cleric: "Nonne / Mönch",
+  sculptor: "Bildhauer", condottiere: "Condottiere",
 };
 
 function httpError(message: string, statusCode: number): Error & { statusCode: number } {
@@ -306,9 +306,8 @@ export async function computeEquippedStats(ownerType: OwnerType, ownerId: string
 }
 
 const STARTER_WEAPON_BY_CLASS: Record<string, string> = {
-  GARDIST: "starter_gardist_hellebarde", "MÖNCH": "starter_moench_pilgerstab",
-  "HÄNDLER": "starter_haendler_hammer", "SPÄHER": "starter_spaeher_schwert",
-  MAGIER: "starter_magier_pilgerstab",
+  guard: "starter_halberd", cleric: "starter_pilgrim_staff",
+  sculptor: "starter_chisel_hammer", condottiere: "starter_side_sword",
 };
 
 /** Called by the class-confirmation flow. The inventory precondition makes retries safe. */

@@ -21,13 +21,12 @@ const FIXTURES = [
     username: "testuser",
     teamName: "Die Testgilde",
     class: "guard" as const,
-    class: "swiss_guard" as const,
   },
   {
     accessCode: "test5678",
     username: "testuser2",
     teamName: "Die Rivalen",
-    class: "CONDOTTIERE" as const,
+    class: "condottiere" as const,
   },
 ];
 

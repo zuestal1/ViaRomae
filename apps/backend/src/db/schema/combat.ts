@@ -8,7 +8,6 @@ import {
   varchar,
   jsonb,
   uniqueIndex,
-  jsonb,
   index,
 } from "drizzle-orm/pg-core";
 import { teams } from "./player.js";
