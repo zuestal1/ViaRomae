@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { assignLoot } from "./inventory.service.js";
 import { appendLedgerEntry } from "./ledger.service.js";
+import { awardFameAndApplyTiers } from "./fame-tiers.service.js";
 
 export type RewardItem = { defKey: string; quantity: number };
 
@@ -59,14 +60,7 @@ export async function grantRewards(opts: {
   let itemsSkipped = false;
 
   if (profile.fame !== 0) {
-    await appendLedgerEntry({
-      idempotencyKey: uuidFromSeed(`${seed}:fame`),
-      teamId,
-      playerId,
-      currencyType: "FAME",
-      amount: profile.fame,
-      source,
-    });
+    await awardFameAndApplyTiers({ seed, teamId, playerId, amount: profile.fame, source });
   }
 
   if (profile.denarii !== 0) {

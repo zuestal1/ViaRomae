@@ -2,6 +2,9 @@ import { z } from "zod";
 import { PlayerClassSchema, PlayerStatusSchema } from "./player.js";
 import { AbilityDefinitionSchema, StatusEffectSchema } from "./combat.js";
 import { ItemSlotSchema } from "./economy.js";
+import { FameTierSchema, PlayerClassSchema, PlayerStatusSchema } from "./player.js";
+import { CharacterStatsSchema, PlayerClassSchema } from "./character-class.js";
+import { PlayerStatusSchema } from "./player.js";
 
 export const RoleSchema = z.enum(["PLAYER", "GM", "ADMIN"]);
 export type Role = z.infer<typeof RoleSchema>;
@@ -34,7 +37,9 @@ export const MeResponseSchema = z.object({
   player: z
     .object({
       id: z.string().uuid(),
-      class: PlayerClassSchema,
+      class: PlayerClassSchema.nullable(),
+      classConfirmed: z.boolean(),
+      preflightCompleted: z.boolean(),
       hpCurrent: z.number().int().nonnegative(),
       hpMax: z.number().int().positive().default(100),
       stats: z.object({ atk: z.number(), def: z.number(), init: z.number() }),
@@ -62,6 +67,7 @@ export const MeResponseSchema = z.object({
             hpCurrent: z.number().int().nonnegative(),
             hpMax: z.number().int().positive(),
           })),
+          highestFameTierReached: FameTierSchema,
         })
         .nullable(),
     })

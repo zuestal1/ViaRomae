@@ -100,7 +100,7 @@ if ($seedResult -eq 0) {
 Write-Host ""
 Write-Host "[9/9] Creating test accounts..." -ForegroundColor Yellow
 docker exec postgres-prototype psql -U viaromae -d viaromae_prototype -c "INSERT INTO account (username, access_code_hash, role) VALUES ('testuser', '\`$2a\`$10\`$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'PLAYER'), ('gm', '\`$2a\`$10\`$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'GM') ON CONFLICT (username) DO NOTHING;" 2>$null
-docker exec postgres-prototype psql -U viaromae -d viaromae_prototype -c "WITH acc AS (SELECT id FROM account WHERE username = 'testuser' LIMIT 1), new_team AS (INSERT INTO team (name, inventory_capacity) VALUES ('Test Team', 40) ON CONFLICT DO NOTHING RETURNING id) INSERT INTO player (account_id, team_id, class, hp_current, status) SELECT acc.id, new_team.id, 'GARDIST', 100, 'ACTIVE' FROM acc, new_team ON CONFLICT DO NOTHING;" 2>$null
+docker exec postgres-prototype psql -U viaromae -d viaromae_prototype -c "WITH acc AS (SELECT id FROM account WHERE username = 'testuser' LIMIT 1), new_team AS (INSERT INTO team (name, inventory_capacity) VALUES ('Test Team', 40) ON CONFLICT DO NOTHING RETURNING id) INSERT INTO player (account_id, team_id, class, hp_current, status) SELECT acc.id, new_team.id, 'swiss_guard', 100, 'ACTIVE' FROM acc, new_team ON CONFLICT DO NOTHING;" 2>$null
 Write-Host "  => Accounts created (testuser / test123)" -ForegroundColor Green
 
 # ── Step 10: Start Backend & Frontend ────────────────────────────────────────

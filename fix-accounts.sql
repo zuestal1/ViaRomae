@@ -17,7 +17,7 @@ new_team AS (
   RETURNING id
 )
 INSERT INTO player (account_id, team_id, class, hp_current, status)
-SELECT acc.id, new_team.id, 'GARDIST', 100, 'ACTIVE'
+SELECT acc.id, new_team.id, 'swiss_guard', 100, 'ACTIVE'
 FROM acc, new_team;
 
 -- Verify

@@ -17,6 +17,7 @@ import type { MeResponse } from "@jlw/contracts";
 import { getTeamBalance } from "../economy/ledger.service.js";
 import { itemDefs, itemInstances } from "../../db/schema/economy_v2.js";
 import { CLASS_DEFINITIONS } from "../combat/ability-definitions.js";
+import { getPlayerStats } from "../player/player-stats.service.js";
 
 const scryptAsync = promisify<
   crypto.BinaryLike,
@@ -152,11 +153,16 @@ export async function getMe(accountId: string): Promise<MeResponse> {
     };
   }
 
+  // /me is a relevant state access: persist all eligible elapsed healing first.
+  await materializeHealthRegeneration(player.id);
+  const [regeneratedPlayer] = await db.select().from(players).where(eq(players.id, player.id));
+
   // Fetch the player's team
   const [team] = await db
     .select()
     .from(teams)
     .where(eq(teams.id, player.teamId));
+  const stats = await getPlayerStats(player);
 
   const teamPlayers = team ? await db.select().from(players).where(eq(players.teamId, team.id)) : [];
   const accountIds = teamPlayers.map((member) => member.accountId);
@@ -172,6 +178,8 @@ export async function getMe(accountId: string): Promise<MeResponse> {
     player: {
       id: player.id,
       class: player.class,
+      classConfirmed: player.classConfirmed,
+      preflightCompleted: player.preflightCompletedAt !== null,
       hpCurrent: player.hpCurrent,
       hpMax: 100,
       icon: definition.icon,
@@ -183,6 +191,12 @@ export async function getMe(accountId: string): Promise<MeResponse> {
         slot, name: equipped.find((item) => item.slot === slot)?.name ?? null,
       })),
       status: player.status,
+      hpCurrent: regeneratedPlayer!.hpCurrent,
+      maxHp: regeneratedPlayer!.maxHp,
+      fameTierHpBonus: regeneratedPlayer!.fameTierHpBonus,
+      highestFameTierReached: regeneratedPlayer!.highestFameTierReached,
+      lastRegenCalculationAt: regeneratedPlayer!.lastRegenCalculationAt.toISOString(),
+      status: regeneratedPlayer!.status,
       team: team
         ? {
             id: team.id,
@@ -197,6 +211,7 @@ export async function getMe(accountId: string): Promise<MeResponse> {
               hpCurrent: member.hpCurrent,
               hpMax: 100,
             })),
+            highestFameTierReached: team.highestFameTierReached,
           }
         : null,
     },

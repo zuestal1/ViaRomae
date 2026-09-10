@@ -78,6 +78,8 @@ export const CombatantSchema = z.object({
   teamId: z.string().uuid().optional(),
   hpCurrent: z.number(),
   hpMax: z.number(),
+  atk: z.number(),
+  def: z.number(),
   initiative: z.number(),
   name: z.string(),
   isDowned: z.boolean(),
@@ -164,6 +166,7 @@ export const CombatRoundResolvedEventSchema = z.object({
     combatId: z.string().uuid(),
     round: z.number(),
     logs: z.array(CombatLogSchema),
+    combatants: z.array(CombatantSchema),
   }),
 });
 export type CombatRoundResolvedEvent = z.infer<typeof CombatRoundResolvedEventSchema>;
@@ -173,6 +176,7 @@ export const CombatCompletedEventSchema = z.object({
   data: z.object({
     combatId: z.string().uuid(),
     logs: z.array(CombatLogSchema),
+    combatants: z.array(CombatantSchema),
   }),
 });
 export type CombatCompletedEvent = z.infer<typeof CombatCompletedEventSchema>;

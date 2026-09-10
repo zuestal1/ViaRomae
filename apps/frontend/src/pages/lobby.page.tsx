@@ -9,7 +9,7 @@ import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../contexts/auth.context.js";
 import { api } from "../lib/api.js";
-import type { MeResponse } from "@jlw/contracts";
+import type { MeResponse, PlayerClass } from "@jlw/contracts";
 
 interface LobbyPageProps {
   /** Called when the player presses "Zur Karte". */
@@ -19,10 +19,9 @@ interface LobbyPageProps {
 // Class display names (German)
 const CLASS_LABELS: Record<string, string> = {
   GARDIST: "⚔️ Gardist",
-  MÖNCH: "🙏 Mönch",
-  HÄNDLER: "💰 Händler",
-  SPÄHER: "🏹 Späher",
-  MAGIER: "🔮 Magier",
+  CLERIC: "🙏 Nonne/Mönch",
+  BILDHAUER: "🗿 Bildhauer",
+  CONDOTTIERE: "⚔️ Condottiere",
 };
 const SLOT_LABELS: Record<string, string> = { WEAPON: "Waffe", ARMOR: "Rüstung", ACCESSORY: "Accessoire", CONSUMABLE: "Verbrauchsitem" };
 
@@ -114,7 +113,7 @@ export function LobbyPage({ onEnterMap }: LobbyPageProps) {
                 Klasse
               </span>
               <span className="font-semibold text-[#f4e4c1]">
-                {CLASS_LABELS[me.player.class] ?? me.player.class}
+                {me.player.class ? (CLASS_LABELS[me.player.class] ?? me.player.class) : "Noch nicht gewählt"}
               </span>
             </div>
 
@@ -193,7 +192,7 @@ export function LobbyPage({ onEnterMap }: LobbyPageProps) {
           className="w-full rounded-lg bg-[#cd7f32] py-3 font-bold tracking-wide
                      text-[#0d0d1a] transition hover:bg-[#e8943f] active:scale-95"
         >
-          🗺️ &nbsp;Zur Karte
+          🏛️ &nbsp;Klasse &amp; Preflight
         </button>
 
         <button

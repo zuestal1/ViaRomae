@@ -23,6 +23,11 @@ export const eventLifecycleRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.send(state);
   });
 
+  fastify.post("/event/day-2/start", async (request, reply) => {
+    const result = await service.startDay2(request.user.accountId!);
+    return reply.send(result);
+  });
+
   // ── POST /api/v1/gm/event/pause ─────────────────────────────────────────────
   fastify.post("/event/pause", async (request, reply) => {
     const actorId = request.user.accountId!;
