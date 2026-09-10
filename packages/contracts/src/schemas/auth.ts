@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { FameTierSchema, PlayerClassSchema, PlayerStatusSchema } from "./player.js";
 import { CharacterStatsSchema, PlayerClassSchema } from "./character-class.js";
 import { PlayerStatusSchema } from "./player.js";
 
@@ -37,6 +38,10 @@ export const MeResponseSchema = z.object({
       classConfirmed: z.boolean(),
       preflightCompleted: z.boolean(),
       hpCurrent: z.number().int().nonnegative(),
+      maxHp: z.number().int().positive(),
+      fameTierHpBonus: z.number().int().nonnegative(),
+      highestFameTierReached: FameTierSchema,
+      lastRegenCalculationAt: z.string().datetime(),
       ...CharacterStatsSchema.shape,
       status: PlayerStatusSchema,
       team: z
@@ -46,6 +51,7 @@ export const MeResponseSchema = z.object({
           inventoryCapacity: z.number().int(),
           fame: z.number().int(),
           denarii: z.number().int(),
+          highestFameTierReached: FameTierSchema,
         })
         .nullable(),
     })

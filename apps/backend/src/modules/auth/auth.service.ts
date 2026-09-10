@@ -151,6 +151,10 @@ export async function getMe(accountId: string): Promise<MeResponse> {
     };
   }
 
+  // /me is a relevant state access: persist all eligible elapsed healing first.
+  await materializeHealthRegeneration(player.id);
+  const [regeneratedPlayer] = await db.select().from(players).where(eq(players.id, player.id));
+
   // Fetch the player's team
   const [team] = await db
     .select()
@@ -167,6 +171,12 @@ export async function getMe(accountId: string): Promise<MeResponse> {
       preflightCompleted: player.preflightCompletedAt !== null,
       hpCurrent: player.hpCurrent,
       status: player.status,
+      hpCurrent: regeneratedPlayer!.hpCurrent,
+      maxHp: regeneratedPlayer!.maxHp,
+      fameTierHpBonus: regeneratedPlayer!.fameTierHpBonus,
+      highestFameTierReached: regeneratedPlayer!.highestFameTierReached,
+      lastRegenCalculationAt: regeneratedPlayer!.lastRegenCalculationAt.toISOString(),
+      status: regeneratedPlayer!.status,
       team: team
         ? {
             id: team.id,
@@ -174,6 +184,7 @@ export async function getMe(accountId: string): Promise<MeResponse> {
             inventoryCapacity: team.inventoryCapacity,
             fame: await getTeamBalance(team.id, "FAME"),
             denarii: await getTeamBalance(team.id, "DENARII"),
+            highestFameTierReached: team.highestFameTierReached,
           }
         : null,
     },

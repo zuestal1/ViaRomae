@@ -20,6 +20,7 @@ export const playerClassEnum = pgEnum("player_class", [
 ]);
 
 export const playerStatusEnum = pgEnum("player_status", ["ACTIVE", "DOWNED"]);
+export const fameTierEnum = pgEnum("fame_tier", ["N", "R", "SR", "SSR", "E", "L"]);
 
 export const teams = pgTable("team", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -29,6 +30,7 @@ export const teams = pgTable("team", {
   hp: integer("hp").notNull().default(0), // maintained as the sum of derived player HP
   // Epic 9: Team active status
   isActive: integer("is_active").notNull().default(1), // 1 = active, 0 = inactive
+  highestFameTierReached: fameTierEnum("highest_fame_tier_reached").notNull().default("N"),
 });
 
 export const players = pgTable("player", {
