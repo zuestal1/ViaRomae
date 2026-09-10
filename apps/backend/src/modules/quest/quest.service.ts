@@ -33,6 +33,8 @@ import { db } from "../../db/client.js";
 import {
   objectiveProgress,
   questDefinitions,
+  questClassUnlocks,
+  questDialogueDecisions,
   questRuns,
   questStations,
   questSteps,
@@ -50,7 +52,10 @@ import type {
   QuestStep,
   QuestStepCompletedEvent,
   StepResult,
+  ClassUnlockDefinition,
+  ClassUnlockView,
 } from "@jlw/contracts";
+import { ClassUnlockDefinitionSchema } from "@jlw/contracts";
 import {
   grantRewards,
   QUEST_REWARD_PROFILE,
@@ -60,6 +65,150 @@ import {
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const MAX_ACTIVE_QUESTS = 3;
+const CLASS_PRESENCE_MAX_AGE_MS = 2 * 60 * 1000;
+
+function httpError(message: string, statusCode: number): Error & { statusCode: number } {
+  return Object.assign(new Error(message), { statusCode });
+}
+
+/**
+ * Validate and persist class content. This is deliberately separate from main
+ * quest steps: a class condition can therefore never become a completion guard.
+ */
+export async function createClassUnlockDefinition(
+  input: ClassUnlockDefinition,
+): Promise<typeof questClassUnlocks.$inferSelect> {
+  const definition = ClassUnlockDefinitionSchema.parse(input);
+  const [quest] = await db.select().from(questDefinitions)
+    .where(eq(questDefinitions.id, definition.questDefinitionId));
+  if (!quest) throw httpError("Quest definition not found.", 404);
+
+  let effect: Record<string, unknown>;
+  try { effect = JSON.parse(definition.effectJson) as Record<string, unknown>; }
+  catch { throw httpError("effectJson must be valid JSON.", 400); }
+
+  // Triggered quests are the only quests whose availability may depend on a class.
+  if (["SIDE_QUEST", "HIDDEN_QUEST_TRIGGER"].includes(definition.kind)) {
+    const targetId = effect.targetQuestDefinitionId;
+    if (typeof targetId !== "string") {
+      throw httpError("Quest unlocks require effectJson.targetQuestDefinitionId.", 400);
+    }
+    const [target] = await db.select().from(questDefinitions)
+      .where(eq(questDefinitions.id, targetId));
+    if (!target) throw httpError("Target quest definition not found.", 400);
+    if (target.type === "REGULAR") {
+      throw httpError("A class condition cannot gate a regular main quest.", 400);
+    }
+    if (definition.kind === "HIDDEN_QUEST_TRIGGER" && target.type !== "HIDDEN") {
+      throw httpError("A hidden-quest trigger must target a HIDDEN quest.", 400);
+    }
+  }
+
+  // Include bonuses already declared by the quest's content data in the cap.
+  let content: Record<string, unknown> = {};
+  try { content = JSON.parse(quest.contentJson) as Record<string, unknown>; } catch { /* validated below as zero */ }
+  const existingGlory = Number(content.bonus_glory_percent ?? content.bonusGloryPercent ?? 0);
+  const existingDenarii = Number(content.bonus_denarii_percent ?? content.bonusDenariiPercent ?? 0);
+  const existingClassUnlocks = await db.select({
+    glory: questClassUnlocks.bonusGloryPercent,
+    denarii: questClassUnlocks.bonusDenariiPercent,
+  }).from(questClassUnlocks).where(eq(questClassUnlocks.questDefinitionId, quest.id));
+  const accumulatedClassGlory = existingClassUnlocks.reduce((sum, row) => sum + row.glory, 0);
+  const accumulatedClassDenarii = existingClassUnlocks.reduce((sum, row) => sum + row.denarii, 0);
+  if (quest.type === "REGULAR" &&
+      (existingGlory + accumulatedClassGlory + definition.bonusGloryPercent > 15 ||
+       existingDenarii + accumulatedClassDenarii + definition.bonusDenariiPercent > 15)) {
+    throw httpError("Class bonuses plus all other regular-quest bonuses may not exceed 15%.", 400);
+  }
+
+  const [created] = await db.insert(questClassUnlocks).values({
+    questDefinitionId: definition.questDefinitionId,
+    worldObjectId: definition.condition.worldObjectId,
+    nodeId: definition.nodeId,
+    optionId: definition.optionId,
+    kind: definition.kind,
+    requiredClass: definition.condition.requiredClass,
+    subject: definition.subject ?? null,
+    text: definition.text,
+    effectJson: definition.effectJson,
+    required: false,
+    bonusGloryPercent: definition.bonusGloryPercent,
+    bonusDenariiPercent: definition.bonusDenariiPercent,
+  }).returning();
+  if (!created) throw new Error("Failed to create class unlock.");
+  return created;
+}
+
+/** Only current server proximity counts; team membership or stale GPS does not. */
+export async function hasPresentLivingClassMember(opts: {
+  teamId: string; requiredClass: string; worldObjectId: string;
+}): Promise<boolean> {
+  const rows = await db.select({ id: players.id }).from(players)
+    .innerJoin(playerProximityStates, eq(playerProximityStates.playerId, players.id))
+    .where(and(
+      eq(players.teamId, opts.teamId),
+      eq(players.class, opts.requiredClass as typeof players.class.enumValues[number]),
+      eq(players.status, "ACTIVE"),
+      sql`${players.hpCurrent} > 0`,
+      eq(playerProximityStates.worldObjectId, opts.worldObjectId),
+      inArray(playerProximityStates.zone, ["INTERACTING", "AGGRO", "BOSS_JOIN"]),
+      sql`${playerProximityStates.updatedAt} >= ${new Date(Date.now() - CLASS_PRESENCE_MAX_AGE_MS)}`,
+    )).limit(1);
+  return rows.length > 0;
+}
+
+/** Return only class options which are actually usable at this location now. */
+export async function getAvailableClassUnlocks(opts: {
+  teamId: string; questDefinitionId: string; nodeId: string;
+}): Promise<ClassUnlockView[]> {
+  const [decision] = await db.select().from(questDialogueDecisions)
+    .innerJoin(questRuns, eq(questDialogueDecisions.questRunId, questRuns.id))
+    .where(and(eq(questRuns.teamId, opts.teamId), eq(questRuns.questDefinitionId, opts.questDefinitionId),
+      eq(questDialogueDecisions.nodeId, opts.nodeId))).limit(1);
+  if (decision) return [];
+  const definitions = await db.select().from(questClassUnlocks).where(and(
+    eq(questClassUnlocks.questDefinitionId, opts.questDefinitionId),
+    eq(questClassUnlocks.nodeId, opts.nodeId), eq(questClassUnlocks.required, false),
+  ));
+  const visible: ClassUnlockView[] = [];
+  for (const item of definitions) {
+    if (await hasPresentLivingClassMember({ teamId: opts.teamId, requiredClass: item.requiredClass, worldObjectId: item.worldObjectId })) {
+      visible.push({
+        id: item.id, questDefinitionId: item.questDefinitionId, nodeId: item.nodeId,
+        optionId: item.optionId, kind: item.kind, text: item.text,
+        condition: { requiredClass: item.requiredClass, worldObjectId: item.worldObjectId },
+        subject: item.subject, required: false, bonusGloryPercent: item.bonusGloryPercent,
+        bonusDenariiPercent: item.bonusDenariiPercent, effectJson: item.effectJson,
+      });
+    }
+  }
+  return visible;
+}
+
+/** Atomically records the team's binding choice; an existing node choice wins. */
+export async function chooseClassUnlock(opts: {
+  accountId: string; questRunId: string; nodeId: string; optionId: string;
+}): Promise<typeof questDialogueDecisions.$inferSelect> {
+  const player = await resolvePlayer(opts.accountId);
+  const [run] = await db.select().from(questRuns).where(and(
+    eq(questRuns.id, opts.questRunId), eq(questRuns.teamId, player.teamId), eq(questRuns.state, "ACTIVE"),
+  ));
+  if (!run) throw httpError("QuestRun not found or not active.", 404);
+  const [unlock] = await db.select().from(questClassUnlocks).where(and(
+    eq(questClassUnlocks.questDefinitionId, run.questDefinitionId),
+    eq(questClassUnlocks.nodeId, opts.nodeId), eq(questClassUnlocks.optionId, opts.optionId),
+  ));
+  if (!unlock) throw httpError("Class option not found.", 404);
+  if (!await hasPresentLivingClassMember({ teamId: player.teamId, requiredClass: unlock.requiredClass, worldObjectId: unlock.worldObjectId })) {
+    throw httpError("The required living class member is not currently present at this location.", 403);
+  }
+  const [chosen] = await db.insert(questDialogueDecisions).values({
+    questRunId: run.id, nodeId: opts.nodeId, optionId: opts.optionId,
+    chosenByPlayerId: player.playerId,
+  }).onConflictDoNothing().returning();
+  if (!chosen) throw httpError("This dialogue node already has a binding team decision.", 409);
+  return chosen;
+}
 
 // ── Internal helpers ──────────────────────────────────────────────────────────
 
@@ -1039,15 +1188,39 @@ export async function completeQuest(opts: {
   }
 
   const [questDef] = await db
-    .select({ title: questDefinitions.title })
+    .select({ title: questDefinitions.title, type: questDefinitions.type, contentJson: questDefinitions.contentJson })
     .from(questDefinitions)
     .where(eq(questDefinitions.id, run.questDefinitionId));
+
+  const chosenBonuses = await db.select({
+    glory: questClassUnlocks.bonusGloryPercent,
+    denarii: questClassUnlocks.bonusDenariiPercent,
+  }).from(questDialogueDecisions).innerJoin(questClassUnlocks, and(
+    eq(questClassUnlocks.questDefinitionId, run.questDefinitionId),
+    eq(questClassUnlocks.nodeId, questDialogueDecisions.nodeId),
+    eq(questClassUnlocks.optionId, questDialogueDecisions.optionId),
+  )).where(eq(questDialogueDecisions.questRunId, questRunId));
+
+  let authoredBonuses: Record<string, unknown> = {};
+  try { authoredBonuses = JSON.parse(questDef?.contentJson ?? "{}") as Record<string, unknown>; } catch { /* invalid legacy content has no bonus */ }
+  const otherGlory = Number(authoredBonuses.bonus_glory_percent ?? authoredBonuses.bonusGloryPercent ?? 0);
+  const otherDenarii = Number(authoredBonuses.bonus_denarii_percent ?? authoredBonuses.bonusDenariiPercent ?? 0);
+  const classGlory = chosenBonuses.reduce((sum, row) => sum + row.glory, 0);
+  const classDenarii = chosenBonuses.reduce((sum, row) => sum + row.denarii, 0);
+  // Runtime defence for legacy/imported rows: regular quest totals can never exceed 15%.
+  const gloryPercent = questDef?.type === "REGULAR" ? Math.min(15, otherGlory + classGlory) : classGlory;
+  const denariiPercent = questDef?.type === "REGULAR" ? Math.min(15, otherDenarii + classDenarii) : classDenarii;
+  const rewardProfile = {
+    ...QUEST_REWARD_PROFILE,
+    fame: Math.round(QUEST_REWARD_PROFILE.fame * (1 + gloryPercent / 100)),
+    denarii: Math.round(QUEST_REWARD_PROFILE.denarii * (1 + denariiPercent / 100)),
+  };
 
   const granted = await grantRewards({
     seed: `quest-complete:${questRunId}`,
     teamId,
     playerId,
-    profile: QUEST_REWARD_PROFILE,
+    profile: rewardProfile,
     source: "QUEST",
   });
 
