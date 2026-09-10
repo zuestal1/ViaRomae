@@ -19,10 +19,12 @@ export const ledgerSourceEnum = pgEnum("ledger_source", [
 ]);
 export const itemSlotEnum = pgEnum("item_slot", [
   "WEAPON",
-  "ARMOR",
-  "ACCESSORY",
-  "CONSUMABLE",
+  "CLOTHING",
+  "DEFENSE",
+  "ARTIFACT",
 ]);
+export const itemCategoryEnum = pgEnum("item_category", ["EQUIPMENT", "CONSUMABLE"]);
+export const itemRarityEnum = pgEnum("item_rarity", ["N", "R", "SR", "SSR", "E", "L"]);
 
 /** Append-only ledger – never update, only insert. */
 export const ledgerEntries = pgTable("ledger_entry", {
@@ -45,7 +47,8 @@ export const itemInstances = pgTable("item_instance", {
   id: uuid("id").primaryKey().defaultRandom(),
   definitionId: varchar("definition_id", { length: 64 }).notNull(),
   ownerId: uuid("owner_id").notNull(),
-  slot: itemSlotEnum("slot").notNull(),
+  category: itemCategoryEnum("category").notNull().default("EQUIPMENT"),
+  slot: itemSlotEnum("slot"),
   isEquipped: boolean("is_equipped").notNull().default(false),
   isBound: boolean("is_bound").notNull().default(false),
 });

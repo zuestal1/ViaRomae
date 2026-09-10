@@ -104,6 +104,7 @@
       "idx": 14,
       "version": "7",
       "when": 1789056000001,
+      "tag": "0014_equipment_model",
       "tag": "0014_class_assignment",
       "tag": "0014_fame_tiers_and_regeneration",
       "when": 1789074021073,

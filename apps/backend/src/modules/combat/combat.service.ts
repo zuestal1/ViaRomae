@@ -30,6 +30,7 @@ import {
   type EquipmentRarity,
 } from "./combat-calculation.js";
 import { randomUUID } from "node:crypto";
+import { computeEquippedStats } from "../economy/inventory.service.js";
 import type { AbilityDefinition, StatusEffect } from "@jlw/contracts";
 import { CLASS_DEFINITIONS } from "./ability-definitions.js";
 import { materializeHealthRegeneration, markTeamRegenStopped } from "./health-regeneration.service.js";
@@ -66,6 +67,9 @@ export interface Combatant {
   atk: number;
   def: number;
   initiative: number;
+  attack?: number;
+  defense?: number;
+  initiativeTieBreaker?: number;
   stats?: CombatStats;
   equipmentRarityScore?: number;
   shield?: number;
@@ -283,10 +287,11 @@ export async function getCombatInstance(combatId: string): Promise<CombatInstanc
   const enrichedCombatants: Combatant[] = await Promise.all(
     combatantsData.map(async (c) => {
       let name = "Unknown";
-      let hpMax = 0;
-      let atk = 0;
-      let def = 0;
-      let initiative = 0;
+      let hpMax = 100;
+      let initiative = 50;
+      let attack = 0;
+      let defense = 0;
+      let initiativeTieBreaker = 0;
 
       if (c.entityType === "PLAYER") {
         const [player] = await db
@@ -295,10 +300,12 @@ export async function getCombatInstance(combatId: string): Promise<CombatInstanc
           .where(eq(players.id, c.entityId));
         // For simplicity, use entityId as name
         name = player?.accountId.substring(0, 8) ?? "Player";
-        if (player) {
-          const stats = await getPlayerStats(player);
-          ({ hpMax, atk, def, initiative } = stats);
-        }
+        const equipment = await computeEquippedStats("PLAYER", c.entityId);
+        hpMax = 100 + (equipment.maxHP ?? 0);
+        initiative = 50 + (equipment.INIT ?? 0);
+        attack = equipment.ATK ?? 0;
+        defense = equipment.DEF ?? 0;
+        initiativeTieBreaker = equipment.INIT_TIE_BREAKER ?? 0;
       } else if (c.entityType === "ENEMY") {
         const [enemy] = await db
           .select()
@@ -332,10 +339,10 @@ export async function getCombatInstance(combatId: string): Promise<CombatInstanc
         teamId: c.teamId ?? undefined,
         hpCurrent: Math.min(c.hpCurrent, hpMax),
         hpMax,
-        initiative: calculateEffectiveInitiative(profile.stats),
-        stats: profile.stats,
-        equipmentRarityScore: profile.equipmentRarityScore,
-        shield: 0,
+        initiative,
+        attack,
+        defense,
+        initiativeTieBreaker,
         name,
         isDowned: c.hpCurrent <= 0,
         shield: 0,
@@ -634,19 +641,9 @@ async function resolveRound(combatId: string, wsHub?: WsHub): Promise<CombatLog[
   const sortedActions = roundActions.sort((a, b) => {
     const actorA = combat.combatants.find((c) => c.id === a.actorId);
     const actorB = combat.combatants.find((c) => c.id === b.actorId);
-    const orderA = orderByActor.get(a.actorId);
-    const orderB = orderByActor.get(b.actorId);
-    return compareRoundOrder({
-      actorId: a.actorId,
-      effectiveInitiative: orderA?.effectiveInitiative ?? actorA?.initiative ?? 0,
-      equipmentRarityScore: orderA?.equipmentRarityScore ?? actorA?.equipmentRarityScore ?? 0,
-      roundRandom: orderA?.roundRandom ?? 0,
-    }, {
-      actorId: b.actorId,
-      effectiveInitiative: orderB?.effectiveInitiative ?? actorB?.initiative ?? 0,
-      equipmentRarityScore: orderB?.equipmentRarityScore ?? actorB?.equipmentRarityScore ?? 0,
-      roundRandom: orderB?.roundRandom ?? 0,
-    });
+    const initiativeDifference = (actorB?.initiative ?? 0) - (actorA?.initiative ?? 0);
+    const tieBreakerDifference = (actorB?.initiativeTieBreaker ?? 0) - (actorA?.initiativeTieBreaker ?? 0);
+    return initiativeDifference || tieBreakerDifference || a.actorId.localeCompare(b.actorId);
   });
 
   // Execute actions in initiative order
@@ -719,7 +716,13 @@ async function resolveRound(combatId: string, wsHub?: WsHub): Promise<CombatLog[
  * Calculate damage for an attack.
  */
 function calculateDamage(attacker: Combatant, defender: Combatant): number {
-  return Math.max(1, Math.round(attacker.atk - defender.def / 2));
+  // Base damage
+  let damage = 10 + Math.floor(Math.random() * 10); // 10-20
+
+  damage += (attacker.attack ?? 0) - (defender.defense ?? 0);
+  // TODO: Apply buffs/debuffs
+
+  return Math.max(1, damage);
 }
 
 /**
@@ -814,7 +817,26 @@ export async function handleTeamWipe(opts: {
  * Regenerate HP out of combat.
  */
 export async function regenerateHPOutOfCombat(playerId: string): Promise<void> {
-  await materializeHealthRegeneration(playerId);
+  const [player] = await db
+    .select()
+    .from(players)
+    .where(eq(players.id, playerId));
+
+  if (!player || player.status === "DOWNED") return;
+
+  // Check if player is in combat
+  const activeCombat = await getActiveCombatForTeam(player.teamId);
+  if (activeCombat) return;
+
+  // Regenerate HP
+  const equipment = await computeEquippedStats("PLAYER", playerId);
+  const newHp = Math.min(100 + (equipment.maxHP ?? 0), player.hpCurrent + HP_REGEN_OUT_OF_COMBAT);
+  if (newHp > player.hpCurrent) {
+    await db
+      .update(players)
+      .set({ hpCurrent: newHp })
+      .where(eq(players.id, playerId));
+  }
 }
 
 // ── PvP Challenge System (Epic 6) ────────────────────────────────────────────
