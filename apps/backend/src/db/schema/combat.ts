@@ -8,6 +8,8 @@ import {
   varchar,
   jsonb,
   uniqueIndex,
+  jsonb,
+  index,
 } from "drizzle-orm/pg-core";
 import { teams } from "./player.js";
 
@@ -36,6 +38,10 @@ export const pvpChallengeStateEnum = pgEnum("pvp_challenge_state", [
   "ESCAPED",
   "COMBAT",
 ]);
+export const statusEffectPolarityEnum = pgEnum("status_effect_polarity", ["BUFF", "DEBUFF", "NEUTRAL"]);
+export const statusEffectDurationTypeEnum = pgEnum("status_effect_duration_type", ["ROUNDS", "TRIGGERS", "PERMANENT"]);
+export const statusEffectStackPolicyEnum = pgEnum("status_effect_stack_policy", ["NONE", "REFRESH", "REPLACE_STRONGER", "STACK"]);
+export const statusEffectPersistenceScopeEnum = pgEnum("status_effect_persistence_scope", ["COMBAT", "ENCOUNTER", "PLAYER"]);
 
 export const combatInstances = pgTable("combat_instance", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -79,6 +85,22 @@ export const combatActions = pgTable("combat_action", {
   ),
 ]);
 
+/** Initiative snapshots and the single random tie-breaker generated for a round. */
+export const combatRoundOrders = pgTable("combat_round_order", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  combatInstanceId: uuid("combat_instance_id").notNull()
+    .references(() => combatInstances.id, { onDelete: "cascade" }),
+  roundNumber: integer("round_number").notNull(),
+  actorId: uuid("actor_id").notNull(),
+  effectiveInitiative: integer("effective_initiative").notNull(),
+  equipmentRarityScore: integer("equipment_rarity_score").notNull(),
+  roundRandom: integer("round_random").notNull(),
+}, (table) => [
+  uniqueIndex("combat_round_order_instance_round_actor_unique").on(
+    table.combatInstanceId, table.roundNumber, table.actorId,
+  ),
+]);
+
 /** Immutable request receipts keep retries idempotent after a later replacement. */
 export const combatActionSubmissions = pgTable("combat_action_submission", {
   idempotencyKey: uuid("idempotency_key").primaryKey(),
@@ -110,6 +132,59 @@ export const combatEffects = pgTable("combat_effect", {
   expiresAtRound: integer("expires_at_round"),
   state: jsonb("state").$type<Record<string, number | boolean>>().notNull().default({}),
 });
+/** Data-driven status effect catalogue. JSON columns retain ordered GDD payloads. */
+export const statusEffectDefinitions = pgTable("status_effect_definition", {
+  id: varchar("id", { length: 128 }).primaryKey(),
+  polarity: statusEffectPolarityEnum("polarity").notNull(),
+  tags: jsonb("tags").$type<string[]>().notNull().default([]),
+  durationType: statusEffectDurationTypeEnum("duration_type").notNull(),
+  baseDuration: integer("base_duration").notNull(),
+  stackPolicy: statusEffectStackPolicyEnum("stack_policy").notNull().default("REPLACE_STRONGER"),
+  maxStacks: integer("max_stacks").notNull().default(1),
+  modifiers: jsonb("modifiers").$type<Array<{ type: string; value: number }>>().notNull().default([]),
+  triggerEffects: jsonb("trigger_effects").$type<Array<{
+    trigger: string; effectId: string; chance: number; maxTriggers?: number;
+  }>>().notNull().default([]),
+  removable: boolean("removable").notNull().default(true),
+  dispelTags: jsonb("dispel_tags").$type<string[]>().notNull().default([]),
+  persistenceScope: statusEffectPersistenceScopeEnum("persistence_scope").notNull().default("COMBAT"),
+});
+
+/** Persisted effect application; expiration rounds are inclusive. */
+export const statusEffectInstances = pgTable("status_effect_instance", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  combatInstanceId: uuid("combat_instance_id").notNull()
+    .references(() => combatInstances.id, { onDelete: "cascade" }),
+  effectId: varchar("effect_id", { length: 128 }).notNull()
+    .references(() => statusEffectDefinitions.id),
+  sourceId: uuid("source_id").notNull().references(() => combatants.id, { onDelete: "cascade" }),
+  targetId: uuid("target_id").notNull().references(() => combatants.id, { onDelete: "cascade" }),
+  appliedRound: integer("applied_round").notNull(),
+  expiresAfterRound: integer("expires_after_round"),
+  stacks: integer("stacks").notNull().default(1),
+  magnitudeOverrides: jsonb("magnitude_overrides").$type<Record<string, number>>(),
+  remainingTriggers: integer("remaining_triggers"),
+  shieldRemaining: integer("shield_remaining"),
+}, (table) => [
+  index("status_effect_instance_target_idx").on(table.targetId),
+  index("status_effect_instance_combat_idx").on(table.combatInstanceId),
+]);
+
+/** One durable cooldown clock per combatant and ability. */
+export const abilityCooldowns = pgTable("ability_cooldown", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  combatInstanceId: uuid("combat_instance_id").notNull()
+    .references(() => combatInstances.id, { onDelete: "cascade" }),
+  combatantId: uuid("combatant_id").notNull()
+    .references(() => combatants.id, { onDelete: "cascade" }),
+  abilityId: varchar("ability_id", { length: 128 }).notNull(),
+  activatedRound: integer("activated_round").notNull(),
+  readyAfterRound: integer("ready_after_round").notNull(),
+  deactivationReason: varchar("deactivation_reason", { length: 255 }),
+}, (table) => [
+  uniqueIndex("ability_cooldown_combatant_ability_unique").on(table.combatantId, table.abilityId),
+  index("ability_cooldown_combat_idx").on(table.combatInstanceId),
+]);
 
 export const pvpChallenges = pgTable("pvp_challenge", {
   id: uuid("id").primaryKey().defaultRandom(),

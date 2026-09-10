@@ -35,6 +35,41 @@ export type EntityType = z.infer<typeof EntityTypeSchema>;
 export const PvPChallengeStateSchema = z.enum(["WARNING", "ESCAPED", "COMBAT"]);
 export type PvPChallengeState = z.infer<typeof PvPChallengeStateSchema>;
 
+export const AbilityTargetTypeSchema = z.enum([
+  "SELF", "ALLY", "ENEMY", "ALL_ALLIES", "ALL_ENEMIES", "ANY",
+]);
+export type AbilityTargetType = z.infer<typeof AbilityTargetTypeSchema>;
+
+/** Presentation and validation data is authoritative and supplied by the server. */
+export const AbilityDefinitionSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string(),
+  icon: z.string(),
+  kind: z.enum(["STANDARD", "CLASS"]),
+  targetType: AbilityTargetTypeSchema,
+  value: z.number().optional(),
+  valueLabel: z.string().optional(),
+  cooldownRounds: z.number().int().nonnegative().default(0),
+  cooldownRemaining: z.number().int().nonnegative().default(0),
+  condition: z.object({
+    type: z.enum(["HP_BELOW_PERCENT", "HP_ABOVE_PERCENT"]),
+    value: z.number(),
+    description: z.string(),
+  }).optional(),
+});
+export type AbilityDefinition = z.infer<typeof AbilityDefinitionSchema>;
+
+export const StatusEffectSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  icon: z.string(),
+  color: z.string(),
+  description: z.string(),
+  remainingRounds: z.number().int().nonnegative(),
+});
+export type StatusEffect = z.infer<typeof StatusEffectSchema>;
+
 // ── Combat Instance ───────────────────────────────────────────────────────────
 
 export const CombatantSchema = z.object({
@@ -44,11 +79,17 @@ export const CombatantSchema = z.object({
   teamId: z.string().uuid().optional(),
   hpCurrent: z.number(),
   hpMax: z.number(),
+  atk: z.number(),
+  def: z.number(),
   initiative: z.number(),
   name: z.string(),
   isDowned: z.boolean(),
   abilityDefinitions: z.array(AbilityDefinitionSchema).optional(),
   abilityCooldowns: z.record(AbilityIdSchema, z.number().int().nonnegative()).optional(),
+  class: z.string().optional(),
+  shield: z.number().nonnegative().default(0),
+  statusEffects: z.array(StatusEffectSchema).default([]),
+  abilities: z.array(AbilityDefinitionSchema).optional(),
 });
 export type Combatant = z.infer<typeof CombatantSchema>;
 
@@ -59,6 +100,8 @@ export const CombatActionSchema = z.object({
   actionType: ActionTypeSchema,
   abilityId: AbilityIdSchema.optional(),
   targetId: z.string().uuid().optional(),
+  targetIds: z.array(z.string().uuid()).optional(),
+  abilityId: z.string().optional(),
   isLocked: z.boolean(),
   origin: CombatActionOriginSchema,
   damage: z.number().optional(),
@@ -74,6 +117,7 @@ export const CombatInstanceSchema = z.object({
   startedAt: z.string().datetime(),
   combatants: z.array(CombatantSchema),
   actions: z.array(CombatActionSchema),
+  actionDeadline: z.string().datetime().optional(),
 });
 export type CombatInstance = z.infer<typeof CombatInstanceSchema>;
 
@@ -125,6 +169,7 @@ export const CombatRoundResolvedEventSchema = z.object({
     combatId: z.string().uuid(),
     round: z.number(),
     logs: z.array(CombatLogSchema),
+    combatants: z.array(CombatantSchema),
   }),
 });
 export type CombatRoundResolvedEvent = z.infer<typeof CombatRoundResolvedEventSchema>;
@@ -134,6 +179,7 @@ export const CombatCompletedEventSchema = z.object({
   data: z.object({
     combatId: z.string().uuid(),
     logs: z.array(CombatLogSchema),
+    combatants: z.array(CombatantSchema),
   }),
 });
 export type CombatCompletedEvent = z.infer<typeof CombatCompletedEventSchema>;

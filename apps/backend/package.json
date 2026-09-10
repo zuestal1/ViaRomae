@@ -21,6 +21,7 @@
     "test:epic8": "tsx scripts/test-epic8.ts",
     "test:ws": "tsx scripts/test-websocket.ts",
     "test:combat:static": "node --test test/combat-action.static.test.mjs",
+    "test:combat:calculation": "tsx --test test/combat-calculation.test.ts",
     "test:combat:integration": "tsx scripts/test-combat-action-replacement.ts"
   },
   "dependencies": {

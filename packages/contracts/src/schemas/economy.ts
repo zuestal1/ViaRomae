@@ -26,11 +26,44 @@ export type LedgerEntry = z.infer<typeof LedgerEntrySchema>;
 
 export const ItemSlotSchema = z.enum([
   "WEAPON",
-  "ARMOR",
-  "ACCESSORY",
-  "CONSUMABLE",
+  "CLOTHING",
+  "DEFENSE",
+  "ARTIFACT",
 ]);
 export type ItemSlot = z.infer<typeof ItemSlotSchema>;
+export const ItemCategorySchema = z.enum(["EQUIPMENT", "CONSUMABLE"]);
+export type ItemCategory = z.infer<typeof ItemCategorySchema>;
+export const ItemRaritySchema = z.enum(["N", "R", "SR", "SSR", "E", "L"]);
+export type ItemRarity = z.infer<typeof ItemRaritySchema>;
+export const ItemStatsSchema = z.object({
+  maxHP: z.number().default(0), ATK: z.number().default(0),
+  DEF: z.number().default(0), INIT: z.number().default(0),
+  INIT_TIE_BREAKER: z.number().default(0),
+});
+export type ItemStats = z.infer<typeof ItemStatsSchema>;
+
+export const ItemDefinitionSchema = z.object({
+  key: z.string(),
+  name: z.string(),
+  category: ItemCategorySchema,
+  equipSlot: ItemSlotSchema.nullable(),
+  rarity: ItemRaritySchema,
+  allowedClasses: z.array(z.string()),
+  stats: ItemStatsSchema,
+});
+export type ItemDefinition = z.infer<typeof ItemDefinitionSchema>;
+
+export const EquipmentComparisonSchema = z.object({
+  old: ItemStatsSchema,
+  new: ItemStatsSchema,
+  difference: ItemStatsSchema,
+});
+export const EquipItemResponseSchema = z.object({
+  equipped: z.string().uuid(),
+  slot: ItemSlotSchema,
+  comparison: EquipmentComparisonSchema,
+});
+export type EquipItemResponse = z.infer<typeof EquipItemResponseSchema>;
 
 export const ItemInstanceSchema = z.object({
   id: z.string().uuid(),
@@ -39,10 +72,16 @@ export const ItemInstanceSchema = z.object({
   ownerType: z.enum(["PLAYER", "TEAM"]).optional(),
   ownerId: z.string().uuid(),
   quantity: z.number().int().optional(),
-  slot: ItemSlotSchema,
+  category: ItemCategorySchema,
+  slot: ItemSlotSchema.nullable(),
   isEquipped: z.boolean(),
   isBound: z.boolean(),
   stats: z.record(z.number()).optional(),
+  effectiveStats: ItemStatsSchema.optional(),
+  rarity: ItemRaritySchema,
+  allowedClasses: z.array(z.string()),
+  canEquip: z.boolean(),
+  unusableReason: z.string().nullable(),
   stackable: z.boolean().optional(),
 });
 export type ItemInstance = z.infer<typeof ItemInstanceSchema>;

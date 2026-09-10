@@ -13,6 +13,14 @@ import {
   getActiveCombatForTeam,
 } from "./combat.service.js";
 
+const submitActionSchema = z.object({
+  actionType: z.enum(["ATTACK", "DEFEND", "SKILL", "FLEE"]),
+  targetId: z.string().uuid().optional(),
+  targetIds: z.array(z.string().uuid()).optional(),
+  abilityId: z.string().optional(),
+  idempotencyKey: z.string().uuid(),
+});
+
 export async function combatRoutes(server: FastifyInstance): Promise<void> {
   /** GET /api/v1/combat/:id – get combat instance state */
   server.get(
