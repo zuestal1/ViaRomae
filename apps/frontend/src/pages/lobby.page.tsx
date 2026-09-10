@@ -106,7 +106,7 @@ export function LobbyPage({ onEnterMap }: LobbyPageProps) {
                 Klasse
               </span>
               <span className="font-semibold text-[#f4e4c1]">
-                {CLASS_LABELS[me.player.class] ?? me.player.class}
+                {me.player.class ? (CLASS_LABELS[me.player.class] ?? me.player.class) : "Noch nicht gewählt"}
               </span>
             </div>
 
@@ -174,7 +174,7 @@ export function LobbyPage({ onEnterMap }: LobbyPageProps) {
           className="w-full rounded-lg bg-[#cd7f32] py-3 font-bold tracking-wide
                      text-[#0d0d1a] transition hover:bg-[#e8943f] active:scale-95"
         >
-          🗺️ &nbsp;Zur Karte
+          🏛️ &nbsp;Klasse &amp; Preflight
         </button>
 
         <button

@@ -167,6 +167,10 @@ export async function getMe(accountId: string): Promise<MeResponse> {
     player: {
       id: player.id,
       class: player.class,
+      classConfirmed: player.classConfirmed,
+      preflightCompleted: player.preflightCompletedAt !== null,
+      hpCurrent: player.hpCurrent,
+      status: player.status,
       hpCurrent: regeneratedPlayer!.hpCurrent,
       maxHp: regeneratedPlayer!.maxHp,
       fameTierHpBonus: regeneratedPlayer!.fameTierHpBonus,

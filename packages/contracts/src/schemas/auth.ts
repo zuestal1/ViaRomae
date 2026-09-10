@@ -34,7 +34,9 @@ export const MeResponseSchema = z.object({
   player: z
     .object({
       id: z.string().uuid(),
-      class: PlayerClassSchema,
+      class: PlayerClassSchema.nullable(),
+      classConfirmed: z.boolean(),
+      preflightCompleted: z.boolean(),
       hpCurrent: z.number().int().nonnegative(),
       maxHp: z.number().int().positive(),
       fameTierHpBonus: z.number().int().nonnegative(),
