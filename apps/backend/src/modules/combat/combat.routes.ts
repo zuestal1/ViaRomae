@@ -2,7 +2,7 @@
  * Combat Routes (Epic 6)
  */
 import type { FastifyInstance } from "fastify";
-import { z } from "zod";
+import { SubmitActionBodySchema } from "@jlw/contracts";
 import { db } from "../../db/client.js";
 import { players } from "../../db/schema/player.js";
 import { eq } from "drizzle-orm";
@@ -97,12 +97,14 @@ export async function combatRoutes(server: FastifyInstance): Promise<void> {
       const { id } = request.params as { id: string };
 
       try {
-        const body = submitActionSchema.parse(request.body);
+        const body = SubmitActionBodySchema.parse(request.body);
+        const isAbility = "abilityId" in body;
 
         const action = await submitCombatAction({
           combatId: id,
           playerId,
-          actionType: body.actionType,
+          actionType: isAbility ? "SKILL" : body.actionType,
+          abilityId: isAbility ? body.abilityId : undefined,
           targetId: body.targetId,
           idempotencyKey: body.idempotencyKey,
         });
