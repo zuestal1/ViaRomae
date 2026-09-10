@@ -6,7 +6,8 @@
 import type { FastifyBaseLogger } from "fastify";
 import { db } from "../../db/client.js";
 import { eventState, auditEvents } from "../../db/schema/media.js";
-import { teams } from "../../db/schema/player.js";
+import { players, teams } from "../../db/schema/player.js";
+import { combatInstances } from "../../db/schema/combat.js";
 import { ledgerEntries } from "../../db/schema/economy_v2.js";
 import { questRuns } from "../../db/schema/quest.js";
 import { eq, and, desc, sql } from "drizzle-orm";
@@ -52,6 +53,37 @@ export class EventLifecycleService {
 
   constructor(logger: FastifyBaseLogger) {
     this.logger = logger.child({ module: "EventLifecycleService" });
+  }
+
+  /**
+   * Idempotent day-2 rollover. Permanent progression lives on the existing
+   * player/team rows, so class, inventory/equipment, currencies, fame and fame
+   * tier bonuses carry over automatically. Only transient combat state is reset.
+   */
+  async startDay2(actorId: string): Promise<{ day: 2; playersRestored: number }> {
+    return db.transaction(async (tx) => {
+      const locked = await tx.execute(sql`SELECT id, metadata FROM event_state LIMIT 1 FOR UPDATE`);
+      const row = locked.rows[0] as { id: string; metadata: Record<string, unknown> | null } | undefined;
+      if (!row) throw new Error("Event state not initialized");
+      const metadata = row.metadata ?? {};
+      if (Number(metadata["currentDay"] ?? 1) >= 2) return { day: 2 as const, playersRestored: 0 };
+
+      // Ending every regular combat discards round-bound defend/skill effects.
+      await tx.update(combatInstances).set({ state: "COMPLETED" })
+        .where(sql`${combatInstances.state} <> 'COMPLETED' AND ${combatInstances.type} <> 'BOSS'`);
+      const restored = await tx.update(players).set({
+        hpCurrent: sql`${players.maxHp}`,
+        status: "ACTIVE",
+        lastRegenCalculationAt: new Date(),
+      }).returning({ id: players.id });
+      await tx.update(eventState).set({ metadata: { ...metadata, currentDay: 2 }, updatedAt: new Date() })
+        .where(eq(eventState.id, row.id));
+      await tx.insert(auditEvents).values({
+        actorId, action: "EVENT_CONTROL", targetRefs: null,
+        payload: { action: "START_DAY_2", playersRestored: restored.length },
+      });
+      return { day: 2 as const, playersRestored: restored.length };
+    });
   }
 
   /**

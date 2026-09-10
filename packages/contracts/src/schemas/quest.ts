@@ -60,6 +60,74 @@ export const StepActionTypeSchema = z.enum([
 ]);
 export type StepActionType = z.infer<typeof StepActionTypeSchema>;
 
+/** Content that may be gated by a class without ever blocking the main path. */
+export const ClassUnlockKindSchema = z.enum([
+  "OPTIONAL_ANSWER",
+  "HINT",
+  "BONUS_OBJECTIVE",
+  "SIDE_QUEST",
+  "HIDDEN_QUEST_TRIGGER",
+]);
+export type ClassUnlockKind = z.infer<typeof ClassUnlockKindSchema>;
+
+/** Location subjects on which the sculptor passive “Meisterliches Auge” works. */
+export const MasterfulEyeSubjectSchema = z.enum([
+  "ART",
+  "FOUNTAIN",
+  "CHURCH",
+  "STATUE",
+  "ARCHITECTURE",
+]);
+export type MasterfulEyeSubject = z.infer<typeof MasterfulEyeSubjectSchema>;
+
+export const ClassConditionSchema = z.object({
+  requiredClass: z.string().min(1).max(32),
+  /** The marked location at which a living class member must be present. */
+  worldObjectId: z.string().uuid(),
+});
+export type ClassCondition = z.infer<typeof ClassConditionSchema>;
+
+/** Authoring contract. Refinements encode the GDD's non-blocking and 15% rules. */
+const ClassUnlockDefinitionBaseSchema = z.object({
+    id: z.string().uuid().optional(),
+    questDefinitionId: z.string().uuid(),
+    nodeId: z.string().min(1).max(64),
+    optionId: z.string().min(1).max(64),
+    kind: ClassUnlockKindSchema,
+    text: z.string().min(1),
+    condition: ClassConditionSchema,
+    subject: MasterfulEyeSubjectSchema.nullable().optional(),
+    required: z.boolean().default(false),
+    bonusGloryPercent: z.number().min(0).max(15).default(0),
+    bonusDenariiPercent: z.number().min(0).max(15).default(0),
+    /** All other configured bonuses, used to validate the combined cap. */
+    otherGloryBonusPercent: z.number().min(0).max(15).default(0),
+    otherDenariiBonusPercent: z.number().min(0).max(15).default(0),
+    effectJson: z.string().default("{}"),
+  });
+export const ClassUnlockDefinitionSchema = ClassUnlockDefinitionBaseSchema.superRefine((value, ctx) => {
+    if (value.required) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["required"], message: "Class-gated content must be optional." });
+    }
+    if (value.bonusGloryPercent + value.otherGloryBonusPercent > 15) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["bonusGloryPercent"], message: "Combined glory bonuses may not exceed 15%." });
+    }
+    if (value.bonusDenariiPercent + value.otherDenariiBonusPercent > 15) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["bonusDenariiPercent"], message: "Combined denarii bonuses may not exceed 15%." });
+    }
+    if (value.condition.requiredClass === "SCULPTOR" &&
+        (!value.subject || !["OPTIONAL_ANSWER", "HINT", "BONUS_OBJECTIVE"].includes(value.kind))) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["subject"], message: "Meisterliches Auge requires a marked subject and may only unlock an optional answer, hint, or bonus objective." });
+    }
+  });
+export type ClassUnlockDefinition = z.infer<typeof ClassUnlockDefinitionSchema>;
+
+export const ClassUnlockViewSchema = ClassUnlockDefinitionBaseSchema.omit({
+  otherGloryBonusPercent: true,
+  otherDenariiBonusPercent: true,
+});
+export type ClassUnlockView = z.infer<typeof ClassUnlockViewSchema>;
+
 // ── Core entity schemas ───────────────────────────────────────────────────────
 
 /** A single step within a QuestDefinition (seeded from GeoJSON). */
