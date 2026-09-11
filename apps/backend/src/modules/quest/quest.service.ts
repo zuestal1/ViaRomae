@@ -489,7 +489,7 @@ async function completeObjectiveStep(opts: {
 // ── Public: getActiveRuns ─────────────────────────────────────────────────────
 
 /**
- * Return all ACTIVE QuestRuns for a team, enriched with step progress.
+ * Return all open QuestRuns for a team, including runs awaiting media review.
  */
 export async function getActiveRuns(teamId: string): Promise<QuestRunDetail[]> {
   const rows = await db.execute<{
@@ -515,7 +515,7 @@ export async function getActiveRuns(teamId: string): Promise<QuestRunDetail[]> {
     FROM   quest_run        qr
     JOIN   quest_definition qd ON qd.id = qr.quest_definition_id
     WHERE  qr.team_id = ${teamId}
-      AND  qr.state   = 'ACTIVE'
+      AND  qr.state   IN ('ACTIVE', 'PENDING_REVIEW')
     ORDER  BY qr.started_at ASC
   `);
 
@@ -539,7 +539,7 @@ export async function getActiveRuns(teamId: string): Promise<QuestRunDetail[]> {
         id: r.id,
         teamId: r.team_id,
         questDefinitionId: r.quest_definition_id,
-        state: r.state as "ACTIVE",
+        state: r.state as "ACTIVE" | "PENDING_REVIEW",
         startedAt: r.started_at,
         acceptedAt: null, // ✅ FIX: Column doesn't exist in DB yet
         completedAt: r.completed_at,

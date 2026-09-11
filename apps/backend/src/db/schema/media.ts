@@ -8,6 +8,7 @@ import {
   jsonb,
   varchar,
   boolean,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { teams } from "./player.js";
 import { questRuns } from "./quest.js";
@@ -29,6 +30,8 @@ export const mediaSubmissions = pgTable("media_submission", {
   questRunId: uuid("quest_run_id")
     .notNull()
     .references(() => questRuns.id),
+  /** Exact UPLOAD_MEDIA objective this submission belongs to. */
+  stepId: varchar("step_id", { length: 64 }).notNull(),
   objectKey: text("object_key").notNull(),
   status: mediaStatusEnum("status").notNull().default("UPLOADING"),
   submittedAt: timestamp("submitted_at", { withTimezone: true })
@@ -49,7 +52,9 @@ export const reviewDecisions = pgTable("review_decision", {
   decidedAt: timestamp("decided_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
-});
+}, (table) => [
+  uniqueIndex("review_decision_submission_unique").on(table.submissionId),
+]);
 
 export const gmCommandTypeEnum = pgEnum("gm_command_type", [
   "QUEST_RESET",

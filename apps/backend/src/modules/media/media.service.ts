@@ -6,9 +6,9 @@
 import type { FastifyBaseLogger } from "fastify";
 import { db } from "../../db/client.js";
 import { mediaSubmissions, reviewDecisions } from "../../db/schema/media.js";
-import { questRuns } from "../../db/schema/quest.js";
+import { objectiveProgress, questRuns, questSteps } from "../../db/schema/quest.js";
 import { S3Service } from "./s3.service.js";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import type {
   PresignedUploadResponse,
   MediaSubmission,
@@ -30,6 +30,7 @@ export class MediaService {
   async requestUploadUrl(
     teamId: string,
     questRunId: string,
+    stepId: string,
     fileType: string,
     fileSizeBytes: number,
   ): Promise<PresignedUploadResponse> {
@@ -44,8 +45,33 @@ export class MediaService {
       throw new Error("Quest run not found or does not belong to team");
     }
 
-    if (questRun.state === "COMPLETED" || questRun.state === "FAILED") {
-      throw new Error("Cannot upload media for completed or failed quest");
+    if (questRun.state !== "ACTIVE") {
+      throw new Error("A media submission is already awaiting review");
+    }
+
+    const [step] = await db.select().from(questSteps).where(and(
+      eq(questSteps.questDefinitionId, questRun.questDefinitionId),
+      eq(questSteps.stepId, stepId),
+      eq(questSteps.stepActionType, "UPLOAD_MEDIA"),
+      eq(questSteps.flowPhase, "OBJECTIVE"),
+    )).limit(1);
+    if (!step) throw new Error("UPLOAD_MEDIA step not found for this quest");
+
+    const orderedSteps = await db.select({ step: questSteps, progress: objectiveProgress })
+      .from(questSteps)
+      .leftJoin(objectiveProgress, and(
+        eq(objectiveProgress.questRunId, questRunId),
+        eq(objectiveProgress.objectiveId, questSteps.stepId),
+      ))
+      .where(and(
+        eq(questSteps.questDefinitionId, questRun.questDefinitionId),
+        eq(questSteps.flowPhase, "OBJECTIVE"),
+        eq(questSteps.required, true),
+      ))
+      .orderBy(questSteps.sequence);
+    const currentStep = orderedSteps.find(({ progress }) => progress?.status !== "COMPLETED");
+    if (currentStep?.step.stepId !== stepId) {
+      throw new Error("This media step is not the quest's current objective");
     }
 
     // Generate pre-signed URL
@@ -62,6 +88,7 @@ export class MediaService {
       .values({
         teamId,
         questRunId,
+        stepId,
         objectKey,
         status: "UPLOADING",
       })
@@ -72,18 +99,18 @@ export class MediaService {
       "Created media submission (UPLOADING)",
     );
 
-    return { uploadUrl, objectKey, expiresIn };
+    return { submissionId: submission!.id, uploadUrl, objectKey, expiresIn };
   }
 
   /**
    * Confirm that an upload is complete (called by S3 webhook or client).
    * Transitions MediaSubmission → RECEIVED and QuestRun → PENDING_REVIEW.
    */
-  async confirmUploadComplete(objectKey: string): Promise<MediaSubmission> {
+  async confirmUploadComplete(objectKey: string, teamId: string): Promise<MediaSubmission> {
     const [submission] = await db
       .select()
       .from(mediaSubmissions)
-      .where(eq(mediaSubmissions.objectKey, objectKey))
+      .where(and(eq(mediaSubmissions.objectKey, objectKey), eq(mediaSubmissions.teamId, teamId)))
       .limit(1);
 
     if (!submission) {
@@ -136,184 +163,94 @@ export class MediaService {
     score: number,
     reason?: string,
   ): Promise<Omit<typeof reviewDecisions.$inferSelect, "decidedAt"> & { decidedAt: string }> {
-    const [submission] = await db
-      .select()
-      .from(mediaSubmissions)
-      .where(eq(mediaSubmissions.id, submissionId))
-      .limit(1);
+    const decision = await db.transaction(async (tx) => {
+      const [submission] = await tx.select().from(mediaSubmissions)
+        .where(eq(mediaSubmissions.id, submissionId)).limit(1);
+      if (!submission) throw new Error("Media submission not found");
 
-    if (!submission) {
-      throw new Error("Media submission not found");
-    }
+      const [existing] = await tx.select().from(reviewDecisions)
+        .where(eq(reviewDecisions.submissionId, submissionId)).limit(1);
+      if (existing) return existing;
 
-    if (submission.status === "APPROVED" || submission.status === "REJECTED") {
-      throw new Error("Submission already reviewed");
-    }
-
-    // Create ReviewDecision
-    const [decision] = await db
-      .insert(reviewDecisions)
-      .values({
-        submissionId,
-        reviewerId,
-        score,
-        reason,
-      })
-      .returning();
-
-    // Update MediaSubmission status
-    const newStatus = score >= 5 ? "APPROVED" : "REJECTED";
-    await db
-      .update(mediaSubmissions)
-      .set({ status: newStatus })
-      .where(eq(mediaSubmissions.id, submissionId));
-
-    // Update QuestRun state and mark UPLOAD_MEDIA step as completed
-    if (newStatus === "APPROVED") {
-      // Get the quest run to find the UPLOAD_MEDIA step
-      const [questRun] = await db
-        .select()
-        .from(questRuns)
-        .where(eq(questRuns.id, submission.questRunId))
-        .limit(1);
-
-      if (questRun) {
-        // Find the UPLOAD_MEDIA step for this quest
-        const { questSteps } = await import("../../db/schema/quest.js");
-        const uploadSteps = await db
-          .select()
-          .from(questSteps)
-          .where(
-            and(
-              eq(questSteps.questDefinitionId, questRun.questDefinitionId),
-              eq(questSteps.stepActionType, "UPLOAD_MEDIA"),
-            ),
-          );
-
-        // Mark all UPLOAD_MEDIA steps as completed (usually there's only one)
-        const { objectiveProgress } = await import("../../db/schema/quest.js");
-        for (const step of uploadSteps) {
-          await db
-            .insert(objectiveProgress)
-            .values({
-              questRunId: submission.questRunId,
-              objectiveId: step.stepId,
-              status: "COMPLETED",
-              progressCount: 1,
-            })
-            .onConflictDoUpdate({
-              target: [objectiveProgress.questRunId, objectiveProgress.objectiveId],
-              set: {
-                status: "COMPLETED",
-                progressCount: 1,
-              },
-            });
-        }
-
-        // Check if all required objectives are now completed
-        const allSteps = await db
-          .select({ step: questSteps, progress: objectiveProgress })
-          .from(questSteps)
-          .leftJoin(
-            objectiveProgress,
-            and(
-              eq(objectiveProgress.questRunId, submission.questRunId),
-              eq(objectiveProgress.objectiveId, questSteps.stepId),
-            ),
-          )
-          .where(
-            and(
-              eq(questSteps.questDefinitionId, questRun.questDefinitionId),
-              eq(questSteps.flowPhase, "OBJECTIVE"),
-              eq(questSteps.required, true),
-            ),
-          );
-
-        const allRequiredDone = allSteps.every(
-          (s) => s.progress?.status === "COMPLETED",
-        );
-
-        // Only complete the quest if all objectives are done
-        if (allRequiredDone) {
-          await db
-            .update(questRuns)
-            .set({ state: "COMPLETED", completedAt: new Date() })
-            .where(eq(questRuns.id, submission.questRunId));
-        } else {
-          // Otherwise, transition from PENDING_REVIEW back to ACTIVE
-          await db
-            .update(questRuns)
-            .set({ state: "ACTIVE" })
-            .where(eq(questRuns.id, submission.questRunId));
-        }
+      const newStatus = score >= 5 ? "APPROVED" : "REJECTED";
+      const cleanReason = reason?.trim();
+      if (newStatus === "REJECTED" && !cleanReason) {
+        throw new Error("Rejected submissions require GM feedback");
       }
-    } else {
-      // Rejected: set back to ACTIVE so team can re-upload
-      await db
-        .update(questRuns)
-        .set({ state: "ACTIVE" })
-        .where(eq(questRuns.id, submission.questRunId));
-    }
 
-    // Post LedgerEntry for Ruhm/Denare based on score (Epic 9)
-    // Score 0-10: Award FAME and optionally DENARII
-    const { appendLedgerEntry } = await import("../economy/ledger.service.js");
-    const { v4: uuidv4 } = await import("uuid");
-    
-    if (newStatus === "APPROVED" && score > 0) {
-      // Award FAME based on score (1-10 points)
-      const fameAmount = score;
-      await appendLedgerEntry({
-        idempotencyKey: uuidv4(),
-        teamId: submission.teamId,
-        currencyType: "FAME",
-        amount: fameAmount,
-        source: "ADMIN",
-      });
+      const [created] = await tx.insert(reviewDecisions).values({
+        submissionId, reviewerId, score, reason: cleanReason,
+      }).onConflictDoNothing().returning();
+      if (!created) {
+        const [concurrentDecision] = await tx.select().from(reviewDecisions)
+          .where(eq(reviewDecisions.submissionId, submissionId)).limit(1);
+        if (!concurrentDecision) throw new Error("Review decision could not be persisted");
+        return concurrentDecision;
+      }
+      await tx.update(mediaSubmissions).set({ status: newStatus })
+        .where(eq(mediaSubmissions.id, submissionId));
 
-      // Award bonus DENARII for high scores (7-10 = 10-40 Denare)
-      if (score >= 7) {
-        const denariiAmount = (score - 6) * 10;
-        await appendLedgerEntry({
-          idempotencyKey: uuidv4(),
-          teamId: submission.teamId,
-          currencyType: "DENARII",
-          amount: denariiAmount,
-          source: "ADMIN",
+      if (newStatus === "APPROVED") {
+        await tx.insert(objectiveProgress).values({
+          questRunId: submission.questRunId,
+          objectiveId: submission.stepId,
+          status: "COMPLETED",
+          progressCount: 1,
+        }).onConflictDoUpdate({
+          target: [objectiveProgress.questRunId, objectiveProgress.objectiveId],
+          set: { status: "COMPLETED", progressCount: 1 },
         });
       }
 
-      this.logger.info(
-        { submissionId, teamId: submission.teamId, fameAmount, score },
-        "Awarded media submission rewards",
-      );
+      // Completion and rewards remain behind the normal idempotent quest-complete
+      // endpoint; returning ACTIVE exposes either the next step or completion UI.
+      await tx.update(questRuns).set({ state: "ACTIVE" })
+        .where(and(eq(questRuns.id, submission.questRunId), eq(questRuns.state, "PENDING_REVIEW")));
+      return created;
+    });
+
+    const [submission] = await db.select().from(mediaSubmissions)
+      .where(eq(mediaSubmissions.id, submissionId)).limit(1);
+    if (submission && decision.score >= 5 && decision.score > 0) {
+      const { appendLedgerEntry } = await import("../economy/ledger.service.js");
+      await appendLedgerEntry({
+        idempotencyKey: `media-review:${submissionId}:fame`, teamId: submission.teamId,
+        currencyType: "FAME", amount: decision.score, source: "ADMIN",
+      });
+      if (decision.score >= 7) await appendLedgerEntry({
+        idempotencyKey: `media-review:${submissionId}:denarii`, teamId: submission.teamId,
+        currencyType: "DENARII", amount: (decision.score - 6) * 10, source: "ADMIN",
+      });
     }
 
-    this.logger.info(
-      { submissionId, reviewerId, score, status: newStatus },
-      "Media review submitted",
-    );
-
-    const result = {
-      ...decision!,
-      decidedAt: decision!.decidedAt.toISOString(),
-    };
-    
-    return decision!.reason ? { ...result, reason: decision!.reason } : result;
+    this.logger.info({ submissionId, reviewerId, score }, "Media review submitted");
+    const result = { ...decision, decidedAt: decision.decidedAt.toISOString() };
+    return decision.reason ? { ...result, reason: decision.reason } : result;
   }
 
   /**
    * Get all submissions for a team's quest run.
    */
-  async getSubmissionsByQuestRun(questRunId: string): Promise<MediaSubmission[]> {
-    const rows = await db
-      .select()
+  async getSubmissionById(submissionId: string): Promise<MediaSubmission | null> {
+    const [submission] = await db.select().from(mediaSubmissions)
+      .where(eq(mediaSubmissions.id, submissionId)).limit(1);
+    return submission ? { ...submission, submittedAt: submission.submittedAt.toISOString() } : null;
+  }
+
+  async getSubmissionsByQuestRun(questRunId: string, teamId?: string): Promise<MediaSubmission[]> {
+    const rows = await db.select({ submission: mediaSubmissions, decision: reviewDecisions })
       .from(mediaSubmissions)
-      .where(eq(mediaSubmissions.questRunId, questRunId));
-    
-    return rows.map((r) => ({
-      ...r,
-      submittedAt: r.submittedAt.toISOString(),
+      .leftJoin(reviewDecisions, eq(reviewDecisions.submissionId, mediaSubmissions.id))
+      .where(teamId
+        ? and(eq(mediaSubmissions.questRunId, questRunId), eq(mediaSubmissions.teamId, teamId))
+        : eq(mediaSubmissions.questRunId, questRunId))
+      .orderBy(desc(mediaSubmissions.submittedAt));
+    return rows.map(({ submission, decision }) => ({
+      ...submission,
+      submittedAt: submission.submittedAt.toISOString(),
+      reviewScore: decision?.score ?? null,
+      reviewReason: decision?.reason ?? null,
+      reviewedAt: decision?.decidedAt.toISOString() ?? null,
     }));
   }
 
