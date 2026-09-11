@@ -18,6 +18,13 @@ serverautoritiven Basiswerte. `ABILITY_DEFINITIONS` enthält die Mechaniken aus
 GDD 8.10. Das Frontend darf nur diese Verträge beziehungsweise API-Antworten
 anzeigen. Insbesondere sind frühere Prototypklassen keine spielbaren Klassen.
 
+„Eine gegnerische Runde“ beim **Schildwall** bezeichnet eine Effekt-Lebensdauer
+ab Aktivierung bis zum Ende der nächsten vollständigen Gegnerphase. Die nach der
+Aktivierung noch verbleibenden Initiativaktionen zählen nicht als vollständige
+Phase. Der Schutz bleibt daher durch den Rundenwechsel bestehen und endet erst,
+nachdem in der Folgerunde alle Gegner gehandelt haben. Diese Auslegung gilt
+einheitlich für PvE-, PvP- und Bosskämpfe.
+
 ## Invarianten
 
 - Genau vier Klassen und höchstens eine bestätigte Belegung je Team.
