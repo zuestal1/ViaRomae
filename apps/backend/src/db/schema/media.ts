@@ -33,6 +33,8 @@ export const mediaSubmissions = pgTable("media_submission", {
   /** Exact UPLOAD_MEDIA objective this submission belongs to. */
   stepId: varchar("step_id", { length: 64 }).notNull(),
   objectKey: text("object_key").notNull(),
+  mimeType: varchar("mime_type", { length: 128 }).notNull(),
+  fileSizeBytes: integer("file_size_bytes").notNull(),
   status: mediaStatusEnum("status").notNull().default("UPLOADING"),
   submittedAt: timestamp("submitted_at", { withTimezone: true })
     .notNull()
@@ -48,6 +50,7 @@ export const reviewDecisions = pgTable("review_decision", {
     .notNull()
     .references(() => accounts.id),
   score: integer("score").notNull(),
+  criteria: jsonb("criteria").$type<{ taskLocation: number; storyRoles: number; creativity: number; execution: number }>(),
   reason: text("reason"),
   decidedAt: timestamp("decided_at", { withTimezone: true })
     .notNull()

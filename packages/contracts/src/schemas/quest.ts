@@ -150,6 +150,16 @@ export const QuestStepSchema = z.object({
   targetLat: z.number().nullable().optional(),
   /** Longitude of the target WorldObject (REACH_LOCATION steps only). */
   targetLng: z.number().nullable().optional(),
+  instruction: z.string().optional(),
+  successCondition: z.string().optional(),
+  onFailure: z.string().optional(),
+  uiComponent: z.string().nullable().optional(),
+  puzzle: z.object({
+    id: z.string(), answerType: z.string(), prompt: z.string(),
+    options: z.array(z.string()).default([]), evidence: z.string().nullable().optional(),
+    hint1: z.string().nullable().optional(), hint2: z.string().nullable().optional(),
+    fallback: z.string().nullable().optional(), failure: z.string().nullable().optional(),
+  }).optional(),
 });
 export type QuestStep = z.infer<typeof QuestStepSchema>;
 
@@ -192,6 +202,20 @@ export const QuestRunDetailSchema = QuestRunSchema.extend({
       progress: ObjectiveProgressSchema.nullable(),
     }),
   ),
+  runtimeState: z.record(z.unknown()).default({}),
+  reward: z.object({ glory: z.number().int(), denarii: z.number().int(), itemRule: z.string().default("") }),
+  slotRule: z.string().default(""),
+  dialogues: z.array(z.object({
+    sequenceId: z.string(), nodeId: z.string(), phase: z.string(), order: z.number().int(),
+    speaker: z.string(), mood: z.string().nullable().optional(), text: z.string(),
+    options: z.array(z.object({ id: z.string(), text: z.string(), response: z.string(), effect: z.record(z.unknown()) })),
+    defaultNext: z.string().nullable().optional(),
+  })).default([]),
+  timers: z.array(z.object({
+    id: z.string(), stepId: z.string(), title: z.string(), durationSec: z.number().int().positive(),
+    startsWhen: z.string(), warnings: z.array(z.number().int()), onExpire: z.string(),
+    retryPolicy: z.string(), uiComponent: z.string(), safety: z.string(),
+  })).default([]),
 });
 export type QuestRunDetail = z.infer<typeof QuestRunDetailSchema>;
 
@@ -213,6 +237,15 @@ export const QuestAvailableSchema = z.object({
   /** The WorldObject UUID that triggered discovery of this quest. */
   triggerObjectId: z.string().uuid(),
   triggerObjectName: z.string(),
+  description: z.string().default(""),
+  questGiver: z.string().nullable().optional(),
+  offerDialogue: z.object({
+    sequenceId: z.string(), nodeId: z.string(), speaker: z.string(),
+    mood: z.string().nullable().optional(), text: z.string(),
+    options: z.array(z.object({ id: z.string(), text: z.string(), response: z.string(), effect: z.record(z.unknown()) })),
+  }).nullable().optional(),
+  reward: z.object({ glory: z.number().int(), denarii: z.number().int(), itemRule: z.string().default("") }),
+  slotRule: z.string(),
 });
 export type QuestAvailable = z.infer<typeof QuestAvailableSchema>;
 
@@ -220,6 +253,7 @@ export type QuestAvailable = z.infer<typeof QuestAvailableSchema>;
 
 export const AcceptQuestBodySchema = z.object({
   questDefinitionId: z.string().uuid(),
+  dialogueOptionId: z.string().min(1).optional(),
 });
 export type AcceptQuestBody = z.infer<typeof AcceptQuestBodySchema>;
 

@@ -246,6 +246,8 @@ async function testMediaWorkflow(data: Awaited<ReturnType<typeof setupTestData>>
     questRunId: questRun!.id,
     stepId: data.mediaStepId,
     objectKey: `team/${data.teamId1}/quest/${questRun!.id}/test.jpg`,
+    mimeType: "image/jpeg",
+    fileSizeBytes: 2 * 1024 * 1024,
     status: "UPLOADING",
   }).returning();
 
@@ -265,6 +267,7 @@ async function testMediaWorkflow(data: Awaited<ReturnType<typeof setupTestData>>
     submission!.id,
     data.gmAccountId,
     8, // Score 8/10
+    { taskLocation: 2, storyRoles: 2, creativity: 2, execution: 2 },
     "Great photo!",
   );
   assert(decision.score === 8, "Review decision saved with score 8");
@@ -282,6 +285,8 @@ async function testMediaWorkflow(data: Awaited<ReturnType<typeof setupTestData>>
     questRunId: questRun!.id,
     stepId: data.mediaStepId,
     objectKey: `team/${data.teamId1}/quest/${questRun!.id}/test2.jpg`,
+    mimeType: "image/jpeg",
+    fileSizeBytes: 1024,
     status: "RECEIVED",
   }).returning();
 
@@ -289,6 +294,7 @@ async function testMediaWorkflow(data: Awaited<ReturnType<typeof setupTestData>>
     submission2!.id,
     data.gmAccountId,
     3, // Score 3/10 (reject)
+    { taskLocation: 1, storyRoles: 1, creativity: 1, execution: 0 },
     "Blurry image",
   );
 

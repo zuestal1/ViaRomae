@@ -32,6 +32,8 @@ const DEFAULT_GEOJSON_PATH = path.resolve(
   __dirname,
   "../../../docs/Via_Romae_GameObjects_v0.8.geojson",
 );
+const AUTHORED_CONTENT_PATH = path.resolve(__dirname, "../../../content/quest-content-v0.10.json");
+const authoredQuests = (JSON.parse(fs.readFileSync(AUTHORED_CONTENT_PATH, "utf8")) as { quests: Record<string, Record<string, unknown>> }).quests;
 
 export interface SeedReport {
   totalFeaturesRead: number;
@@ -296,6 +298,7 @@ export class SeedControlService {
         type: this.mapQuestType(props.quest_type),
         day: props.day,
         contentJson,
+        authoredContent: authoredQuests[props.quest_id] ?? {},
         repeatable: Boolean((props as any).repeatable),
         repeatCooldownSeconds: (props as any).repeat_cooldown_seconds ?? null,
       })
@@ -306,6 +309,7 @@ export class SeedControlService {
           type: this.mapQuestType(props.quest_type),
           day: props.day,
           contentJson,
+          authoredContent: authoredQuests[props.quest_id] ?? {},
           repeatable: Boolean((props as any).repeatable),
           repeatCooldownSeconds: (props as any).repeat_cooldown_seconds ?? null,
         },
@@ -339,6 +343,8 @@ export class SeedControlService {
       HIDDEN: "HIDDEN",
       LONG_TERM: "LONG_TERM",
       MEDIA: "MEDIA",
+      MEDIA_LOCAL: "MEDIA",
+      MEDIA_LANGZEIT: "LONG_TERM",
     };
     return map[raw] ?? "REGULAR";
   }

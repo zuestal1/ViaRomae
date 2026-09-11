@@ -62,6 +62,11 @@ const GEOJSON_PATH = path.resolve(
   __dirname,
   "../../../docs/Via_Romae_GameObjects_v0.8.geojson",
 );
+const QUEST_CONTENT_PATH = path.resolve(__dirname, "../content/quest-content-v0.10.json");
+type AuthoredQuest = { type: string; [key: string]: unknown; steps: Array<{ stepId: string; [key: string]: unknown }> };
+const authoredQuests = (JSON.parse(fs.readFileSync(QUEST_CONTENT_PATH, "utf8")) as {
+  quests: Record<string, AuthoredQuest>;
+}).quests;
 
 const IS_PRODUCTION = process.env["NODE_ENV"] === "production";
 
@@ -127,6 +132,8 @@ function mapQuestType(
     HIDDEN: "HIDDEN",
     LONG_TERM: "LONG_TERM",
     MEDIA: "MEDIA",
+    MEDIA_LOCAL: "MEDIA",
+    MEDIA_LANGZEIT: "LONG_TERM",
   };
   return map[raw] ?? "REGULAR";
 }
@@ -149,6 +156,12 @@ function mapContentStatus(
 
 /** Safely map a GeoJSON step_action_type to the DB enum or "OTHER". */
 function mapStepActionType(raw: string): string {
+  const aliases: Record<string, string> = {
+    TAKE_PHOTO: "UPLOAD_MEDIA", TAKE_VIDEO: "UPLOAD_MEDIA", COLLECT_MEDIA: "UPLOAD_MEDIA",
+    SUBMIT_FOR_REVIEW: "TEAM_DECISION", VISIT_MULTIPLE_LOCATIONS: "REACH_LOCATION",
+    NAVIGATION_CHALLENGE: "REACH_LOCATION", BOSS_PARTICIPATION: "DEFEAT_ENEMY",
+  };
+  raw = aliases[raw] ?? raw;
   const allowed = [
     "REACH_LOCATION",
     "ANSWER_QUESTION",
@@ -301,6 +314,7 @@ async function upsertQuestDefinition(
   report: Report,
 ): Promise<void> {
   const props = feature.properties;
+  const authored = authoredQuests[props.quest_id];
   const counter = report["quest_definition"] ?? emptyCounter();
 
   const contentJson = JSON.stringify({
@@ -330,12 +344,14 @@ async function upsertQuestDefinition(
       type: mapQuestType(props.quest_type),
       day: props.day,
       contentJson,
+      authoredContent: authored ?? {},
     })
     .onConflictDoUpdate({
       target: questDefinitions.externalId,
       set: {
         title: props.title,
         type: mapQuestType(props.quest_type),
+        authoredContent: authored ?? {},
         day: props.day,
         contentJson,
       },
@@ -428,6 +444,7 @@ async function upsertQuestSteps(
           gddObjectiveType: stepRef.gdd_objective_type ?? null,
           targetRef: stepRef.target_ref,
           required: stepRef.required,
+          authoredContent: authoredQuests[stepRef.quest_id]?.steps.find((item) => item.stepId === stepRef.step_id) ?? {},
         })
         .onConflictDoUpdate({
           target: questSteps.stepId,
@@ -457,6 +474,7 @@ async function upsertQuestSteps(
             gddObjectiveType: stepRef.gdd_objective_type ?? null,
             targetRef: stepRef.target_ref,
             required: stepRef.required,
+            authoredContent: authoredQuests[stepRef.quest_id]?.steps.find((item) => item.stepId === stepRef.step_id) ?? {},
           },
         });
     }

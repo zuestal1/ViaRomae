@@ -6,9 +6,12 @@
 import type { FastifyBaseLogger } from "fastify";
 import { db } from "../../db/client.js";
 import { mediaSubmissions, reviewDecisions } from "../../db/schema/media.js";
-import { objectiveProgress, questRuns, questSteps } from "../../db/schema/quest.js";
+import { objectiveProgress, questDefinitions, questRuns, questSteps } from "../../db/schema/quest.js";
+import { players } from "../../db/schema/player.js";
+import { playerProximityStates } from "../../db/schema/proximity.js";
+import { worldObjects } from "../../db/schema/world.js";
 import { S3Service } from "./s3.service.js";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import type {
   PresignedUploadResponse,
   MediaSubmission,
@@ -48,6 +51,13 @@ export class MediaService {
     if (questRun.state !== "ACTIVE") {
       throw new Error("A media submission is already awaiting review");
     }
+    const [definition] = await db.select({ type: questDefinitions.type }).from(questDefinitions)
+      .where(eq(questDefinitions.id, questRun.questDefinitionId));
+    if (definition?.type === "LONG_TERM") {
+      const existing = await db.select({ id: mediaSubmissions.id }).from(mediaSubmissions)
+        .where(and(eq(mediaSubmissions.questRunId, questRunId), eq(mediaSubmissions.stepId, stepId)));
+      if (existing.length >= 12) throw new Error("The chronicle is limited to twelve ordered images");
+    }
 
     const [step] = await db.select().from(questSteps).where(and(
       eq(questSteps.questDefinitionId, questRun.questDefinitionId),
@@ -56,6 +66,18 @@ export class MediaService {
       eq(questSteps.flowPhase, "OBJECTIVE"),
     )).limit(1);
     if (!step) throw new Error("UPLOAD_MEDIA step not found for this quest");
+
+    const locationId = (step.authoredContent as { locationId?: string }).locationId;
+    if (locationId) {
+      const present = await db.select({ id: players.id }).from(players)
+        .innerJoin(playerProximityStates, eq(playerProximityStates.playerId, players.id))
+        .innerJoin(worldObjects, eq(worldObjects.id, playerProximityStates.worldObjectId))
+        .where(and(eq(players.teamId, teamId), eq(players.status, "ACTIVE"),
+          sql`${players.hpCurrent} > 0`, eq(worldObjects.externalId, `location:${locationId}`),
+          eq(playerProximityStates.zone, "INTERACTING"),
+          sql`${playerProximityStates.updatedAt} >= now() - interval '2 minutes'`)).limit(1);
+      if (present.length === 0) throw new Error("Local media can only be submitted inside the quest location's interaction radius");
+    }
 
     const orderedSteps = await db.select({ step: questSteps, progress: objectiveProgress })
       .from(questSteps)
@@ -90,6 +112,8 @@ export class MediaService {
         questRunId,
         stepId,
         objectKey,
+        mimeType: fileType,
+        fileSizeBytes,
         status: "UPLOADING",
       })
       .returning();
@@ -127,6 +151,8 @@ export class MediaService {
         submittedAt: submission.submittedAt.toISOString(),
       };
     }
+    const validObject = await this.s3.validateObject(objectKey, submission.mimeType, submission.fileSizeBytes);
+    if (!validObject) throw new Error("Uploaded object is missing or does not match the declared media type/size");
 
     // Update submission → RECEIVED
     const [updated] = await db
@@ -161,6 +187,7 @@ export class MediaService {
     submissionId: string,
     reviewerId: string,
     score: number,
+    criteria: { taskLocation: number; storyRoles: number; creativity: number; execution: number },
     reason?: string,
   ): Promise<Omit<typeof reviewDecisions.$inferSelect, "decidedAt"> & { decidedAt: string }> {
     const decision = await db.transaction(async (tx) => {
@@ -179,7 +206,7 @@ export class MediaService {
       }
 
       const [created] = await tx.insert(reviewDecisions).values({
-        submissionId, reviewerId, score, reason: cleanReason,
+        submissionId, reviewerId, score, criteria, reason: cleanReason,
       }).onConflictDoNothing().returning();
       if (!created) {
         const [concurrentDecision] = await tx.select().from(reviewDecisions)
@@ -191,14 +218,19 @@ export class MediaService {
         .where(eq(mediaSubmissions.id, submissionId));
 
       if (newStatus === "APPROVED") {
+        const [step] = await tx.select({ authoredContent: questSteps.authoredContent }).from(questSteps)
+          .where(eq(questSteps.stepId, submission.stepId));
+        const minMedia = Number((step?.authoredContent as { successCondition?: string } | undefined)?.successCondition?.match(/mediaCount\s*>=\s*(\d+)/)?.[1] ?? 1);
+        const approved = await tx.select({ id: mediaSubmissions.id }).from(mediaSubmissions)
+          .where(and(eq(mediaSubmissions.questRunId, submission.questRunId), eq(mediaSubmissions.stepId, submission.stepId), eq(mediaSubmissions.status, "APPROVED")));
         await tx.insert(objectiveProgress).values({
           questRunId: submission.questRunId,
           objectiveId: submission.stepId,
-          status: "COMPLETED",
-          progressCount: 1,
+          status: approved.length + 1 >= minMedia ? "COMPLETED" : "PENDING",
+          progressCount: approved.length + 1,
         }).onConflictDoUpdate({
           target: [objectiveProgress.questRunId, objectiveProgress.objectiveId],
-          set: { status: "COMPLETED", progressCount: 1 },
+          set: { status: approved.length + 1 >= minMedia ? "COMPLETED" : "PENDING", progressCount: approved.length + 1 },
         });
       }
 
@@ -208,20 +240,6 @@ export class MediaService {
         .where(and(eq(questRuns.id, submission.questRunId), eq(questRuns.state, "PENDING_REVIEW")));
       return created;
     });
-
-    const [submission] = await db.select().from(mediaSubmissions)
-      .where(eq(mediaSubmissions.id, submissionId)).limit(1);
-    if (submission && decision.score >= 5 && decision.score > 0) {
-      const { appendLedgerEntry } = await import("../economy/ledger.service.js");
-      await appendLedgerEntry({
-        idempotencyKey: `media-review:${submissionId}:fame`, teamId: submission.teamId,
-        currencyType: "FAME", amount: decision.score, source: "ADMIN",
-      });
-      if (decision.score >= 7) await appendLedgerEntry({
-        idempotencyKey: `media-review:${submissionId}:denarii`, teamId: submission.teamId,
-        currencyType: "DENARII", amount: (decision.score - 6) * 10, source: "ADMIN",
-      });
-    }
 
     this.logger.info({ submissionId, reviewerId, score }, "Media review submitted");
     const result = { ...decision, decidedAt: decision.decidedAt.toISOString() };
@@ -267,5 +285,9 @@ export class MediaService {
       ...r,
       submittedAt: r.submittedAt.toISOString(),
     }));
+  }
+
+  async getPreviewUrl(objectKey: string): Promise<string> {
+    return this.s3.generatePresignedDownloadUrl(objectKey);
   }
 }

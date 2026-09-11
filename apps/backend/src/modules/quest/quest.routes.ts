@@ -25,7 +25,8 @@ import {
   submitAnswer,
   completeQuest,
   getSingleRun,
-  resolveDefeatEnemy,
+  performQuestAction,
+  startQuestTimer,
 } from "./quest.service.js";
 import { db } from "../../db/client.js";
 import { players } from "../../db/schema/player.js";
@@ -35,6 +36,7 @@ import { eq } from "drizzle-orm";
 
 const AcceptBodySchema = z.object({
   questDefinitionId: z.string().uuid(),
+  dialogueOptionId: z.string().min(1).optional(),
 });
 
 const ReachBodySchema = z.object({
@@ -47,6 +49,7 @@ const AnswerBodySchema = z.object({
   answer: z.string().min(1).max(512),
   requireAllMembersOnline: z.boolean().optional().default(true),
 });
+const ActionBodySchema = z.object({ optionId: z.string().min(1).optional() });
 
 // ── Internal helper ───────────────────────────────────────────────────────────
 
@@ -103,6 +106,27 @@ export async function questRoutes(server: FastifyInstance): Promise<void> {
 
   // ── POST /api/v1/quests/accept ─────────────────────────────────────────────
   server.post(
+    "/runs/:runId/steps/:stepId/action",
+    { onRequest: [server.authenticate] },
+    async (request, reply) => {
+      const { sub: accountId } = request.user as { sub: string };
+      const { runId, stepId } = request.params as { runId: string; stepId: string };
+      const body = ActionBodySchema.parse(request.body ?? {});
+      return reply.send(await performQuestAction({ accountId, questRunId: runId, stepId, ...(body.optionId ? { optionId: body.optionId } : {}), wsHub: server.wsHub }));
+    },
+  );
+
+  server.post(
+    "/runs/:runId/timers/:timerId/start",
+    { onRequest: [server.authenticate] },
+    async (request, reply) => {
+      const { sub: accountId } = request.user as { sub: string };
+      const { runId, timerId } = request.params as { runId: string; timerId: string };
+      return reply.send({ run: await startQuestTimer({ accountId, questRunId: runId, timerId }) });
+    },
+  );
+
+  server.post(
     "/accept",
     { onRequest: [server.authenticate] },
     async (request, reply) => {
@@ -120,6 +144,7 @@ export async function questRoutes(server: FastifyInstance): Promise<void> {
         accountId,
         questDefinitionId: body.data.questDefinitionId,
         wsHub: server.wsHub,
+        ...(body.data.dialogueOptionId ? { dialogueOptionId: body.data.dialogueOptionId } : {}),
       });
 
       return reply.status(alreadyActive ? 200 : 201).send({ run, alreadyActive });
@@ -209,28 +234,6 @@ export async function questRoutes(server: FastifyInstance): Promise<void> {
       });
 
       // Same as /reach: always 200, use StepResult.status to distinguish outcomes.
-      return reply.status(200).send(result);
-    },
-  );
-
-  // ── POST /api/v1/quests/runs/:runId/steps/:stepId/defeat ─────────────────
-  server.post(
-    "/runs/:runId/steps/:stepId/defeat",
-    { onRequest: [server.authenticate] },
-    async (request, reply) => {
-      const { sub: accountId } = request.user as { sub: string };
-      const { runId, stepId } = request.params as {
-        runId: string;
-        stepId: string;
-      };
-
-      const result = await resolveDefeatEnemy({
-        accountId,
-        questRunId: runId,
-        stepId,
-        wsHub: server.wsHub,
-      });
-
       return reply.status(200).send(result);
     },
   );

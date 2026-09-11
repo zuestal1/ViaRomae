@@ -141,10 +141,10 @@ export async function assignLoot(opts: {
         if (upd.rows.length === 0) {
           await tx.execute(sql`
             INSERT INTO item_instance
-              (id, definition_id, owner_type, owner_id, quantity, category, slot, is_equipped, is_bound)
+              (id, definition_id, owner_type, owner_id, quantity, category, slot, is_equipped, is_bound, is_quest_locked)
             VALUES (
               gen_random_uuid(), ${it.defKey}, ${ownerType}::owner_type, ${ownerId}::uuid,
-              ${it.quantity}, ${category}::item_category, ${slot}::item_slot, false, false
+              ${it.quantity}, ${category}::item_category, ${slot}::item_slot, false, ${it.defKey.startsWith("qi_")}, ${it.defKey.startsWith("qi_")}
             )
           `);
         }
@@ -152,10 +152,10 @@ export async function assignLoot(opts: {
         for (let i = 0; i < it.quantity; i++) {
           await tx.execute(sql`
             INSERT INTO item_instance
-              (id, definition_id, owner_type, owner_id, quantity, category, slot, is_equipped, is_bound)
+              (id, definition_id, owner_type, owner_id, quantity, category, slot, is_equipped, is_bound, is_quest_locked)
             VALUES (
               gen_random_uuid(), ${it.defKey}, ${ownerType}::owner_type, ${ownerId}::uuid,
-              1, ${category}::item_category, ${slot}::item_slot, false, false
+              1, ${category}::item_category, ${slot}::item_slot, false, ${it.defKey.startsWith("qi_")}, ${it.defKey.startsWith("qi_")}
             )
           `);
         }

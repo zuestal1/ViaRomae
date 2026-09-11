@@ -90,7 +90,7 @@ export async function mediaRoutes(server: FastifyInstance): Promise<void> {
    */
   server.post<{
     Params: { id: string };
-    Body: { score: number; reason?: string };
+    Body: { score: number; criteria: { taskLocation: number; storyRoles: number; creativity: number; execution: number }; reason?: string };
   }>(
     "/:id/review",
     {
@@ -110,6 +110,7 @@ export async function mediaRoutes(server: FastifyInstance): Promise<void> {
           request.params.id,
           reviewerId,
           body.score,
+          body.criteria,
           body.reason,
         );
 
