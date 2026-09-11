@@ -85,6 +85,13 @@ export const CombatActionSchema = z.object({
 });
 export type CombatAction = z.infer<typeof CombatActionSchema>;
 
+export const CombatThreatSchema = z.object({
+  enemyCombatantId: z.string().uuid(),
+  playerCombatantId: z.string().uuid(),
+  amount: z.number().int().nonnegative(),
+});
+export type CombatThreat = z.infer<typeof CombatThreatSchema>;
+
 export const CombatInstanceSchema = z.object({
   id: z.string().uuid(),
   type: CombatTypeSchema,
@@ -93,6 +100,7 @@ export const CombatInstanceSchema = z.object({
   startedAt: z.string().datetime(),
   combatants: z.array(CombatantSchema),
   actions: z.array(CombatActionSchema),
+  threat: z.array(CombatThreatSchema).default([]),
   actionDeadline: z.string().datetime().optional(),
 });
 export type CombatInstance = z.infer<typeof CombatInstanceSchema>;

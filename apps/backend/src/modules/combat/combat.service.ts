@@ -12,6 +12,7 @@ import {
   combatAbilityCooldowns,
   combatEffects,
   combatRoundOrders,
+  combatThreat,
   pvpChallenges,
   pvpProtections,
   statusEffectInstances,
@@ -29,6 +30,8 @@ import {
   compareRoundOrder,
   calculateEquipmentRarityScore,
   calculateHealing,
+  calculateGeneratedThreat,
+  selectThreatTarget,
   clampCombatPercent,
   type CombatStats,
   type EquipmentRarity,
@@ -67,6 +70,7 @@ export interface CombatInstance {
   startedAt: Date;
   combatants: Combatant[];
   actions: CombatAction[];
+  threat: CombatThreat[];
   actionDeadline?: Date;
 }
 
@@ -108,6 +112,12 @@ export interface CombatAction {
   origin: "PLAYER_SUBMITTED" | "AUTOMATIC" | "ENEMY_AI";
   damage?: number;
   effect?: string;
+}
+
+export interface CombatThreat {
+  enemyCombatantId: string;
+  playerCombatantId: string;
+  amount: number;
 }
 
 export type ActionType = "ATTACK" | "SKILL" | "DEFEND";
@@ -291,6 +301,8 @@ export async function getCombatInstance(combatId: string): Promise<CombatInstanc
     .select()
     .from(combatActions)
     .where(eq(combatActions.combatInstanceId, combatId));
+  const threatData = await db.select().from(combatThreat)
+    .where(eq(combatThreat.combatInstanceId, combatId));
   const abilityCooldownData = await db.select().from(combatAbilityCooldowns)
     .where(eq(combatAbilityCooldowns.combatInstanceId, combatId));
   const effectsData = await db.select().from(statusEffectInstances)
@@ -375,6 +387,8 @@ export async function getCombatInstance(combatId: string): Promise<CombatInstanc
       isLocked: a.isLocked,
       origin: a.origin,
     })),
+    threat: threatData.map((entry) => ({ enemyCombatantId: entry.enemyCombatantId,
+      playerCombatantId: entry.playerCombatantId, amount: entry.amount })),
     ...(combat.actionDeadline ? { actionDeadline: combat.actionDeadline } : {}),
   };
 }
@@ -542,11 +556,16 @@ export async function lockAndResolveRound(
 
     const participants = await tx.select().from(combatants)
       .where(eq(combatants.combatInstanceId, combatId));
+    const threatEntries = await tx.select().from(combatThreat)
+      .where(eq(combatThreat.combatInstanceId, combatId));
     const alive = participants.filter((c) => c.hpCurrent > 0);
     for (const actor of alive) {
       const targets = alive.filter((target) => areOpponents(actor, target, combat.type as CombatInstance["type"]))
         .sort((a, b) => a.id.localeCompare(b.id));
-      const target = targets.find((candidate) => candidate.id === actor.lastTargetId) ?? targets[0];
+      const target = actor.entityType === "ENEMY"
+        ? selectThreatTarget(targets.map((candidate) => ({ ...candidate, threat: threatEntries.find((entry) =>
+          entry.enemyCombatantId === actor.id && entry.playerCombatantId === candidate.id)?.amount ?? 0 })))
+        : targets.find((candidate) => candidate.id === actor.lastTargetId) ?? targets[0];
       if (!target) continue;
       await tx.insert(combatActions).values({
         combatInstanceId: combatId, roundNumber: combat.roundNumber, actorId: actor.id,
@@ -786,6 +805,7 @@ async function resolveRound(combatId: string, wsHub?: WsHub): Promise<CombatLog[
 
       // Apply damage
       const dealt = await applyAbilityModifiers(combat, actor, targetMaybe, damage);
+      await addDamageThreat(combat, actor, targetMaybe, dealt);
       const newHp = targetMaybe.hpCurrent;
       await db.update(combatants).set({ lastTargetId: targetMaybe.id }).where(eq(combatants.id, actor.id));
 
@@ -816,6 +836,11 @@ function defaultEnemyTarget(combat: CombatInstance, actor: Combatant): Combatant
   const candidates = combat.combatants.filter((candidate) => !candidate.isDowned && candidate.id !== actor.id &&
     (combat.type === "BOSS" ? actor.entityType !== candidate.entityType :
       ((actor.teamId && candidate.teamId) ? actor.teamId !== candidate.teamId : actor.entityType !== candidate.entityType)));
+  if (actor.entityType === "ENEMY") return selectThreatTarget(candidates.map((candidate) => ({
+    ...candidate,
+    threat: combat.threat.find((entry) => entry.enemyCombatantId === actor.id &&
+      entry.playerCombatantId === candidate.id)?.amount ?? 0,
+  })));
   return candidates.find((candidate) => candidate.id === actor.lastTargetId) ?? candidates[0];
 }
 
@@ -839,6 +864,8 @@ async function resolveAbility(combat: CombatInstance, actor: Combatant, abilityI
     }
     const damage = await calculateActionDamage(combat, actor, target, effect.attackMultiplier);
     const dealt = await applyAbilityModifiers(combat, actor, target, damage);
+    await addDamageThreat(combat, actor, target, dealt,
+      effect.kind === "DAMAGE" ? effect.threatBonusPercent ?? 0 : 0);
     logs.push({ timestamp: new Date(), message: `${actor.name} wirkt ${definition.displayName} auf ${target.name}: ${dealt} Schaden.`, type: "DAMAGE" });
     if (effect.kind === "DAMAGE_AND_DEFENSE_REDUCTION") await addEffect(combat, actor, target, abilityId,
       combat.roundNumber + 1,{armorBreakPercentPoints:actor.stats?.armorBreakPercentPoints??0});
@@ -871,6 +898,22 @@ async function resolveAbility(combat: CombatInstance, actor: Combatant, abilityI
     await addEffect(combat, actor, target, abilityId, undefined, { shield: effect.shield });
   }
   logs.push({ timestamp: new Date(), message: `${actor.name} verwendet ${definition.displayName}.`, type: "ACTION" });
+}
+
+async function addDamageThreat(combat: CombatInstance, actor: Combatant, target: Combatant,
+  damageDealt: number, bonusPercent = 0): Promise<void> {
+  if (actor.entityType !== "PLAYER" || target.entityType !== "ENEMY") return;
+  const amount = calculateGeneratedThreat(damageDealt, bonusPercent);
+  if (amount === 0) return;
+  await db.insert(combatThreat).values({ combatInstanceId: combat.id, enemyCombatantId: target.id,
+    playerCombatantId: actor.id, amount }).onConflictDoUpdate({
+      target: [combatThreat.enemyCombatantId, combatThreat.playerCombatantId],
+      set: { amount: sql`${combatThreat.amount} + ${amount}` },
+    });
+  const existing = combat.threat.find((entry) => entry.enemyCombatantId === target.id &&
+    entry.playerCombatantId === actor.id);
+  if (existing) existing.amount += amount;
+  else combat.threat.push({ enemyCombatantId: target.id, playerCombatantId: actor.id, amount });
 }
 
 async function calculateActionDamage(combat: CombatInstance, actor: Combatant, target: Combatant,

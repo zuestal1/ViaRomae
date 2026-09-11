@@ -72,6 +72,20 @@ export const combatants = pgTable("combatant", {
   modeMultiplier: doublePrecision("mode_multiplier").notNull().default(1),
 });
 
+/** Server-owned aggro accumulated by one player against one enemy. */
+export const combatThreat = pgTable("combat_threat", {
+  combatInstanceId: uuid("combat_instance_id").notNull()
+    .references(() => combatInstances.id, { onDelete: "cascade" }),
+  enemyCombatantId: uuid("enemy_combatant_id").notNull()
+    .references(() => combatants.id, { onDelete: "cascade" }),
+  playerCombatantId: uuid("player_combatant_id").notNull()
+    .references(() => combatants.id, { onDelete: "cascade" }),
+  amount: integer("amount").notNull().default(0),
+}, (table) => [
+  uniqueIndex("combat_threat_enemy_player_unique").on(table.enemyCombatantId, table.playerCombatantId),
+  index("combat_threat_instance_enemy_idx").on(table.combatInstanceId, table.enemyCombatantId),
+]);
+
 export const combatActions = pgTable("combat_action", {
   id: uuid("id").primaryKey().defaultRandom(),
   combatInstanceId: uuid("combat_instance_id")

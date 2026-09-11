@@ -76,6 +76,18 @@ export function calculateHealing(
   return Math.min(missingHp, commercialRound(modifiedHealing));
 }
 
+/** Threat is based on damage actually dealt; ability bonuses add to the 100% baseline. */
+export function calculateGeneratedThreat(damageDealt: number, bonusPercent = 0): number {
+  return Math.max(0, commercialRound(finite(damageDealt) * (1 + finite(bonusPercent) / 100)));
+}
+
+export interface ThreatTargetCandidate { id: string; threat: number }
+
+/** Highest threat wins. Equal threat (including zero) is resolved by ascending combatant UUID. */
+export function selectThreatTarget<T extends ThreatTargetCandidate>(candidates: readonly T[]): T | undefined {
+  return [...candidates].sort((a, b) => finite(b.threat) - finite(a.threat) || a.id.localeCompare(b.id))[0];
+}
+
 export function calculateEffectiveInitiative(stats: CombatStats): number {
   return finite(stats.initiative) * (1 + finite(stats.initiativePercent)) +
     finite(stats.initiativeFlat);

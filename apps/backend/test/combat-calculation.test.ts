@@ -6,9 +6,11 @@ import {
   calculateEffectiveInitiative,
   calculateEquipmentRarityScore,
   calculateHealing,
+  calculateGeneratedThreat,
   compareRoundOrder,
   clampCombatPercent,
   commercialRound,
+  selectThreatTarget,
 } from "../src/modules/combat/combat-calculation.js";
 
 test("damage follows GDD 7.10 and rounds only at the end", () => {
@@ -23,6 +25,35 @@ test("damage follows GDD 7.10 and rounds only at the end", () => {
     { attack: 0, defense: 0, initiative: 0 },
     { attack: 0, defense: 999, initiative: 0 },
   ), 1);
+});
+
+test("Hellebardenstoss generates the dealt damage plus 50 percent threat", () => {
+  assert.equal(calculateGeneratedThreat(41, 50), 62);
+  assert.equal(calculateGeneratedThreat(41), 41);
+});
+
+test("enemy target switches to the living player with the highest threat", () => {
+  assert.equal(selectThreatTarget([
+    { id: "00000000-0000-0000-0000-000000000001", threat: 10 },
+    { id: "00000000-0000-0000-0000-000000000002", threat: 20 },
+  ])?.id, "00000000-0000-0000-0000-000000000002");
+});
+
+test("equal threat uses the documented ascending combatant UUID tie-breaker", () => {
+  assert.equal(selectThreatTarget([
+    { id: "00000000-0000-0000-0000-000000000002", threat: 20 },
+    { id: "00000000-0000-0000-0000-000000000001", threat: 20 },
+  ])?.id, "00000000-0000-0000-0000-000000000001");
+});
+
+test("removing the downed threat leader makes the next living player the target", () => {
+  const candidates = [
+    { id: "00000000-0000-0000-0000-000000000001", threat: 100, isDowned: true },
+    { id: "00000000-0000-0000-0000-000000000002", threat: 25, isDowned: false },
+    { id: "00000000-0000-0000-0000-000000000003", threat: 10, isDowned: false },
+  ];
+  assert.equal(selectThreatTarget(candidates.filter((candidate) => !candidate.isDowned))?.id,
+    "00000000-0000-0000-0000-000000000002");
 });
 
 test("GDD percent caps and commercial rounding are enforced", () => {
