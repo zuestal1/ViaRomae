@@ -45,6 +45,8 @@ import { resolveCombatConsumable } from "../economy/consumable.service.js";
 import { effectiveItemStats } from "../economy/item-rules.js";
 import { resolveDefeatEnemy } from "../quest/quest.service.js";
 import { abilitiesForClass, CLASS_ABILITY_CLASSES } from "../classes/class-rules.js";
+import { hasOpponentPhaseCompleted, isOpponentPhaseEffectActive,
+  nextCompleteOpponentPhase } from "./combat-effect-lifetime.js";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -608,6 +610,10 @@ export async function lockAndResolveRound(
     eq(combatInstances.id, combatId), eq(combatInstances.state, "LOCKED")));
   const logs = await resolveRound(combatId, wsHub);
 
+  // Round resolution is the common opposing-phase boundary for PvE, PvP and
+  // bosses. Expiring here means initiative can never truncate the full phase.
+  await expireOpponentPhaseEffects(combatId, roundNumber);
+
   // Check for combat end
   const updatedCombat = await getCombatInstance(combatId);
   const isComplete = checkCombatComplete(updatedCombat);
@@ -884,7 +890,10 @@ async function resolveAbility(combat: CombatInstance, actor: Combatant, abilityI
   } else if (effect.kind === "BODYGUARD" && target) {
     await addEffect(combat, actor, target, abilityId, combat.roundNumber);
   } else if (effect.kind === "TEAM_DAMAGE_REDUCTION") {
-    for (const ally of combat.combatants.filter((item) => item.teamId === actor.teamId && !item.isDowned)) await addEffect(combat, actor, ally, abilityId, combat.roundNumber);
+    const lifetime = nextCompleteOpponentPhase(combat.roundNumber);
+    for (const ally of combat.combatants.filter((item) => item.teamId === actor.teamId && !item.isDowned)) {
+      await addEffect(combat, actor, ally, abilityId, undefined, { ...lifetime });
+    }
   } else if (effect.kind === "NEXT_ACTION_DAMAGE_REDUCTION" && target) {
     await addEffect(combat, actor, target, abilityId, undefined, { nextAction: true });
   } else if (effect.kind === "CLEANSE_AND_SHIELD" && target) {
@@ -933,7 +942,7 @@ async function calculateActionDamage(combat: CombatInstance, actor: Combatant, t
   defender.damageTakenPercent = (defender.damageTakenPercent ?? 0) +
     (target.abilityDefinitions?.some((ability) => ability.id === "gardist.standhaft") ? -.1 : 0) +
     (effects.some((effect) => effect.targetCombatantId === target.id && effect.abilityId === "gardist.schildwall" &&
-      (effect.expiresAtRound == null || effect.expiresAtRound >= combat.roundNumber)) ? -.3 : 0) +
+      isOpponentPhaseEffectActive(effect.state, combat.roundNumber)) ? -.3 : 0) +
     (effects.some((effect) => effect.targetCombatantId === target.id && effect.abilityId === "condottiere.duell" &&
       (effect.expiresAtRound == null || effect.expiresAtRound >= combat.roundNumber)) ? .15 : 0);
   if (dust) await db.delete(combatEffects).where(eq(combatEffects.id, dust.id));
@@ -956,6 +965,14 @@ async function addEffect(combat: CombatInstance, source: Combatant, target: Comb
     ABILITY_DEFINITIONS[abilityId].effect.kind === "DAMAGE_AND_DEFENSE_REDUCTION") {
     await recordBossContribution(combat, source, "DEBUFF", 15, abilityId);
   }
+}
+
+async function expireOpponentPhaseEffects(combatId: string, resolvedRound: number): Promise<void> {
+  const effects = await db.select().from(combatEffects).where(and(
+    eq(combatEffects.combatInstanceId, combatId), eq(combatEffects.abilityId, "gardist.schildwall")));
+  const expiredIds = effects.filter((effect) =>
+    hasOpponentPhaseCompleted(effect.state, resolvedRound)).map((effect) => effect.id);
+  if (expiredIds.length > 0) await db.delete(combatEffects).where(inArray(combatEffects.id, expiredIds));
 }
 
 /** Shared damage pipeline used by normal attacks and every ability in PvE, PvP and boss instances. */
