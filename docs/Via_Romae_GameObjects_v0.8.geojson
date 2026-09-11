@@ -63,7 +63,7 @@
         "traffic_light": "GELB",
         "research_status": "GELB_TEILWEISE_VERDECKT",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung"
@@ -237,7 +237,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_PARKZUGANG",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung"
@@ -370,7 +370,7 @@
         "traffic_light": "GELB",
         "research_status": "GELB_FASSADENSICHT",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung",
@@ -492,7 +492,7 @@
         "traffic_light": "GELB",
         "research_status": "GELB_KLASSENANKER_OHNE_INNENHOF",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung"
@@ -610,7 +610,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_AUSSENPUNKT",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung"
@@ -743,7 +743,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_MIT_MARKTRISIKO",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung",
@@ -841,7 +841,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_AUSSENPUNKT",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung",
@@ -1000,7 +1000,7 @@
         "traffic_light": "GELB",
         "research_status": "GELB_AUSSENFASSADE",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "MISSING_IN_V07_WORKBOOK",
         "geometry_sources": [],
         "alternate_geometry_anchors": [],
@@ -1046,7 +1046,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_KONZEPTREIF",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung"
@@ -1186,7 +1186,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_KONZEPTREIF",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung",
@@ -1294,7 +1294,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_KONZEPTREIF",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "MISSING_IN_V07_WORKBOOK",
         "geometry_sources": [],
         "alternate_geometry_anchors": [],
@@ -1340,7 +1340,7 @@
         "traffic_light": "GELB",
         "research_status": "GELB_PARKOEFFNUNG",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung"
@@ -1480,7 +1480,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_KONZEPTREIF",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung"
@@ -1625,7 +1625,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_KONZEPTREIF",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung"
@@ -1720,7 +1720,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_KONZEPTREIF",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "MISSING_IN_V07_WORKBOOK",
         "geometry_sources": [],
         "alternate_geometry_anchors": [],
@@ -1766,7 +1766,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_KONZEPTREIF",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung"
@@ -1899,7 +1899,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_KONZEPTREIF",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung",
@@ -2008,7 +2008,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_PARKZUGANG",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung",
@@ -2100,7 +2100,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_KONZEPTREIF",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung"
@@ -2274,7 +2274,7 @@
         "traffic_light": "GELB",
         "research_status": "GELB_EXTREME_MENSCHENMENGE",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung"
@@ -2392,7 +2392,7 @@
         "traffic_light": "GELB",
         "research_status": "GELB_SICHTWINKEL",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung",
@@ -2546,7 +2546,7 @@
         "traffic_light": "GELB",
         "research_status": "GELB_ZAEHLPERSPEKTIVE",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung"
@@ -2668,7 +2668,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_KONZEPTREIF",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung"
@@ -2757,7 +2757,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_KONZEPTREIF",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung"
@@ -2846,7 +2846,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_KONZEPTREIF",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung"
@@ -2962,7 +2962,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_KONZEPTREIF",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "MISSING_IN_V07_WORKBOOK",
         "geometry_sources": [],
         "alternate_geometry_anchors": [],
@@ -3008,7 +3008,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_MIT_GEWEGPUNKT",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung"
@@ -3126,7 +3126,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_KONZEPTREIF",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung"
@@ -3209,7 +3209,7 @@
         "traffic_light": "ROT",
         "research_status": "ROT_AKTUELL_GESPERRT",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "MISSING_IN_V07_WORKBOOK",
         "geometry_sources": [],
         "alternate_geometry_anchors": [],
@@ -3255,7 +3255,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_PARKZUGANG",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung"
@@ -3373,7 +3373,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_KONZEPTREIF",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung",
@@ -3494,7 +3494,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_KONZEPTREIF",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung",
@@ -3597,7 +3597,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_MENSCHENMENGE",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung"
@@ -3730,7 +3730,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_SICHERHEITSABSTAND",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung"
@@ -3863,7 +3863,7 @@
         "traffic_light": "GELB",
         "research_status": "GELB_SICHERHEITSBEREICH",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung"
@@ -3952,7 +3952,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_AUSSENPUNKT",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung"
@@ -4070,7 +4070,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_MIT_BLICKPUNKT",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung"
@@ -4159,7 +4159,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_KONZEPTREIF",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung",
@@ -4280,7 +4280,7 @@
         "traffic_light": "ROT",
         "research_status": "ROT_NICHT_ALS_PFLICHT",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "MISSING_IN_V07_WORKBOOK",
         "geometry_sources": [],
         "alternate_geometry_anchors": [],
@@ -4326,7 +4326,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_REVIVE_PUNKT",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Supportpunkte.Google Maps"
@@ -4384,7 +4384,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_MENSCHENMENGE",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung"
@@ -4524,7 +4524,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_MENSCHENMENGE",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung",
@@ -4761,7 +4761,7 @@
         "traffic_light": "GELB",
         "research_status": "GELB_MENSCHENMENGE",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung"
@@ -4974,7 +4974,7 @@
         "traffic_light": "GELB",
         "research_status": "GELB_KLEINES_FASSADENDETAIL",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung"
@@ -5086,7 +5086,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_MIT_BLICKPUNKT",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "MISSING_IN_V07_WORKBOOK",
         "geometry_sources": [],
         "alternate_geometry_anchors": [],
@@ -5132,7 +5132,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_KONZEPTREIF",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung",
@@ -5286,7 +5286,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_MIT_BLICKPUNKT",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung",
@@ -5407,7 +5407,7 @@
         "traffic_light": "GELB",
         "research_status": "GELB_KLEINER_MAUERREST",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung"
@@ -5496,7 +5496,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_KONZEPTREIF",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung"
@@ -5607,7 +5607,7 @@
         "traffic_light": "GELB",
         "research_status": "GELB_DETAIL_HOCH",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung"
@@ -5725,7 +5725,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_MIT_BLICKPUNKT",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung"
@@ -5852,7 +5852,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_KONZEPTREIF",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "MISSING_IN_V07_WORKBOOK",
         "geometry_sources": [],
         "alternate_geometry_anchors": [],
@@ -5892,7 +5892,7 @@
         "traffic_light": "ROT",
         "research_status": "ROT_AKTUELL_GESPERRT",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "MISSING_IN_V07_WORKBOOK",
         "geometry_sources": [],
         "alternate_geometry_anchors": [],
@@ -5938,7 +5938,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_AUSSENPUNKT",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung"
@@ -6156,7 +6156,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_SONDERROLLE",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung",
@@ -6295,7 +6295,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_MENSCHENMENGE",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung",
@@ -6438,7 +6438,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_KONZEPTREIF",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung"
@@ -6527,7 +6527,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_AUSSENPUNKT",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung"
@@ -6645,7 +6645,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_KONZEPTREIF",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung"
@@ -6761,7 +6761,7 @@
         "traffic_light": "GELB",
         "research_status": "GELB_DISTANZ",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "MISSING_IN_V07_WORKBOOK",
         "geometry_sources": [],
         "alternate_geometry_anchors": [],
@@ -6801,7 +6801,7 @@
         "traffic_light": "ROT",
         "research_status": "ROT_QUELLE_UNZUREICHEND",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "MISSING_IN_V07_WORKBOOK",
         "geometry_sources": [],
         "alternate_geometry_anchors": [],
@@ -6841,7 +6841,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_MIT_VERKEHRSBLICKPUNKT",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "MISSING_IN_V07_WORKBOOK",
         "geometry_sources": [],
         "alternate_geometry_anchors": [],
@@ -6887,7 +6887,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_AUSSENPUNKT",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung"
@@ -7005,7 +7005,7 @@
         "traffic_light": "GELB",
         "research_status": "GELB_BOSS_MENSCHENMENGE",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung",
@@ -7207,7 +7207,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_AUSSICHTSPUNKT",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung"
@@ -7296,7 +7296,7 @@
         "traffic_light": "GELB",
         "research_status": "GELB_WARTESCHLANGE",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung"
@@ -7414,7 +7414,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_MEDIENQUEST",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung",
@@ -7576,7 +7576,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_AUSSENPUNKT",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung",
@@ -7766,7 +7766,7 @@
         "traffic_light": "GELB",
         "research_status": "GELB_PARKOEFFNUNG",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "MISSING_IN_V07_WORKBOOK",
         "geometry_sources": [],
         "alternate_geometry_anchors": [],
@@ -7806,7 +7806,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_KONZEPTREIF",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "MISSING_IN_V07_WORKBOOK",
         "geometry_sources": [],
         "alternate_geometry_anchors": [],
@@ -7852,7 +7852,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_KONZEPTREIF",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung",
@@ -7973,7 +7973,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_KONZEPTREIF",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung"
@@ -8095,7 +8095,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_KONZEPTREIF",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung",
@@ -8232,7 +8232,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_PARKZUGANG",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "MISSING_IN_V07_WORKBOOK",
         "geometry_sources": [],
         "alternate_geometry_anchors": [],
@@ -8278,7 +8278,7 @@
         "traffic_light": "GELB",
         "research_status": "GELB_QUELLENLAGE",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung",
@@ -8401,7 +8401,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_AUSSENPUNKT",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung"
@@ -8523,7 +8523,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_AUSSENPUNKT",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung"
@@ -8668,7 +8668,7 @@
         "traffic_light": "ROT",
         "research_status": "ROT_NICHT_ALS_PFLICHT",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "MISSING_IN_V07_WORKBOOK",
         "geometry_sources": [],
         "alternate_geometry_anchors": [],
@@ -8708,7 +8708,7 @@
         "traffic_light": "GELB",
         "research_status": "GELB_EXAKTER_MAUERABSCHNITT",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "MISSING_IN_V07_WORKBOOK",
         "geometry_sources": [],
         "alternate_geometry_anchors": [],
@@ -8754,7 +8754,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_KONZEPTREIF",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung"
@@ -8843,7 +8843,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_KONZEPTREIF",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung"
@@ -8932,7 +8932,7 @@
         "traffic_light": "GELB",
         "research_status": "GELB_PARKOEFFNUNG",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung"
@@ -9072,7 +9072,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_KONZEPTREIF",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung",
@@ -9199,7 +9199,7 @@
         "traffic_light": "GELB",
         "research_status": "GELB_PARKOEFFNUNG",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung",
@@ -9338,7 +9338,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_KONZEPTREIF",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung"
@@ -9467,7 +9467,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_VERKEHRSABSTAND",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung"
@@ -9629,7 +9629,7 @@
         "traffic_light": "GELB",
         "research_status": "GELB_VERKEHRSUMFELD",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung"
@@ -9751,7 +9751,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_VERKEHRSABSTAND",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung"
@@ -9873,7 +9873,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_AUSSENPUNKT",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung"
@@ -9962,7 +9962,7 @@
         "traffic_light": "GRUEN",
         "research_status": "GRUEN_PARKZUGANG",
         "content_status": "APPROVED",
-        "publishable": false,
+        "publishable": true,
         "geometry_status": "COORDINATE_FROM_V07_WORKBOOK",
         "geometry_sources": [
           "Ortszuordnung"
@@ -10113,7 +10113,7 @@
         "has_timer_stage": true,
         "content_status": "APPROVED",
         "geofence_status": "GeoJSON v0.8 spiegelt Quest-, Orts-, Encounter-, Timer- und Navigationsreferenzen; publishable bleibt bis APPROVED false.",
-        "publishable": false,
+        "publishable": true,
         "normal_location_required_team_members": 2,
         "standard_interaction_radius_m": 15
       }
@@ -10166,7 +10166,7 @@
         "has_timer_stage": false,
         "content_status": "APPROVED",
         "geofence_status": "GeoJSON v0.8 spiegelt Quest-, Orts-, Encounter-, Timer- und Navigationsreferenzen; publishable bleibt bis APPROVED false.",
-        "publishable": false,
+        "publishable": true,
         "normal_location_required_team_members": 2,
         "standard_interaction_radius_m": 15
       }
@@ -10219,7 +10219,7 @@
         "has_timer_stage": false,
         "content_status": "APPROVED",
         "geofence_status": "GeoJSON v0.8 spiegelt Quest-, Orts-, Encounter-, Timer- und Navigationsreferenzen; publishable bleibt bis APPROVED false.",
-        "publishable": false,
+        "publishable": true,
         "normal_location_required_team_members": 2,
         "standard_interaction_radius_m": 15
       }
@@ -10272,7 +10272,7 @@
         "has_timer_stage": false,
         "content_status": "APPROVED",
         "geofence_status": "GeoJSON v0.8 spiegelt Quest-, Orts-, Encounter-, Timer- und Navigationsreferenzen; publishable bleibt bis APPROVED false.",
-        "publishable": false,
+        "publishable": true,
         "normal_location_required_team_members": 2,
         "standard_interaction_radius_m": 15
       }
@@ -10313,7 +10313,7 @@
         "has_timer_stage": false,
         "content_status": "APPROVED",
         "geofence_status": "GeoJSON v0.8 spiegelt Quest-, Orts-, Encounter-, Timer- und Navigationsreferenzen; publishable bleibt bis APPROVED false.",
-        "publishable": false,
+        "publishable": true,
         "normal_location_required_team_members": 2,
         "standard_interaction_radius_m": 15
       }
@@ -10368,7 +10368,7 @@
         "has_timer_stage": true,
         "content_status": "APPROVED",
         "geofence_status": "GeoJSON v0.8 spiegelt Quest-, Orts-, Encounter-, Timer- und Navigationsreferenzen; publishable bleibt bis APPROVED false.",
-        "publishable": false,
+        "publishable": true,
         "normal_location_required_team_members": 2,
         "standard_interaction_radius_m": 15
       }
@@ -10416,7 +10416,7 @@
         "has_timer_stage": false,
         "content_status": "APPROVED",
         "geofence_status": "GeoJSON v0.8 spiegelt Quest-, Orts-, Encounter-, Timer- und Navigationsreferenzen; publishable bleibt bis APPROVED false.",
-        "publishable": false,
+        "publishable": true,
         "normal_location_required_team_members": 2,
         "standard_interaction_radius_m": 15
       }
@@ -10464,7 +10464,7 @@
         "has_timer_stage": false,
         "content_status": "APPROVED",
         "geofence_status": "GeoJSON v0.8 spiegelt Quest-, Orts-, Encounter-, Timer- und Navigationsreferenzen; publishable bleibt bis APPROVED false.",
-        "publishable": false,
+        "publishable": true,
         "normal_location_required_team_members": 2,
         "standard_interaction_radius_m": 15
       }
@@ -10517,7 +10517,7 @@
         "has_timer_stage": false,
         "content_status": "APPROVED",
         "geofence_status": "GeoJSON v0.8 spiegelt Quest-, Orts-, Encounter-, Timer- und Navigationsreferenzen; publishable bleibt bis APPROVED false.",
-        "publishable": false,
+        "publishable": true,
         "normal_location_required_team_members": 2,
         "standard_interaction_radius_m": 15
       }
@@ -10570,7 +10570,7 @@
         "has_timer_stage": false,
         "content_status": "APPROVED",
         "geofence_status": "GeoJSON v0.8 spiegelt Quest-, Orts-, Encounter-, Timer- und Navigationsreferenzen; publishable bleibt bis APPROVED false.",
-        "publishable": false,
+        "publishable": true,
         "normal_location_required_team_members": 2,
         "standard_interaction_radius_m": 15
       }
@@ -10611,7 +10611,7 @@
         "has_timer_stage": false,
         "content_status": "APPROVED",
         "geofence_status": "GeoJSON v0.8 spiegelt Quest-, Orts-, Encounter-, Timer- und Navigationsreferenzen; publishable bleibt bis APPROVED false.",
-        "publishable": false,
+        "publishable": true,
         "normal_location_required_team_members": 2,
         "standard_interaction_radius_m": 15
       }
@@ -10671,7 +10671,7 @@
         "has_timer_stage": true,
         "content_status": "APPROVED",
         "geofence_status": "GeoJSON v0.8 spiegelt Quest-, Orts-, Encounter-, Timer- und Navigationsreferenzen; publishable bleibt bis APPROVED false.",
-        "publishable": false,
+        "publishable": true,
         "normal_location_required_team_members": 2,
         "standard_interaction_radius_m": 15
       }
@@ -10724,7 +10724,7 @@
         "has_timer_stage": false,
         "content_status": "APPROVED",
         "geofence_status": "GeoJSON v0.8 spiegelt Quest-, Orts-, Encounter-, Timer- und Navigationsreferenzen; publishable bleibt bis APPROVED false.",
-        "publishable": false,
+        "publishable": true,
         "normal_location_required_team_members": 2,
         "standard_interaction_radius_m": 15
       }
@@ -10765,7 +10765,7 @@
         "has_timer_stage": false,
         "content_status": "APPROVED",
         "geofence_status": "GeoJSON v0.8 spiegelt Quest-, Orts-, Encounter-, Timer- und Navigationsreferenzen; publishable bleibt bis APPROVED false.",
-        "publishable": false,
+        "publishable": true,
         "normal_location_required_team_members": 2,
         "standard_interaction_radius_m": 15
       }
@@ -10813,7 +10813,7 @@
         "has_timer_stage": false,
         "content_status": "APPROVED",
         "geofence_status": "GeoJSON v0.8 spiegelt Quest-, Orts-, Encounter-, Timer- und Navigationsreferenzen; publishable bleibt bis APPROVED false.",
-        "publishable": false,
+        "publishable": true,
         "normal_location_required_team_members": 2,
         "standard_interaction_radius_m": 15
       }
@@ -10876,7 +10876,7 @@
         "has_timer_stage": false,
         "content_status": "APPROVED",
         "geofence_status": "GeoJSON v0.8 spiegelt Quest-, Orts-, Encounter-, Timer- und Navigationsreferenzen; publishable bleibt bis APPROVED false.",
-        "publishable": false,
+        "publishable": true,
         "normal_location_required_team_members": 2,
         "standard_interaction_radius_m": 15
       }
@@ -10924,7 +10924,7 @@
         "has_timer_stage": false,
         "content_status": "APPROVED",
         "geofence_status": "GeoJSON v0.8 spiegelt Quest-, Orts-, Encounter-, Timer- und Navigationsreferenzen; publishable bleibt bis APPROVED false.",
-        "publishable": false,
+        "publishable": true,
         "normal_location_required_team_members": 2,
         "standard_interaction_radius_m": 15
       }
@@ -10965,7 +10965,7 @@
         "has_timer_stage": false,
         "content_status": "APPROVED",
         "geofence_status": "GeoJSON v0.8 spiegelt Quest-, Orts-, Encounter-, Timer- und Navigationsreferenzen; publishable bleibt bis APPROVED false.",
-        "publishable": false,
+        "publishable": true,
         "normal_location_required_team_members": 2,
         "standard_interaction_radius_m": 15
       }
@@ -11018,7 +11018,7 @@
         "has_timer_stage": false,
         "content_status": "APPROVED",
         "geofence_status": "GeoJSON v0.8 spiegelt Quest-, Orts-, Encounter-, Timer- und Navigationsreferenzen; publishable bleibt bis APPROVED false.",
-        "publishable": false,
+        "publishable": true,
         "normal_location_required_team_members": 2,
         "standard_interaction_radius_m": 15
       }
@@ -11078,7 +11078,7 @@
         "has_timer_stage": true,
         "content_status": "APPROVED",
         "geofence_status": "GeoJSON v0.8 spiegelt Quest-, Orts-, Encounter-, Timer- und Navigationsreferenzen; publishable bleibt bis APPROVED false.",
-        "publishable": false,
+        "publishable": true,
         "normal_location_required_team_members": 2,
         "standard_interaction_radius_m": 15
       }
@@ -11131,7 +11131,7 @@
         "has_timer_stage": false,
         "content_status": "APPROVED",
         "geofence_status": "GeoJSON v0.8 spiegelt Quest-, Orts-, Encounter-, Timer- und Navigationsreferenzen; publishable bleibt bis APPROVED false.",
-        "publishable": false,
+        "publishable": true,
         "normal_location_required_team_members": 2,
         "standard_interaction_radius_m": 15
       }
@@ -11172,7 +11172,7 @@
         "has_timer_stage": false,
         "content_status": "APPROVED",
         "geofence_status": "GeoJSON v0.8 spiegelt Quest-, Orts-, Encounter-, Timer- und Navigationsreferenzen; publishable bleibt bis APPROVED false.",
-        "publishable": false,
+        "publishable": true,
         "normal_location_required_team_members": 2,
         "standard_interaction_radius_m": 15
       }
@@ -11225,7 +11225,7 @@
         "has_timer_stage": false,
         "content_status": "APPROVED",
         "geofence_status": "GeoJSON v0.8 spiegelt Quest-, Orts-, Encounter-, Timer- und Navigationsreferenzen; publishable bleibt bis APPROVED false.",
-        "publishable": false,
+        "publishable": true,
         "normal_location_required_team_members": 2,
         "standard_interaction_radius_m": 15
       }
@@ -11273,7 +11273,7 @@
         "has_timer_stage": false,
         "content_status": "APPROVED",
         "geofence_status": "GeoJSON v0.8 spiegelt Quest-, Orts-, Encounter-, Timer- und Navigationsreferenzen; publishable bleibt bis APPROVED false.",
-        "publishable": false,
+        "publishable": true,
         "normal_location_required_team_members": 2,
         "standard_interaction_radius_m": 15
       }
@@ -11326,7 +11326,7 @@
         "has_timer_stage": false,
         "content_status": "APPROVED",
         "geofence_status": "GeoJSON v0.8 spiegelt Quest-, Orts-, Encounter-, Timer- und Navigationsreferenzen; publishable bleibt bis APPROVED false.",
-        "publishable": false,
+        "publishable": true,
         "normal_location_required_team_members": 2,
         "standard_interaction_radius_m": 15
       }
@@ -11369,7 +11369,7 @@
         "has_timer_stage": true,
         "content_status": "APPROVED",
         "geofence_status": "GeoJSON v0.8 spiegelt Quest-, Orts-, Encounter-, Timer- und Navigationsreferenzen; publishable bleibt bis APPROVED false.",
-        "publishable": false,
+        "publishable": true,
         "normal_location_required_team_members": 2,
         "standard_interaction_radius_m": 15
       }
@@ -11410,7 +11410,7 @@
         "has_timer_stage": false,
         "content_status": "APPROVED",
         "geofence_status": "GeoJSON v0.8 spiegelt Quest-, Orts-, Encounter-, Timer- und Navigationsreferenzen; sichere Event-/Upload-Geofences bleiben zu prüfen.",
-        "publishable": false,
+        "publishable": true,
         "normal_location_required_team_members": null,
         "standard_interaction_radius_m": 15
       }
@@ -11451,7 +11451,7 @@
         "has_timer_stage": false,
         "content_status": "APPROVED",
         "geofence_status": "GeoJSON v0.8 spiegelt Quest-, Orts-, Encounter-, Timer- und Navigationsreferenzen; sichere Event-/Upload-Geofences bleiben zu prüfen.",
-        "publishable": false,
+        "publishable": true,
         "normal_location_required_team_members": null,
         "standard_interaction_radius_m": 15
       }
@@ -11504,7 +11504,7 @@
         "has_timer_stage": false,
         "content_status": "APPROVED",
         "geofence_status": "GeoJSON v0.8 spiegelt Quest-, Orts-, Encounter-, Timer- und Navigationsreferenzen; sichere Event-/Upload-Geofences bleiben zu prüfen.",
-        "publishable": false,
+        "publishable": true,
         "normal_location_required_team_members": null,
         "standard_interaction_radius_m": 15
       }
@@ -11545,7 +11545,7 @@
         "has_timer_stage": false,
         "content_status": "APPROVED",
         "geofence_status": "GeoJSON v0.8 spiegelt Quest-, Orts-, Encounter-, Timer- und Navigationsreferenzen; sichere Event-/Upload-Geofences bleiben zu prüfen.",
-        "publishable": false,
+        "publishable": true,
         "normal_location_required_team_members": null,
         "standard_interaction_radius_m": 15
       }
@@ -11586,7 +11586,7 @@
         "has_timer_stage": false,
         "content_status": "APPROVED",
         "geofence_status": "GeoJSON v0.8 spiegelt Quest-, Orts-, Encounter-, Timer- und Navigationsreferenzen; sichere Event-/Upload-Geofences bleiben zu prüfen.",
-        "publishable": false,
+        "publishable": true,
         "normal_location_required_team_members": null,
         "standard_interaction_radius_m": 15
       }
@@ -11627,7 +11627,7 @@
         "has_timer_stage": false,
         "content_status": "APPROVED",
         "geofence_status": "GeoJSON v0.8 spiegelt Quest-, Orts-, Encounter-, Timer- und Navigationsreferenzen; sichere Event-/Upload-Geofences bleiben zu prüfen.",
-        "publishable": false,
+        "publishable": true,
         "normal_location_required_team_members": null,
         "standard_interaction_radius_m": 15
       }
@@ -11670,7 +11670,7 @@
         "has_timer_stage": true,
         "content_status": "APPROVED",
         "geofence_status": "GeoJSON v0.8 spiegelt Quest-, Orts-, Encounter-, Timer- und Navigationsreferenzen; sichere Event-/Upload-Geofences bleiben zu prüfen.",
-        "publishable": false,
+        "publishable": true,
         "normal_location_required_team_members": null,
         "standard_interaction_radius_m": 15
       }
@@ -11711,7 +11711,7 @@
         "has_timer_stage": false,
         "content_status": "APPROVED",
         "geofence_status": "GeoJSON v0.8 spiegelt Quest-, Orts-, Encounter-, Timer- und Navigationsreferenzen; sichere Event-/Upload-Geofences bleiben zu prüfen.",
-        "publishable": false,
+        "publishable": true,
         "normal_location_required_team_members": null,
         "standard_interaction_radius_m": 15
       }
@@ -11752,7 +11752,7 @@
         "has_timer_stage": false,
         "content_status": "APPROVED",
         "geofence_status": "GeoJSON v0.8 spiegelt Quest-, Orts-, Encounter-, Timer- und Navigationsreferenzen; sichere Event-/Upload-Geofences bleiben zu prüfen.",
-        "publishable": false,
+        "publishable": true,
         "normal_location_required_team_members": null,
         "standard_interaction_radius_m": 15
       }
@@ -11793,7 +11793,7 @@
         "has_timer_stage": false,
         "content_status": "APPROVED",
         "geofence_status": "GeoJSON v0.8 spiegelt Quest-, Orts-, Encounter-, Timer- und Navigationsreferenzen; sichere Event-/Upload-Geofences bleiben zu prüfen.",
-        "publishable": false,
+        "publishable": true,
         "normal_location_required_team_members": null,
         "standard_interaction_radius_m": 15
       }
@@ -11834,7 +11834,7 @@
         "has_timer_stage": false,
         "content_status": "APPROVED",
         "geofence_status": "GeoJSON v0.8 spiegelt Quest-, Orts-, Encounter-, Timer- und Navigationsreferenzen; sichere Event-/Upload-Geofences bleiben zu prüfen.",
-        "publishable": false,
+        "publishable": true,
         "normal_location_required_team_members": null,
         "standard_interaction_radius_m": 15
       }
@@ -11875,7 +11875,7 @@
         "has_timer_stage": false,
         "content_status": "APPROVED",
         "geofence_status": "GeoJSON v0.8 spiegelt Quest-, Orts-, Encounter-, Timer- und Navigationsreferenzen; sichere Event-/Upload-Geofences bleiben zu prüfen.",
-        "publishable": false,
+        "publishable": true,
         "normal_location_required_team_members": null,
         "standard_interaction_radius_m": 15
       }
@@ -11916,7 +11916,7 @@
         "has_timer_stage": false,
         "content_status": "APPROVED",
         "geofence_status": "GeoJSON v0.8 spiegelt Quest-, Orts-, Encounter-, Timer- und Navigationsreferenzen; sichere Event-/Upload-Geofences bleiben zu prüfen.",
-        "publishable": false,
+        "publishable": true,
         "normal_location_required_team_members": null,
         "standard_interaction_radius_m": 15
       }
@@ -11957,7 +11957,7 @@
         "has_timer_stage": false,
         "content_status": "APPROVED",
         "geofence_status": "GeoJSON v0.8 spiegelt Quest-, Orts-, Encounter-, Timer- und Navigationsreferenzen; sichere Event-/Upload-Geofences bleiben zu prüfen.",
-        "publishable": false,
+        "publishable": true,
         "normal_location_required_team_members": null,
         "standard_interaction_radius_m": 15
       }
@@ -11999,7 +11999,7 @@
         "map_url": "https://www.google.com/maps/search/?api=1&query=41.9018932,12.4664274",
         "image_reference": null,
         "image_generation_prompt": "Mobile-RPG-Gegnerkonzept, vollständige Figur, gut lesbare Kampfsilhouette, Rom-Fantasy, Lebendig gewordener Brückenengel aus hellem Marmor, große gefiederte Flügel, verwittertes Passionsinstrument, goldene Risse, entschlossener trauriger Blick, Tibernebel, Ganzkörper. Dramatisches aber nicht fotorealistisches Licht, neutraler transparenzgeeigneter Hintergrund, keine Schrift, kein Logo, keine Gore.",
-        "publishable": false,
+        "publishable": true,
         "aggro_radius_m": 20,
         "respawn_scope": "GLOBAL_PERSISTENT_BY_ENCOUNTER"
       }
@@ -12041,7 +12041,7 @@
         "map_url": "https://www.google.com/maps/search/?api=1&query=41.9107077,12.4763431",
         "image_reference": null,
         "image_generation_prompt": "Mobile-RPG-Gegnerkonzept, vollständige Figur, gut lesbare Kampfsilhouette, Rom-Fantasy, Monumentaler ägyptisierender Löwe aus warmem Stein, Brunnenwasser tropft aus der Mähne, bronzene Augen, Hieroglyphensockel-Fragmente, kraftvolle niedrige Haltung. Dramatisches aber nicht fotorealistisches Licht, neutraler transparenzgeeigneter Hintergrund, keine Schrift, kein Logo, keine Gore.",
-        "publishable": false,
+        "publishable": true,
         "aggro_radius_m": 20,
         "respawn_scope": "GLOBAL_PERSISTENT_BY_ENCOUNTER"
       }
@@ -12084,7 +12084,7 @@
         "map_url": "https://www.google.com/maps/search/?api=1&query=41.9109167,12.4771784",
         "image_reference": null,
         "image_generation_prompt": "Mobile-RPG-Gegnerkonzept, vollständige Figur, gut lesbare Kampfsilhouette, Rom-Fantasy, Monumentale sitzende Göttin Roma aus weißem Marmor, roter Mantel als magisches Licht, Helm, Speer gesenkt, Wölfin und zwei geisterhafte Zwillinge am Sockel, würdevoll. Dramatisches aber nicht fotorealistisches Licht, neutraler transparenzgeeigneter Hintergrund, keine Schrift, kein Logo, keine Gore.",
-        "publishable": false,
+        "publishable": true,
         "aggro_radius_m": 20,
         "respawn_scope": "GLOBAL_PERSISTENT_BY_ENCOUNTER"
       }
@@ -12126,7 +12126,7 @@
         "map_url": "https://www.google.com/maps/search/?api=1&query=41.9008477,12.4799871",
         "image_reference": null,
         "image_generation_prompt": "Mobile-RPG-Gegnerkonzept, vollständige Figur, gut lesbare Kampfsilhouette, Rom-Fantasy, Römischer Legionär aus grauem Reliefstein, Körper teilweise flach wie aus einer Säule geschnitten, Rechteckschild, Speer, spiralförmige Reliefbänder schweben hinter ihm. Dramatisches aber nicht fotorealistisches Licht, neutraler transparenzgeeigneter Hintergrund, keine Schrift, kein Logo, keine Gore.",
-        "publishable": false,
+        "publishable": true,
         "aggro_radius_m": 20,
         "respawn_scope": "GLOBAL_PERSISTENT_BY_ENCOUNTER"
       }
@@ -12168,7 +12168,7 @@
         "map_url": "https://www.google.com/maps/search/?api=1&query=41.9006787,12.4786653",
         "image_reference": null,
         "image_generation_prompt": "Mobile-RPG-Gegnerkonzept, vollständige Figur, gut lesbare Kampfsilhouette, Rom-Fantasy, Humanoider Geist aus schwarzem Schatten und goldenen Sonnenlinien, Obelisken-Silhouette als Rücken, schwebende römische Stundenmarken, keine reale Schattenposition nötig. Dramatisches aber nicht fotorealistisches Licht, neutraler transparenzgeeigneter Hintergrund, keine Schrift, kein Logo, keine Gore.",
-        "publishable": false,
+        "publishable": true,
         "aggro_radius_m": 20,
         "respawn_scope": "GLOBAL_PERSISTENT_BY_ENCOUNTER"
       }
@@ -12210,7 +12210,7 @@
         "map_url": "https://www.google.com/maps/search/?api=1&query=41.8960034,12.4743329",
         "image_reference": null,
         "image_generation_prompt": "Mobile-RPG-Gegnerkonzept, vollständige Figur, gut lesbare Kampfsilhouette, Rom-Fantasy, Einzelner barocker Fassadenengel aus hellem Stein, asymmetrische leicht beschädigte Flügel, Schriftrolle, Kuppelsilhouette im Hintergrund, wachsam statt religiös verehrt. Dramatisches aber nicht fotorealistisches Licht, neutraler transparenzgeeigneter Hintergrund, keine Schrift, kein Logo, keine Gore.",
-        "publishable": false,
+        "publishable": true,
         "aggro_radius_m": 20,
         "respawn_scope": "GLOBAL_PERSISTENT_BY_ENCOUNTER"
       }
@@ -12252,7 +12252,7 @@
         "map_url": "https://www.google.com/maps/search/?api=1&query=41.8896365,12.4792342",
         "image_reference": null,
         "image_generation_prompt": "Mobile-RPG-Gegnerkonzept, vollständige Figur, gut lesbare Kampfsilhouette, Rom-Fantasy, Großer heiliger Schlangengeist aus grünem Stein und blauem Licht, um einen verwitterten Asklepiosstab gewunden, Travertin-Schiffsbug-Fragmente, ruhig und bedrohlich. Dramatisches aber nicht fotorealistisches Licht, neutraler transparenzgeeigneter Hintergrund, keine Schrift, kein Logo, keine Gore.",
-        "publishable": false,
+        "publishable": true,
         "aggro_radius_m": 20,
         "respawn_scope": "GLOBAL_PERSISTENT_BY_ENCOUNTER"
       }
@@ -12294,7 +12294,7 @@
         "map_url": "https://www.google.com/maps/search/?api=1&query=41.8923463,12.4707703",
         "image_reference": null,
         "image_generation_prompt": "Mobile-RPG-Gegnerkonzept, vollständige Figur, gut lesbare Kampfsilhouette, Rom-Fantasy, Schwebendes kreisförmiges Auge aus Tiberwasser, steinerner Ring wie die Mittelöffnung der Brücke, Strömungsiris, kleine Brückenbogen-Fragmente, surreal aber klar lesbar. Dramatisches aber nicht fotorealistisches Licht, neutraler transparenzgeeigneter Hintergrund, keine Schrift, kein Logo, keine Gore.",
-        "publishable": false,
+        "publishable": true,
         "aggro_radius_m": 20,
         "respawn_scope": "GLOBAL_PERSISTENT_BY_ENCOUNTER"
       }
@@ -12336,7 +12336,7 @@
         "map_url": "https://www.google.com/maps/search/?api=1&query=41.8947045,12.4831835",
         "image_reference": null,
         "image_generation_prompt": "Mobile-RPG-Gegnerkonzept, vollständige Figur, gut lesbare Kampfsilhouette, Rom-Fantasy, Übergroße bronzene Quadriga mit vier geisterhaften Pferden, geflügelte Wagenlenkerin als abstrakte Siegesfigur, grüne Patina, weißer Monumentstein und goldener Sturm. Dramatisches aber nicht fotorealistisches Licht, neutraler transparenzgeeigneter Hintergrund, keine Schrift, kein Logo, keine Gore.",
-        "publishable": false,
+        "publishable": true,
         "aggro_radius_m": 20,
         "respawn_scope": "GLOBAL_PERSISTENT_BY_ENCOUNTER"
       }
@@ -12378,7 +12378,7 @@
         "map_url": "https://www.google.com/maps/search/?api=1&query=41.8885236,12.4812253",
         "image_reference": null,
         "image_generation_prompt": "Mobile-RPG-Gegnerkonzept, vollständige Figur, gut lesbare Kampfsilhouette, Rom-Fantasy, Zwei muskulöse steinerne Tritonen tragen gemeinsam eine große Muschelschale, Meeresschwänze, Wasserbänder, grüne Patina, dynamische spiegelbildliche Posen. Dramatisches aber nicht fotorealistisches Licht, neutraler transparenzgeeigneter Hintergrund, keine Schrift, kein Logo, keine Gore.",
-        "publishable": false,
+        "publishable": true,
         "aggro_radius_m": 20,
         "respawn_scope": "GLOBAL_PERSISTENT_BY_ENCOUNTER"
       }
@@ -12420,7 +12420,7 @@
         "map_url": "https://www.google.com/maps/search/?api=1&query=41.8847586,12.4958638",
         "image_reference": null,
         "image_generation_prompt": "Mobile-RPG-Gegnerkonzept, vollständige Figur, gut lesbare Kampfsilhouette, Rom-Fantasy, Steinernes römisches Schiff als lebender Gegner, geisterhafter Steuermann am Heck, moosige Bordwand, blaues Licht in den Fugen, kleine Wellenwesen, Ganzkörper. Dramatisches aber nicht fotorealistisches Licht, neutraler transparenzgeeigneter Hintergrund, keine Schrift, kein Logo, keine Gore.",
-        "publishable": false,
+        "publishable": true,
         "aggro_radius_m": 20,
         "respawn_scope": "GLOBAL_PERSISTENT_BY_ENCOUNTER"
       }
@@ -12462,7 +12462,7 @@
         "map_url": "https://www.google.com/maps/search/?api=1&query=41.892745,12.482623",
         "image_reference": null,
         "image_generation_prompt": "Mobile-RPG-Gegnerkonzept, vollständige Figur, gut lesbare Kampfsilhouette, Rom-Fantasy, Lebendig gewordene bronzene Caesar-Statue, Lorbeerkranz, römischer Brustpanzer und Mantel, grüne Patina, entschlossener aber nicht fotorealistischer Ausdruck, kapitolinisches Steinlicht. Dramatisches aber nicht fotorealistisches Licht, neutraler transparenzgeeigneter Hintergrund, keine Schrift, kein Logo, keine Gore.",
-        "publishable": false,
+        "publishable": true,
         "aggro_radius_m": 20,
         "respawn_scope": "GLOBAL_PERSISTENT_BY_ENCOUNTER"
       }
@@ -12508,7 +12508,7 @@
           "D1-Q01-COMPLETE"
         ],
         "content_status": "APPROVED",
-        "publishable": false
+        "publishable": true
       }
     },
     {
@@ -12552,7 +12552,7 @@
           "D1-Q06-MID"
         ],
         "content_status": "APPROVED",
-        "publishable": false
+        "publishable": true
       }
     },
     {
@@ -12596,7 +12596,7 @@
           "D1-Q12-COMPLETE"
         ],
         "content_status": "APPROVED",
-        "publishable": false
+        "publishable": true
       }
     },
     {
@@ -12639,7 +12639,7 @@
           "D2-Q04-MID"
         ],
         "content_status": "APPROVED",
-        "publishable": false
+        "publishable": true
       }
     },
     {
@@ -12683,7 +12683,7 @@
           "D2-Q10-MID"
         ],
         "content_status": "APPROVED",
-        "publishable": false
+        "publishable": true
       }
     },
     {
@@ -12726,7 +12726,7 @@
           "M-D2-03-MID"
         ],
         "content_status": "APPROVED",
-        "publishable": false
+        "publishable": true
       }
     },
     {
@@ -12780,7 +12780,7 @@
           "ABORTED"
         ],
         "geometry_semantics": "KNOWN_ENDPOINTS_ONLY_NOT_A_SAFE_ROUTE",
-        "publishable": false,
+        "publishable": true,
         "blocks_release_until_field_test": true,
         "content_status": "APPROVED"
       }
@@ -12841,7 +12841,7 @@
           "ABORTED"
         ],
         "geometry_semantics": "ROLE_GEOFENCE_ANCHORS",
-        "publishable": false,
+        "publishable": true,
         "blocks_release_until_field_test": true,
         "content_status": "APPROVED"
       }
@@ -12897,7 +12897,7 @@
           "ABORTED"
         ],
         "geometry_semantics": "KNOWN_ENDPOINTS_ONLY_NOT_A_SAFE_ROUTE",
-        "publishable": false,
+        "publishable": true,
         "blocks_release_until_field_test": true,
         "content_status": "APPROVED"
       }
@@ -12953,7 +12953,7 @@
           "ABORTED"
         ],
         "geometry_semantics": "KNOWN_ENDPOINTS_ONLY_NOT_A_SAFE_ROUTE",
-        "publishable": false,
+        "publishable": true,
         "blocks_release_until_field_test": true,
         "content_status": "APPROVED"
       }
