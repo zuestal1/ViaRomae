@@ -4,6 +4,29 @@ Vollständige Anleitung zum Deployment des JLW 2026 Projekts (Epic 1-9) auf eine
 
 ---
 
+## Verbindlicher Release-Preflight
+
+Das Produktions-Compose importiert nach den Migrationen den freigegebenen
+GeoJSON-/Questkatalog idempotent. `deploy.sh` bricht anschließend bewusst ab,
+wenn Event-Roster oder Content unvollständig sind. Standardmäßig werden 13
+Spieler in 4 Teams, mindestens ein GM-/Admin-Konto und genau 40 Quests mit
+Schritten und Stationen erwartet.
+
+Abweichende, ausdrücklich freigegebene Rostergrößen werden in
+`.env.production` mit `EXPECTED_PLAYER_COUNT` und `EXPECTED_TEAM_COUNT`
+konfiguriert. Vor dem Deployment müssen alle persönlichen Accounts und
+Teamzuweisungen über das GM-Interface oder einen kontrollierten Rosterimport
+angelegt sein. Der Preflight gibt keine Zugangscodes aus.
+
+```bash
+docker compose -f docker-compose.production.yml --env-file .env.production run --rm backend pnpm run release:preflight
+```
+
+Ein fehlgeschlagener Preflight ist ein harter Release-Blocker; das Event darf
+in diesem Zustand nicht gestartet werden.
+
+---
+
 ## 📋 Voraussetzungen
 
 ### Server Requirements

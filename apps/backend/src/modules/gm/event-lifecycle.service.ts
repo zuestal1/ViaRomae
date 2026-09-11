@@ -253,6 +253,7 @@ export class EventLifecycleService {
     }
 
     const now = new Date();
+    const frozenLeaderboard = await this.getLeaderboard();
 
     const [updated] = await db
       .update(eventState)
@@ -260,6 +261,7 @@ export class EventLifecycleService {
         state: "ENDED",
         endedAt: now,
         leaderboardFrozen: true,
+        metadata: { ...((current.metadata && typeof current.metadata === "object") ? current.metadata as Record<string, unknown> : {}), frozenLeaderboard },
         updatedAt: now,
       })
       .where(eq(eventState.id, current.id))
@@ -353,6 +355,17 @@ export class EventLifecycleService {
     return leaderboard;
   }
 
+  /** Player-visible standings remain at the persisted snapshot while frozen. */
+  async getVisibleLeaderboard(): Promise<TeamLeaderboardEntry[]> {
+    const state = await this.getState();
+    const metadata = state.metadata && typeof state.metadata === "object"
+      ? state.metadata as Record<string, unknown> : {};
+    if (state.leaderboardFrozen && Array.isArray(metadata["frozenLeaderboard"])) {
+      return metadata["frozenLeaderboard"] as TeamLeaderboardEntry[];
+    }
+    return this.getLeaderboard();
+  }
+
   /**
    * Get event summary/statistics.
    */
@@ -409,11 +422,17 @@ export class EventLifecycleService {
     freeze: boolean,
   ): Promise<EventState> {
     const current = await this.getState();
+    const metadata = current.metadata && typeof current.metadata === "object"
+      ? current.metadata as Record<string, unknown> : {};
+    const frozenLeaderboard = freeze ? await this.getLeaderboard() : undefined;
 
     const [updated] = await db
       .update(eventState)
       .set({
         leaderboardFrozen: freeze,
+        metadata: freeze
+          ? { ...metadata, frozenLeaderboard }
+          : Object.fromEntries(Object.entries(metadata).filter(([key]) => key !== "frozenLeaderboard")),
         updatedAt: new Date(),
       })
       .where(eq(eventState.id, current.id))

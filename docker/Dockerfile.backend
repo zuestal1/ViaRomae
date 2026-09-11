@@ -43,6 +43,7 @@ COPY --from=builder /app/apps/backend/drizzle.config.ts ./apps/backend/
 COPY --from=builder /app/apps/backend/tsconfig.json ./apps/backend/
 COPY --from=builder /app/packages/contracts ./packages/contracts
 COPY --from=builder /app/apps/backend/content ./apps/backend/content
+COPY docs/Via_Romae_GameObjects_v0.8.geojson ./docs/Via_Romae_GameObjects_v0.8.geojson
 COPY tsconfig.base.json ./
 
 WORKDIR /app/apps/backend

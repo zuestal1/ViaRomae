@@ -15,6 +15,7 @@ import {
 } from "./trade.service.js";
 import { computeEquippedStats, getItemCount } from "./inventory.service.js";
 import { teams } from "../../db/schema/player.js";
+import { requireActiveEvent } from "../gm/event-runtime.service.js";
 
 const AppendLedgerBody = z.object({
   idempotencyKey: z.string().uuid(),
@@ -164,6 +165,7 @@ export async function economyRoutes(server: FastifyInstance): Promise<void> {
     "/trade/offers",
     { onRequest: [server.authenticate] },
     async (request, reply) => {
+      await requireActiveEvent();
       const body = CreateOfferBody.safeParse(request.body);
       if (!body.success) {
         return reply.status(400).send({ message: "Invalid body", errors: body.error.flatten() });
@@ -188,6 +190,7 @@ export async function economyRoutes(server: FastifyInstance): Promise<void> {
     "/trade/offers/:id/accept",
     { onRequest: [server.authenticate] },
     async (request, reply) => {
+      await requireActiveEvent();
       const body = OfferSideBody.safeParse(request.body);
       if (!body.success) {
         return reply.status(400).send({ message: "Invalid body", errors: body.error.flatten() });
@@ -213,6 +216,7 @@ export async function economyRoutes(server: FastifyInstance): Promise<void> {
     "/trade/offers/:id/reject",
     { onRequest: [server.authenticate] },
     async (request, reply) => {
+      await requireActiveEvent();
       const { id } = request.params as { id: string };
       const { sub: accountId } = request.user as { sub: string };
       const { teamId } = await resolvePlayer(accountId);
@@ -230,6 +234,7 @@ export async function economyRoutes(server: FastifyInstance): Promise<void> {
     "/trade/offers/:id/cancel",
     { onRequest: [server.authenticate] },
     async (request, reply) => {
+      await requireActiveEvent();
       const { id } = request.params as { id: string };
       const { sub: accountId } = request.user as { sub: string };
       const { teamId } = await resolvePlayer(accountId);

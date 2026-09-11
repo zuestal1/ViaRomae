@@ -45,6 +45,7 @@ import { resolveCombatConsumable } from "../economy/consumable.service.js";
 import { effectiveItemStats } from "../economy/item-rules.js";
 import { resolveDefeatEnemy } from "../quest/quest.service.js";
 import { abilitiesForClass, CLASS_ABILITY_CLASSES } from "../classes/class-rules.js";
+import { requireActiveEvent } from "../gm/event-runtime.service.js";
 import { hasOpponentPhaseCompleted, isOpponentPhaseEffectActive,
   nextCompleteOpponentPhase } from "./combat-effect-lifetime.js";
 
@@ -171,6 +172,7 @@ export async function startPvECombat(opts: {
   enemyWorldObjectId: string;
   wsHub?: WsHub;
 }): Promise<CombatInstance> {
+  await requireActiveEvent();
   const { teamId, enemyWorldObjectId, wsHub } = opts;
   await markTeamRegenStopped(teamId);
 
@@ -871,7 +873,7 @@ async function resolveAbility(combat: CombatInstance, actor: Combatant, abilityI
     const damage = await calculateActionDamage(combat, actor, target, effect.attackMultiplier);
     const dealt = await applyAbilityModifiers(combat, actor, target, damage);
     await addDamageThreat(combat, actor, target, dealt,
-      effect.kind === "DAMAGE" ? effect.threatBonusPercent ?? 0 : 0);
+      effect.kind === "DAMAGE" && "threatBonusPercent" in effect ? effect.threatBonusPercent ?? 0 : 0);
     logs.push({ timestamp: new Date(), message: `${actor.name} wirkt ${definition.displayName} auf ${target.name}: ${dealt} Schaden.`, type: "DAMAGE" });
     if (effect.kind === "DAMAGE_AND_DEFENSE_REDUCTION") await addEffect(combat, actor, target, abilityId,
       combat.roundNumber + 1,{armorBreakPercentPoints:actor.stats?.armorBreakPercentPoints??0});

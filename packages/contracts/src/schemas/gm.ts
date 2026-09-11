@@ -107,6 +107,16 @@ export const TeamLeaderboardEntrySchema = z.object({
 });
 export type TeamLeaderboardEntry = z.infer<typeof TeamLeaderboardEntrySchema>;
 
+export const PlayerLeaderboardEntrySchema = TeamLeaderboardEntrySchema.omit({ teamId: true });
+export type PlayerLeaderboardEntry = z.infer<typeof PlayerLeaderboardEntrySchema>;
+
+export const RuntimeEventStateSchema = z.object({
+  state: EventLifecycleStateSchema,
+  currentDay: z.union([z.literal(1), z.literal(2)]),
+  leaderboardFrozen: z.boolean(),
+});
+export type RuntimeEventState = z.infer<typeof RuntimeEventStateSchema>;
+
 export const EventSummarySchema = z.object({
   totalTeams: z.number(),
   activeTeams: z.number(),

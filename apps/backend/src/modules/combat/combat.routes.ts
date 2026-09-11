@@ -15,6 +15,7 @@ import {
   startPvPChallenge,
   submitCombatRevive,
 } from "./combat.service.js";
+import { requireActiveEvent } from "../gm/event-runtime.service.js";
 
 const submitActionSchema = z.object({
   actionType: z.enum(["ATTACK", "SKILL"]),
@@ -26,6 +27,7 @@ const submitActionSchema = z.object({
 
 export async function combatRoutes(server: FastifyInstance): Promise<void> {
   server.post("/pvp/challenge", { preHandler: [server.authenticate] }, async (request, reply) => {
+    await requireActiveEvent();
     const { sub: accountId } = request.user as { sub: string };
     const body = z.object({ defenderTeamId: z.string().uuid() }).parse(request.body);
     const [player] = await db.select({ teamId: players.teamId }).from(players).where(eq(players.accountId, accountId));
@@ -40,6 +42,7 @@ export async function combatRoutes(server: FastifyInstance): Promise<void> {
   });
 
   server.post("/:id/revive", { preHandler: [server.authenticate] }, async (request, reply) => {
+    await requireActiveEvent();
     const { sub: accountId } = request.user as { sub: string };
     const body = SubmitReviveBodySchema.parse(request.body);
     const [player] = await db.select({ id: players.id }).from(players).where(eq(players.accountId, accountId));
@@ -78,6 +81,7 @@ export async function combatRoutes(server: FastifyInstance): Promise<void> {
       preHandler: [server.authenticate],
     },
     async (request, reply) => {
+      await requireActiveEvent();
       const { sub: accountId } = request.user as { sub: string };
 
       // Resolve teamId from accountId

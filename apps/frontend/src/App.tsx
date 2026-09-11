@@ -34,6 +34,7 @@ function AppShell() {
   const [screen, setScreen] = useState<Screen>(() =>
     isAuthenticated ? "lobby" : "login",
   );
+  const [autoReleaseSuppressed, setAutoReleaseSuppressed] = useState(false);
 
   // Sync screen state with auth state:
   // - If token disappears (logout / localStorage cleared) → back to login
@@ -51,8 +52,19 @@ function AppShell() {
     setScreen("class-selection");
   }
 
+  function handleGameReleased(preflightCompleted: boolean) {
+    setAutoReleaseSuppressed(false);
+    setScreen(preflightCompleted ? "map" : "preflight");
+  }
+
+  function handleSetupBack() {
+    setAutoReleaseSuppressed(true);
+    setScreen("lobby");
+  }
+
   // Callback fired by GameMap to return to lobby
   function handleBackToLobby() {
+    setAutoReleaseSuppressed(true);
     setScreen("lobby");
   }
 
@@ -69,7 +81,7 @@ function AppShell() {
         // Guard: should not happen, but be defensive
         content = <LoginPage />;
       } else {
-        content = <LobbyPage onEnterMap={handleEnterMap} />;
+        content = <LobbyPage onEnterMap={handleEnterMap} onGameReleased={handleGameReleased} autoRelease={!autoReleaseSuppressed} />;
       }
       break;
 
@@ -81,10 +93,10 @@ function AppShell() {
       }
       break;
     case "class-selection":
-      content = isAuthenticated ? <ClassSelectionPage onConfirmed={() => setScreen("preflight")} /> : <LoginPage />;
+      content = isAuthenticated ? <ClassSelectionPage onConfirmed={() => setScreen("preflight")} onBack={handleSetupBack} /> : <LoginPage />;
       break;
     case "preflight":
-      content = isAuthenticated ? <PreflightPage onGranted={() => setScreen("map")} /> : <LoginPage />;
+      content = isAuthenticated ? <PreflightPage onGranted={() => setScreen("map")} onBack={handleSetupBack} onWaiting={() => { setAutoReleaseSuppressed(false); setScreen("lobby"); }} /> : <LoginPage />;
       break;
   }
 

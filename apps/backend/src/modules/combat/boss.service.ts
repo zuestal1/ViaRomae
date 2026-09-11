@@ -16,6 +16,7 @@ import type { WsHub } from "../ws/ws.hub.js";
 import { randomUUID } from "node:crypto";
 import { getCombatInstance, lockAndResolveRound, type Combatant, type CombatInstance } from "./combat.service.js";
 import { getPlayerStats } from "../player/player-stats.service.js";
+import { requireActiveEvent } from "../gm/event-runtime.service.js";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -49,6 +50,7 @@ export async function getOrCreateBossCombat(opts: {
   worldObjectId: string;
   wsHub?: WsHub;
 }): Promise<CombatInstance> {
+  await requireActiveEvent();
   const { worldObjectId, wsHub } = opts;
 
   // Check if there's already an active boss combat for this world object
@@ -466,6 +468,7 @@ async function loadCombatInstance(combatId: string): Promise<CombatInstance> {
     roundNumber: combat.roundNumber,
     startedAt: combat.startedAt,
     combatants: enrichedCombatants,
+    threat: [],
     actions: actionRows.map((a) => ({
       id: a.id,
       roundNumber: a.roundNumber,

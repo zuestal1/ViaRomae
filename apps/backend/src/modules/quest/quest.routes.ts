@@ -32,6 +32,7 @@ import {
 import { db } from "../../db/client.js";
 import { players } from "../../db/schema/player.js";
 import { eq } from "drizzle-orm";
+import { requireActiveEvent } from "../gm/event-runtime.service.js";
 
 // ── Zod request schemas ───────────────────────────────────────────────────────
 
@@ -74,6 +75,9 @@ async function resolveTeamId(accountId: string): Promise<string> {
 // ── Route plugin ─────────────────────────────────────────────────────────────
 
 export async function questRoutes(server: FastifyInstance): Promise<void> {
+  server.addHook("preHandler", async (request) => {
+    if (request.method !== "GET") await requireActiveEvent();
+  });
 
   // ── GET /api/v1/quests ─────────────────────────────────────────────────────
   server.get(
