@@ -6,24 +6,105 @@ Vollständige Anleitung zum Deployment des JLW 2026 Projekts (Epic 1-9) auf eine
 
 ## Verbindlicher Release-Preflight
 
-Das Produktions-Compose importiert nach den Migrationen den freigegebenen
-GeoJSON-/Questkatalog idempotent. `deploy.sh` bricht anschließend bewusst ab,
-wenn Event-Roster oder Content unvollständig sind. Standardmäßig werden 13
-Spieler in 4 Teams, mindestens ein GM-/Admin-Konto und genau 40 Quests mit
-Schritten und Stationen erwartet.
+Das Produktions-Compose führt die One-shot-Kette `migrate` → `seed-content` →
+`roster-import` → `release-preflight` aus. Der Rosterimport akzeptiert nur eine
+per SHA-256 freigegebene, private Datei, legt Teams sowie Spieler-, GM- und
+Admin-Konten idempotent an bzw. gleicht sie ab und speichert Zugangscodes
+ausschließlich als scrypt-Hashes. Weder Erfolgs- noch Fehlermeldungen enthalten
+Zugangscodes. Der Preflight bricht ab, wenn Event-Roster oder Content
+unvollständig sind; erwartet werden außerdem genau 40 Quests mit Schritten und
+Stationen sowie mindestens ein GM-/Admin-Konto.
 
-Abweichende, ausdrücklich freigegebene Rostergrößen werden in
-`.env.production` mit `EXPECTED_PLAYER_COUNT` und `EXPECTED_TEAM_COUNT`
-konfiguriert. Vor dem Deployment müssen alle persönlichen Accounts und
-Teamzuweisungen über das GM-Interface oder einen kontrollierten Rosterimport
-angelegt sein. Der Preflight gibt keine Zugangscodes aus.
+`EXPECTED_PLAYER_COUNT` und `EXPECTED_TEAM_COUNT` sind **Teil der
+Rosterfreigabe**: Beide Werte stehen im geprüften JSON und müssen identisch in
+`.env.production` gesetzt sein. Der Import verweigert sowohl eine Abweichung
+von den tatsächlichen JSON-Einträgen als auch von diesen Environment-Werten;
+der nachgelagerte Preflight prüft dieselben Werte gegen die Datenbank. Damit
+kann keine Sollzahl unabhängig vom freigegebenen Roster geändert werden.
 
 ```bash
-docker compose -f docker-compose.production.yml --env-file .env.production run --rm backend pnpm run release:preflight
+docker compose -f docker-compose.production.yml --env-file .env.production run --rm release-preflight
 ```
 
 Ein fehlgeschlagener Preflight ist ein harter Release-Blocker; das Event darf
 in diesem Zustand nicht gestartet werden.
+
+### Rosterdatei erstellen und freigeben
+
+Die Datei liegt außerhalb des Repositories und hat dieses Format (Codes durch
+individuelle, zufällige Werte mit mindestens acht Zeichen ersetzen):
+
+```json
+{
+  "version": 1,
+  "approvalId": "eventleitung-2026-09-11-v1",
+  "expectedPlayerCount": 1,
+  "expectedTeamCount": 1,
+  "teams": [{ "name": "Team Roma", "inventoryCapacity": 40 }],
+  "accounts": [
+    { "role": "PLAYER", "username": "spieler01", "accessCode": "ERSETZEN-1", "team": "Team Roma" },
+    { "role": "GM", "username": "gm01", "accessCode": "ERSETZEN-2" }
+  ]
+}
+```
+
+Nach dem Vier-Augen-Review wird genau dieser Byteinhalt freigegeben:
+
+```bash
+install -m 600 roster.production.json /srv/via-romae-secrets/roster.production.json
+sha256sum /srv/via-romae-secrets/roster.production.json
+```
+
+Pfad, Prüfsumme und die **im JSON enthaltenen** Sollzahlen kommen in
+`.env.production` (die Rosterdatei oder ihre Codes niemals einchecken):
+
+```dotenv
+ROSTER_FILE=/srv/via-romae-secrets/roster.production.json
+ROSTER_SHA256=<64-stellige-ausgabe-von-sha256sum>
+EXPECTED_PLAYER_COUNT=1
+EXPECTED_TEAM_COUNT=1
+```
+
+Eine Änderung an Konten, Teamzuweisungen oder Codes erfordert eine neue
+`approvalId`, erneutes Review und eine neue Prüfsumme. Nicht im Roster stehende
+Bestandskonten/-teams werden bewusst **nicht gelöscht**; der Preflight deckt
+dadurch unerwartete zusätzliche Spieler oder Teams auf.
+
+## Deployment-Abläufe
+
+### Leere Datenbank (Ersteinrichtung)
+
+1. Roster wie oben freigeben und `.env.production` vollständig setzen.
+2. Images bauen und die komplette Kette starten. Compose wartet auf Migration,
+   Contentseed, Rosterimport und Preflight, bevor das Backend startet.
+3. Den Status der One-shot-Services prüfen; nur Exit-Code 0 ist freigegeben.
+
+```bash
+docker compose -f docker-compose.production.yml --env-file .env.production build
+docker compose -f docker-compose.production.yml --env-file .env.production up -d
+docker compose -f docker-compose.production.yml --env-file .env.production ps -a migrate seed-content roster-import release-preflight
+```
+
+### Update einer bereits eingerichteten Eventdatenbank
+
+1. Vor jedem Update ein geprüftes Datenbankbackup erstellen. Die bestehende
+   Rosterdatei und Prüfsumme bleiben unverändert, sofern kein Rosterwechsel
+   freigegeben wurde.
+2. Neue Images bauen. Die vier One-shot-Services explizit neu erzeugen; alle
+   Schritte sind wiederholbar, der Rosterimport löscht keine Eventdaten.
+3. Erst nach erfolgreichem Preflight die langlebigen Services aktualisieren.
+
+```bash
+docker compose -f docker-compose.production.yml --env-file .env.production exec -T postgres pg_dump -U "${POSTGRES_USER:-postgres}" "${POSTGRES_DB:-jugendleiter2026}" > "backups/pre-update-$(date +%F-%H%M%S).sql"
+docker compose -f docker-compose.production.yml --env-file .env.production build
+docker compose -f docker-compose.production.yml --env-file .env.production up --force-recreate migrate seed-content roster-import release-preflight
+docker compose -f docker-compose.production.yml --env-file .env.production up -d backend frontend gm-client
+```
+
+Soll das Roster geändert werden, zuerst die neue Datei separat freigeben,
+anschließend `ROSTER_SHA256` und beide `EXPECTED_*` gemeinsam aktualisieren.
+Ein fehlgeschlagener Import oder Preflight stoppt den Update-Ablauf vor dem
+Neustart des Backends.
 
 ---
 
