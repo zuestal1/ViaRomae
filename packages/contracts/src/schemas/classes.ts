@@ -4,19 +4,12 @@ import { AbilityDefinitionSchema } from "./ability.js";
 export const ClassIdSchema = z.enum(["guard", "cleric", "sculptor", "condottiere"]);
 export type ClassId = z.infer<typeof ClassIdSchema>;
 export const EquipmentSlotSchema = z.enum(["WEAPON", "CLOTHING", "DEFENSE", "ARTIFACT"]);
-export const AbilityTargetSchema = z.enum(["SELF", "ALLY", "ENEMY", "ALL_ACTIVE_ALLIES"]);
 
 export const ClassStatusEffectSchema = z.object({
   id: z.string(), name: z.string(), polarity: z.enum(["POSITIVE", "NEGATIVE"]),
   tags: z.array(z.enum(["CONTROL", "DAMAGE_TAKEN", "DAMAGE_DEALT", "DEF", "INIT"])),
   remainingRounds: z.number().int().nonnegative().optional(),
   remainingTriggers: z.number().int().nonnegative().optional(), stacks: z.number().int().positive(),
-});
-
-export const AbilitySchema = z.object({
-  id: z.string(), name: z.string(), kind: z.enum(["BASIC", "ACTIVE", "PASSIVE"]),
-  targets: z.array(AbilityTargetSchema), cooldownRounds: z.number().int().nonnegative(),
-  description: z.string(), disabledReason: z.string().nullable().default(null),
 });
 
 export const ClassDefinitionSchema = z.object({
