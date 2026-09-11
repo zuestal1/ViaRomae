@@ -9,10 +9,10 @@
  *   checkEffectiveDistance()    – One-off distance check (used by other modules)
  *
  * effectiveDistance formula (Epic 2 spec):
- *   effectiveDistance = max(0, ST_DistanceSphere(playerPoint, targetPoint) − accuracy)
+ *   effectiveDistance = max(0, ST_DistanceSphere(playerPoint, targetPoint) − min(accuracy, 10 m))
  *
- * GPS benefit-of-doubt: if GPS says 30 m away with ±15 m accuracy, the
- * effective distance is 15 m → player is considered within a 15 m radius.
+ * GPS benefit-of-doubt is capped at 10 m: 30 m away with ±15 m accuracy has
+ * an effective distance of 20 m and is outside a 15 m interaction radius.
  */
 
 import { sql, eq, and, inArray } from "drizzle-orm";
@@ -114,6 +114,11 @@ export async function updatePlayerLocation(opts: {
       last_accuracy = ${accuracy},
       geom     = ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)
       , last_location_update = now()
+      , last_location_accuracy = ${accuracy}
+      , valid_location_streak = CASE
+          WHEN last_location_update >= now() - interval '15 seconds' THEN LEAST(valid_location_streak + 1, 2)
+          ELSE 1
+        END
     WHERE id = ${player.id}
   `);
   await checkRespawnArrival({ teamId: player.teamId, lat, lng, accuracy });
@@ -155,7 +160,7 @@ export async function updatePlayerLocation(opts: {
       actualDistanceM: parseFloat(r.actual_distance_m),
       effectiveDistanceM: Math.max(
         0,
-        parseFloat(r.actual_distance_m) - accuracy,
+        parseFloat(r.actual_distance_m) - Math.min(accuracy, 10),
       ),
     }),
   );
@@ -321,7 +326,7 @@ export async function updatePlayerLocation(opts: {
  * (default 55 m) using PostGIS `ST_DWithin` on the geography cast for
  * accurate metre-based distance on WGS-84.
  *
- * We query up to `discovery_radius_m` + `accuracy` so that objects at the
+ * We query up to `discovery_radius_m` + `min(accuracy, 10 m)` so objects at the
  * boundary aren't missed due to GPS imprecision.
  *
  * PostGIS note:
@@ -335,10 +340,9 @@ async function queryNearbyWorldObjects(opts: {
 }): Promise<NearbyRow[]> {
   const { lat, lng, accuracy } = opts;
 
-  // Expand the search radius by the player's GPS accuracy to ensure we don't
-  // miss objects at the boundary. Cap the expansion at 100 m to avoid pulling
-  // in half of Rome on bad GPS days.
-  const accuracyBuffer = Math.ceil(Math.min(accuracy, 100));
+  // Expand the search radius by the GDD-capped GPS accuracy credit so objects
+  // at the boundary are not missed without over-crediting imprecise fixes.
+  const accuracyBuffer = Math.ceil(Math.min(accuracy, 10));
 
   // In development/playtest mode, also include non-publishable objects so that
   // prototype content (which ships with publishable=false) is discoverable
@@ -456,7 +460,7 @@ export async function getNearbyWorldObjects(opts: {
 
   const objects: WorldObjectNearby[] = nearby.map((r) => {
     const actualDist = parseFloat(r.actual_distance_m);
-    const effectiveDist = Math.max(0, actualDist - accuracy);
+    const effectiveDist = Math.max(0, actualDist - Math.min(accuracy, 10));
     const zone = currentStates.get(r.id) ?? "OUTSIDE";
 
     return {
@@ -518,7 +522,7 @@ export async function checkEffectiveDistance(opts: {
 
   const rows = result.rows as { distance_m: string }[];
   const actualDistanceM = parseFloat(rows[0]?.distance_m ?? "Infinity");
-  const effectiveDistanceM = Math.max(0, actualDistanceM - accuracy);
+  const effectiveDistanceM = Math.max(0, actualDistanceM - Math.min(accuracy, 10));
   const withinRange = effectiveDistanceM <= targetRadius;
 
   return { actualDistanceM, effectiveDistanceM, withinRange };

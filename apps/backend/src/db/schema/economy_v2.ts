@@ -6,8 +6,10 @@ import {
   timestamp,
   boolean,
   varchar,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { teams, players } from "./player.js";
+import { worldObjects } from "./world.js";
 
 export const currencyTypeEnum = pgEnum("currency_type", ["FAME", "DENARII"]);
 export const ledgerSourceEnum = pgEnum("ledger_source", [
@@ -55,6 +57,13 @@ export const itemInstances = pgTable("item_instance", {
   isBound: boolean("is_bound").notNull().default(false),
   isQuestLocked: boolean("is_quest_locked").notNull().default(false),
 });
+
+export const storeCatalogItems = pgTable("store_catalog_item", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  storeId: uuid("store_id").notNull().references(() => worldObjects.id, { onDelete: "cascade" }),
+  definitionId: varchar("definition_id", { length: 64 }).notNull(),
+  price: integer("price").notNull(),
+}, (table) => [uniqueIndex("store_catalog_store_definition_unique").on(table.storeId, table.definitionId)]);
 
 export const itemDefs = pgTable("item_def", {
   id: uuid("id").primaryKey().defaultRandom(),

@@ -67,6 +67,8 @@ export const players = pgTable("player", {
   lastAccuracy: doublePrecision("last_accuracy"),
   // Epic 9: Track when player location was last updated
   lastLocationUpdate: timestamp("last_location_update", { withTimezone: true }),
+  lastLocationAccuracy: doublePrecision("last_location_accuracy"),
+  validLocationStreak: integer("valid_location_streak").notNull().default(0),
   // Epic 9: Player display name (denormalized from account)
   playerName: varchar("player_name", { length: 64 }),
 }, (table) => [
