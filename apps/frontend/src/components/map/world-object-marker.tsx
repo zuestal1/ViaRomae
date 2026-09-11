@@ -87,11 +87,12 @@ function ringSize(zone: WorldObjectNearby["zone"]): string {
 
 interface WorldObjectMarkerProps {
   object: WorldObjectNearby;
+  onStoreInteract?: (object: WorldObjectNearby) => void;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function WorldObjectMarker({ object }: WorldObjectMarkerProps) {
+export function WorldObjectMarker({ object, onStoreInteract }: WorldObjectMarkerProps) {
   const visual = TYPE_VISUALS[object.type] ?? TYPE_VISUALS.LOCATION;
   const [expanded, setExpanded] = useState(false);
 
@@ -111,7 +112,10 @@ export function WorldObjectMarker({ object }: WorldObjectMarkerProps) {
     >
       <div
         className="relative flex cursor-pointer flex-col items-center"
-        onClick={() => setExpanded((v) => !v)}
+        onClick={() => {
+          if (object.type === "STORE" && object.zone === "INTERACTING" && onStoreInteract) onStoreInteract(object);
+          else setExpanded((v) => !v);
+        }}
         role="button"
         aria-label={`${object.name} (${object.type})`}
       >

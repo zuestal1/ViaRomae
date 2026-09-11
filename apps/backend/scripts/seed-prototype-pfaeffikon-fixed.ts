@@ -253,6 +253,34 @@ async function seedPrototype() {
       console.log(`\n  📦 Loaded ${loaded} WorldObjects (skipped ${skipped})`);
     }
 
+    // ── Store PT-STORE-01: authoritative GDD prototype catalogue ────────────
+    console.log('\n🏺 Creating store catalogue and start balance...');
+    const storeItems = [
+      { key: 'panis_viatoris', name: 'Panis Viatoris', price: 15 },
+      { key: 'aqua_vitae', name: 'Aqua Vitae', price: 30 },
+      { key: 'rauchkugel', name: 'Rauchkugel', price: 45 },
+      { key: 'balsam_der_wiederkehr', name: 'Balsam der Wiederkehr', price: 120 },
+    ];
+    for (const item of storeItems) {
+      await db.execute(sql`
+        INSERT INTO item_def (id,key,name,equip_slot,category,rarity,allowed_classes,stats,stackable,max_stack,buy_price,sell_price)
+        VALUES(gen_random_uuid(),${item.key},${item.name},NULL,'CONSUMABLE','N','[]','{}',true,40,${item.price},${Math.max(0, Math.round(item.price * 0.15 / 5) * 5)})
+        ON CONFLICT(key) DO UPDATE SET name=EXCLUDED.name, category='CONSUMABLE', stackable=true,
+          max_stack=40, buy_price=EXCLUDED.buy_price, sell_price=EXCLUDED.sell_price
+      `);
+      await db.execute(sql`
+        INSERT INTO store_catalog_item(id,store_id,definition_id,price)
+        SELECT gen_random_uuid(), id, ${item.key}, ${item.price} FROM world_object WHERE external_id='PT-STORE-01'
+        ON CONFLICT(store_id,definition_id) DO UPDATE SET price=EXCLUDED.price
+      `);
+    }
+    await db.execute(sql`
+      INSERT INTO ledger_entry(id,team_id,player_id,currency_type,amount,source,idempotency_key)
+      VALUES(gen_random_uuid(),${IDS.team}::uuid,NULL,'DENARII',200,'ADMIN','7eb85f64-71d5-4d58-96c2-7aa3326fc001'::uuid)
+      ON CONFLICT(idempotency_key) DO NOTHING
+    `);
+    console.log('  ✓ Bottega del Borgo: 4 Artikel; Teamstart: 200 Denare');
+
     // ── 5. Quest PT-Q01 ───────────────────────────────────────────────────────
     console.log('\n📜 Creating Quest PT-Q01...');
 

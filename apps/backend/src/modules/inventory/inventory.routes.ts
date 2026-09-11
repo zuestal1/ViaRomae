@@ -59,6 +59,7 @@ function mapItem(row: Record<string, unknown>) {
     slot: row["slot"] ?? null,
     isEquipped: Boolean(row["is_equipped"]),
     isBound: Boolean(row["is_bound"]),
+    isQuestLocked: Boolean(row["is_quest_locked"]),
     stats,
     effectiveStats: row["effective_stats"],
     rarity: row["rarity"] ?? "N",

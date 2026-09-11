@@ -7,7 +7,7 @@ export const UpdateLocationRequestSchema = z.object({
   lat: z.number().min(-90).max(90),
   lng: z.number().min(-180).max(180),
   /** GPS horizontal accuracy in metres (from GeolocationCoordinates.accuracy). */
-  accuracy: z.number().positive().max(500),
+  accuracy: z.number().positive().max(50),
   /** Optional: opaque device fingerprint for session correlation. */
   deviceId: z.string().max(128).optional(),
 });
@@ -31,7 +31,7 @@ export type UpdateLocationResponse = z.infer<
  * Used internally (and optionally exposed) to validate whether a player
  * is within the interaction radius of a world object.
  *
- * effectiveDistance = max(0, haversineMetres - accuracy)
+ * effectiveDistance = max(0, haversineMetres - min(accuracy, 10 m))
  *
  * This gives the player the benefit of the doubt when GPS is imprecise.
  */

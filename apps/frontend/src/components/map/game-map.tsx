@@ -59,6 +59,8 @@ import {
 import { QuestHUD } from "../quest/quest-hud.js";
 import { QuestBottomSheet } from "../quest/quest-bottom-sheet.js";
 import { EconomySheet } from "../inventory/economy-sheet.js";
+import { StoreSheet } from "../store/store-sheet.js";
+import type { WorldObjectNearby } from "@jlw/contracts";
 import { useEconomySummary } from "../../hooks/use-economy.js";
 import { useCombat } from "../../hooks/use-combat.js";
 import { CombatScreen } from "../combat/combat-screen.js";
@@ -164,6 +166,7 @@ export function GameMap({ onBack }: GameMapProps) {
   const { data: economy } = useEconomySummary(token);
 
   const [inventoryOpen, setInventoryOpen] = useState(false);
+  const [selectedStore, setSelectedStore] = useState<WorldObjectNearby | null>(null);
 
   // ── Quest UI state ─────────────────────────────────────────────────────────
   /** ID of the active QuestRun currently shown in the sheet. */
@@ -292,7 +295,7 @@ export function GameMap({ onBack }: GameMapProps) {
 
         {/* ── WorldObject markers ───────────────────────────────────────── */}
         {worldObjects.map((obj) => (
-          <WorldObjectMarker key={obj.id} object={obj} />
+          <WorldObjectMarker key={obj.id} object={obj} onStoreInteract={setSelectedStore} />
         ))}
 
         {/* ── Quest waypoint markers (REACH_LOCATION targets) ───────────── */}
@@ -456,6 +459,10 @@ export function GameMap({ onBack }: GameMapProps) {
 
       {inventoryOpen && (
         <EconomySheet token={token} onClose={() => setInventoryOpen(false)} />
+      )}
+
+      {selectedStore && (
+        <StoreSheet token={token} store={selectedStore} onClose={() => setSelectedStore(null)} />
       )}
 
       {activeChallenge && !activeCombat && (
