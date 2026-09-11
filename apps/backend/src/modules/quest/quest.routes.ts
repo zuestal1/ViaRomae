@@ -25,6 +25,7 @@ import {
   submitAnswer,
   completeQuest,
   getSingleRun,
+  deliverQuestItem,
   performQuestAction,
   startQuestTimer,
 } from "./quest.service.js";
@@ -150,6 +151,13 @@ export async function questRoutes(server: FastifyInstance): Promise<void> {
       return reply.status(alreadyActive ? 200 : 201).send({ run, alreadyActive });
     },
   );
+  server.post("/runs/:runId/steps/:stepId/item",{onRequest:[server.authenticate]},async(request,reply)=>{
+    const body=z.object({itemInstanceId:z.string().uuid()}).safeParse(request.body);
+    if(!body.success)return reply.status(400).send({message:"Invalid body"});
+    const {sub}=request.user as {sub:string};const {runId,stepId}=request.params as {runId:string;stepId:string};
+    try{return reply.send(await deliverQuestItem({accountId:sub,questRunId:runId,stepId,itemInstanceId:body.data.itemInstanceId,wsHub:server.wsHub}));}
+    catch(error){const e=error as Error&{statusCode?:number};return reply.status(e.statusCode??500).send({message:e.message});}
+  });
 
   // ── GET /api/v1/quests/runs/:runId ─────────────────────────────────────────
   server.get(

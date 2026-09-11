@@ -38,6 +38,8 @@ import { ABILITY_DEFINITIONS, CLASS_LOADOUTS, type AbilityClass, type AbilityDef
 import type { StatusEffect } from "@jlw/contracts";
 import { materializeHealthRegeneration, markTeamRegenStopped } from "./health-regeneration.service.js";
 import { getPlayerStats } from "../player/player-stats.service.js";
+import { resolveCombatConsumable } from "../economy/consumable.service.js";
+import { effectiveItemStats } from "../economy/item-rules.js";
 import { resolveDefeatEnemy } from "../quest/quest.service.js";
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -107,7 +109,7 @@ export interface CombatAction {
   effect?: string;
 }
 
-export type ActionType = "ATTACK" | "SKILL";
+export type ActionType = "ATTACK" | "SKILL" | "DEFEND";
 
 export interface CombatLog {
   timestamp: Date;
@@ -119,8 +121,8 @@ async function loadPlayerProfile(playerId: string, base: { atk: number; def: num
   stats: CombatStats;
   equipmentRarityScore: number;
 }> {
-  const result = await db.execute<{ stats: string; slot: string }>(sql`
-    SELECT d.stats, i.slot FROM item_instance i
+  const result = await db.execute<{ stats: string; slot: string;rarity:EquipmentRarity }>(sql`
+    SELECT d.stats, i.slot,d.rarity FROM item_instance i
     JOIN item_def d ON d.key = i.definition_id
     WHERE i.owner_id = ${playerId} AND i.is_equipped = true
     ORDER BY i.slot, i.id
@@ -129,7 +131,7 @@ async function loadPlayerProfile(playerId: string, base: { atk: number; def: num
   const stats: CombatStats = { attack: base.atk, defense: base.def, initiative: base.initiative };
   const rarities: EquipmentRarity[] = [];
   for (const item of result.rows) {
-    const modifiers = JSON.parse(item.stats || "{}") as Record<string, number | string>;
+    const modifiers = effectiveItemStats(item.stats,item.rarity) as Record<string, number>;
     // Base/equipment values are already included by getPlayerStats. Only combat-only
     // modifier fields and rarity are read here.
     stats.damageDealtPercent = (stats.damageDealtPercent ?? 0) + Number(modifiers.damageDealtPercent ?? 0);
@@ -139,10 +141,8 @@ async function loadPlayerProfile(playerId: string, base: { atk: number; def: num
     stats.initiativePercent = (stats.initiativePercent ?? 0) + Number(modifiers.initiativePercent ?? 0);
     stats.initiativeFlat = (stats.initiativeFlat ?? 0) + Number(modifiers.initiativeFlat ?? 0);
     stats.healingPercent = (stats.healingPercent ?? 0) + Number(modifiers.healingPercent ?? 0);
-    const rarity = modifiers.rarity;
-    if (["N", "R", "SR", "SSR", "E", "L"].includes(String(rarity))) {
-      rarities.push(rarity as EquipmentRarity);
-    }
+    stats.armorBreakPercentPoints=(stats.armorBreakPercentPoints??0)+Number(modifiers.armorBreakPercentPoints??0);
+    rarities.push(item.rarity);
   }
   return { stats, equipmentRarityScore: calculateEquipmentRarityScore(rarities) };
 }
@@ -467,6 +467,7 @@ export async function submitCombatAction(opts: {
       setWhere: eq(combatActions.isLocked, false),
     }).returning();
     if (!action) throw new Error("Combat action is locked");
+    await tx.execute(sql`DELETE FROM combat_item_action WHERE combat_action_id=${action.id}::uuid`);
 
     await tx.insert(combatActionSubmissions).values({
       idempotencyKey, actionId: action.id, combatInstanceId: combatId,
@@ -771,13 +772,19 @@ async function resolveRound(combatId: string, wsHub?: WsHub): Promise<CombatLog[
 
     if (action.abilityId) {
       await resolveAbility(combat, actor, action.abilityId, action.targetId, logs);
+    } else if (action.actionType === "DEFEND") {
+      const item=await resolveCombatConsumable(action.id,combat.id,combat.roundNumber);
+      if(item) logs.push({timestamp:new Date(),message:`${actor.name} verwendet ${item}.`,type:"EFFECT"});
     } else if (action.actionType === "ATTACK" && action.targetId) {
       let targetMaybe = combat.combatants.find((c) => c.id === action.targetId);
       if (!targetMaybe || targetMaybe.isDowned) targetMaybe = defaultEnemyTarget(combat, actor);
       if (!targetMaybe) continue;
       
       // Calculate damage
-      const damage = await calculateActionDamage(combat, actor, targetMaybe, 1);
+      let damage = await calculateActionDamage(combat, actor, targetMaybe, 1);
+      const whetstone=(await db.select().from(combatEffects).where(and(eq(combatEffects.combatInstanceId,combat.id),
+        eq(combatEffects.sourceCombatantId,actor.id),eq(combatEffects.abilityId,"item.wetzstein_legionaer"))))[0];
+      if(whetstone){damage=Math.round(damage*1.5);await db.delete(combatEffects).where(eq(combatEffects.id,whetstone.id));}
 
       // Apply damage
       const dealt = await applyAbilityModifiers(combat, actor, targetMaybe, damage);
@@ -835,7 +842,8 @@ async function resolveAbility(combat: CombatInstance, actor: Combatant, abilityI
     const damage = await calculateActionDamage(combat, actor, target, effect.attackMultiplier);
     const dealt = await applyAbilityModifiers(combat, actor, target, damage);
     logs.push({ timestamp: new Date(), message: `${actor.name} wirkt ${definition.displayName} auf ${target.name}: ${dealt} Schaden.`, type: "DAMAGE" });
-    if (effect.kind === "DAMAGE_AND_DEFENSE_REDUCTION") await addEffect(combat, actor, target, abilityId, combat.roundNumber + 1);
+    if (effect.kind === "DAMAGE_AND_DEFENSE_REDUCTION") await addEffect(combat, actor, target, abilityId,
+      combat.roundNumber + 1,{armorBreakPercentPoints:actor.stats?.armorBreakPercentPoints??0});
     if (effect.kind === "DAMAGE" && "selfIncomingDamagePercent" in effect && effect.selfIncomingDamagePercent) await addEffect(combat, actor, actor, abilityId, combat.roundNumber);
   } else if (effect.kind === "HEAL" && target) {
     const attack = actor.stats?.attack ?? actor.atk;
@@ -870,7 +878,7 @@ async function resolveAbility(combat: CombatInstance, actor: Combatant, abilityI
 async function calculateActionDamage(combat: CombatInstance, actor: Combatant, target: Combatant,
   multiplier: number): Promise<number> {
   const effects = await db.select().from(combatEffects).where(eq(combatEffects.combatInstanceId, combat.id));
-  const weakness = effects.some((effect) => effect.targetCombatantId === target.id &&
+  const weakness = effects.find((effect) => effect.targetCombatantId === target.id &&
     effect.abilityId === "sculptor.schwachstelle" && (effect.expiresAtRound == null || effect.expiresAtRound >= combat.roundNumber));
   const attacker = { ...(actor.stats ?? { attack: actor.atk, defense: actor.def, initiative: actor.initiative }) };
   const defender = { ...(target.stats ?? { attack: target.atk, defense: target.def, initiative: target.initiative }) };
@@ -879,7 +887,8 @@ async function calculateActionDamage(combat: CombatInstance, actor: Combatant, t
   attacker.damageDealtPercent = (attacker.damageDealtPercent ?? 0) + (dust ? -.35 : 0) +
     (actor.abilityDefinitions?.some((ability) => ability.id === "condottiere.blut_im_wasser") &&
       target.hpCurrent / target.hpMax < .3 ? .15 : 0);
-  defender.defensePercent = clampCombatPercent((defender.defensePercent ?? 0) + (weakness ? -.25 : 0));
+  defender.defensePercent = clampCombatPercent((defender.defensePercent ?? 0) +
+    (weakness ? -.25-Number(weakness.state.armorBreakPercentPoints??0)/100 : 0));
   defender.damageTakenPercent = (defender.damageTakenPercent ?? 0) +
     (target.abilityDefinitions?.some((ability) => ability.id === "gardist.standhaft") ? -.1 : 0) +
     (effects.some((effect) => effect.targetCombatantId === target.id && effect.abilityId === "gardist.schildwall" &&
@@ -914,6 +923,10 @@ async function applyAbilityModifiers(combat: CombatInstance, attacker: Combatant
   const allEffects = await db.select().from(combatEffects).where(eq(combatEffects.combatInstanceId, combat.id));
   const active = allEffects.filter((item) => item.expiresAtRound == null || item.expiresAtRound >= combat.roundNumber);
   let damage = rawDamage;
+  const smoke=active.find(item=>item.targetCombatantId===target.id&&item.abilityId==="item.rauchkugel");
+  if(smoke){damage*=.75;await db.delete(combatEffects).where(eq(combatEffects.id,smoke.id));}
+  if(active.some(item=>item.targetCombatantId===target.id&&item.abilityId==="item.geweihter_weihrauch")) damage*=.85;
+  if(active.some(item=>item.targetCombatantId===attacker.id&&item.abilityId==="item.adlerstandarte")) damage*=1.15;
   const guard = allowBodyguard ? active.find((item) => item.targetCombatantId === target.id && item.abilityId === "gardist.leibwache") : undefined;
   if (guard) {
     const guardian = combat.combatants.find((item) => item.id === guard.sourceCombatantId && !item.isDowned);
@@ -931,7 +944,14 @@ async function applyAbilityModifiers(combat: CombatInstance, attacker: Combatant
     if (absorbed === shieldValue) await db.delete(combatEffects).where(eq(combatEffects.id, shield.id));
     else await db.update(combatEffects).set({ state: { ...shield.state, shield: shieldValue - absorbed } }).where(eq(combatEffects.id, shield.id));
   }
-  const dealt = Math.max(0, Math.round(damage));
+  let dealt = Math.max(0, Math.round(damage));
+  if(target.entityType==="PLAYER" && dealt>=target.hpCurrent){
+    const relic=await db.execute<{id:string}>(sql`UPDATE item_instance i SET quantity=quantity-1 FROM item_def d
+      WHERE i.id=(SELECT ii.id FROM item_instance ii WHERE ii.owner_type='PLAYER' AND ii.owner_id=${target.entityId}::uuid
+        AND ii.definition_id='notfallreliquie' AND ii.quantity>0 ORDER BY ii.id LIMIT 1 FOR UPDATE SKIP LOCKED)
+        AND d.key=i.definition_id RETURNING i.id`);
+    if(relic.rows[0]){await db.execute(sql`DELETE FROM item_instance WHERE id=${relic.rows[0].id}::uuid AND quantity=0`);dealt=Math.max(0,target.hpCurrent-1);}
+  }
   const wasAlive = target.hpCurrent > 0;
   target.hpCurrent = Math.max(0, target.hpCurrent - dealt);
   target.isDowned = target.hpCurrent === 0;
@@ -1103,7 +1123,7 @@ async function transferPvPLoot(combatId: string, winnerTeamId: string, loserTeam
     const consumables = await tx.execute<{ id: string; quantity: number }>(sql`
       SELECT i.id,i.quantity FROM item_instance i JOIN player p ON p.id=i.owner_id
       WHERE p.team_id=${loserTeamId}::uuid AND i.owner_type='PLAYER' AND i.category='CONSUMABLE'
-        AND i.is_bound=false AND i.is_quest_locked=false ORDER BY i.id FOR UPDATE`);
+        AND i.is_bound=false AND i.is_quest_locked=false AND NOT EXISTS(SELECT 1 FROM combat_item_action cia WHERE cia.item_instance_id=i.id AND cia.resolved_at IS NULL) ORDER BY i.id FOR UPDATE`);
     let remaining = randomInt(3, 6);
     for (const item of consumables.rows) {
       if (remaining <= 0) break;

@@ -15,9 +15,12 @@ import {
   useTradeOffers,
   useTradeTeams,
   useUnequipItem,
+  useMoveInventoryItem,
+  useConsumableItem,
 } from "../../hooks/use-economy.js";
 
 type Tab = "person" | "team" | "trade";
+type ItemFilter="ALL"|"EQUIPMENT"|"CONSUMABLE"|"QUEST";
 
 interface EconomySheetProps {
   token: string | null;
@@ -36,6 +39,7 @@ function slotLabel(slot: string): string {
 
 export function EconomySheet({ token, onClose }: EconomySheetProps) {
   const [tab, setTab] = useState<Tab>("person");
+  const [itemFilter,setItemFilter]=useState<ItemFilter>("ALL");
   const summary = useEconomySummary(token);
   const playerInv = usePlayerInventory(token);
   const teamInv = useTeamInventory(token);
@@ -43,6 +47,9 @@ export function EconomySheet({ token, onClose }: EconomySheetProps) {
   const offers = useTradeOffers(token);
   const equip = useEquipItem();
   const unequip = useUnequipItem();
+  const take = useMoveInventoryItem("take");
+  const deposit = useMoveInventoryItem("deposit");
+  const useItem = useConsumableItem();
   const createOffer = useCreateTradeOffer();
   const acceptOffer = useAcceptTradeOffer();
   const rejectOffer = useRejectTradeOffer();
@@ -140,6 +147,8 @@ export function EconomySheet({ token, onClose }: EconomySheetProps) {
           </button>
         </div>
 
+        {tab!=="trade"&&<div className="mb-3 flex gap-1">{(["ALL","EQUIPMENT","CONSUMABLE","QUEST"] as const).map(filter=><button key={filter} onClick={()=>setItemFilter(filter)} className={`rounded px-2 py-1 text-[10px] ${itemFilter===filter?"bg-white/20":"text-white/50"}`}>{filter==="ALL"?"ALLE":filter==="EQUIPMENT"?"AUSRÜSTUNG":filter==="CONSUMABLE"?"CONSUMABLES":"QUEST"}</button>)}</div>}
+
         <div className="mb-4 flex gap-4 text-sm">
           <div className="rounded-lg border border-[#cd7f32]/30 bg-black/30 px-3 py-2">
             <p className="text-[10px] uppercase tracking-widest text-[#888]">Ruhm</p>
@@ -185,21 +194,27 @@ export function EconomySheet({ token, onClose }: EconomySheetProps) {
 
         {tab === "person" && (
           <ItemList
-            items={playerInv.data?.items ?? []}
+            items={(playerInv.data?.items ?? []).filter(item=>itemFilter==="ALL"||item.category===itemFilter)}
             loading={playerInv.isLoading}
             empty="Kein persönliches Inventar."
             canEquip
             onEquip={(id) => void equip.mutateAsync(id)}
             onUnequip={(id) => void unequip.mutateAsync(id)}
             busy={equip.isPending || unequip.isPending}
+            onMove={(id,quantity) => void deposit.mutateAsync({itemInstanceId:id,quantity})}
+            moveLabel="Ins Teamlager"
+            onUse={(id)=>void useItem.mutateAsync({itemInstanceId:id,requestId:crypto.randomUUID()})}
           />
         )}
 
         {tab === "team" && (
           <ItemList
-            items={teamInv.data?.items ?? []}
+            items={(teamInv.data?.items ?? []).filter(item=>itemFilter==="ALL"||item.category===itemFilter)}
             loading={teamInv.isLoading}
             empty="Kein Team-Lager."
+            onMove={(id,quantity) => void take.mutateAsync({itemInstanceId:id,quantity})}
+            onTakeEquip={(id) => void take.mutateAsync({itemInstanceId:id,quantity:1,equip:true})}
+            moveLabel="Nehmen"
           />
         )}
 
@@ -229,7 +244,7 @@ export function EconomySheet({ token, onClose }: EconomySheetProps) {
                     <p className="mt-3 text-[10px] uppercase tracking-widest text-[#888]">
                       Eure Gegenseite
                     </p>
-                    {(teamInv.data?.items ?? []).map((item) => (
+                    {(teamInv.data?.items ?? []).filter(item=>!item.isBound&&!item.isEquipped&&!item.isQuestLocked&&item.category!=="QUEST").map((item) => (
                       <label
                         key={item.id}
                         className="mt-1 flex items-center justify-between text-sm text-[#f4e4c1]"
@@ -333,7 +348,7 @@ export function EconomySheet({ token, onClose }: EconomySheetProps) {
               ))}
             </select>
 
-            {(teamInv.data?.items ?? []).map((item) => (
+            {(teamInv.data?.items ?? []).filter(item=>!item.isBound&&!item.isEquipped&&!item.isQuestLocked&&item.category!=="QUEST").map((item) => (
               <label
                 key={item.id}
                 className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2 text-sm"
@@ -396,6 +411,10 @@ function ItemList({
   onEquip,
   onUnequip,
   busy,
+  onMove,
+  onTakeEquip,
+  moveLabel,
+  onUse,
 }: {
   items: ItemInstance[];
   loading: boolean;
@@ -404,6 +423,10 @@ function ItemList({
   onEquip?: (id: string) => void;
   onUnequip?: (id: string) => void;
   busy?: boolean;
+  onMove?: (id:string,quantity:number)=>void;
+  onTakeEquip?: (id:string)=>void;
+  moveLabel?: string;
+  onUse?: (id:string)=>void;
 }) {
   const sorted = useMemo(
     () =>
@@ -432,7 +455,7 @@ function ItemList({
               {(item.quantity ?? 1) > 1 ? ` ×${item.quantity}` : ""}
             </p>
             <p className="text-[10px] uppercase tracking-widest text-white/40">
-              {item.category === "CONSUMABLE" ? "Verbrauch" : slotLabel(item.slot ?? "")}
+              {item.category === "CONSUMABLE" ? "Verbrauch" : item.category === "QUEST" ? "Questitem" : slotLabel(item.slot ?? "")}
               {` · ${item.rarity}`}
               {item.stats && Object.keys(item.stats).length > 0
                 ? ` · ${Object.entries(item.stats)
@@ -463,6 +486,11 @@ function ItemList({
               newStats={item.effectiveStats}
             />
           )}
+          {onMove && !item.isEquipped && item.category !== "QUEST" && !item.isBound && <div className="ml-2 flex gap-1">
+            <button onClick={()=>onMove(item.id,1)} className="rounded-full border border-white/20 px-2 py-1 text-[11px]">{moveLabel}</button>
+            {onTakeEquip && item.category === "EQUIPMENT" && <button onClick={()=>onTakeEquip(item.id)} className="rounded-full bg-[#cd7f32] px-2 py-1 text-[11px] font-bold text-black">Nehmen & Anlegen</button>}
+          </div>}
+          {onUse && item.category==="CONSUMABLE" && <button onClick={()=>onUse(item.id)} className="ml-2 rounded-full bg-emerald-600 px-3 py-1 text-[11px] font-bold">Verwenden</button>}
         </li>
       ))}
     </ul>

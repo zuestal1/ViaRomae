@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { db } from "../../db/client.js";
+import { INVENTORY_LIMITS, normalizeTradeItems } from "./item-rules.js";
 
 export type TradeItem = { itemInstanceId: string; quantity: number };
 export type TradeCurrency = { currencyType: "DENARII" | "FAME"; amount: number };
@@ -40,6 +41,24 @@ function currenciesFromSide(side: TradeSide): TradeCurrency[] {
   return [{ currencyType: "DENARII", amount: side.denarii }];
 }
 
+async function assertTradeAvailable(tx:Tx, firstTeamId:string, secondTeamId:string) {
+  const result=await tx.execute(sql`SELECT EXISTS(
+    SELECT 1 FROM player a CROSS JOIN player b
+    WHERE a.team_id=${firstTeamId}::uuid AND b.team_id=${secondTeamId}::uuid
+      AND a.geom IS NOT NULL AND b.geom IS NOT NULL
+      AND a.last_location_update>now()-interval '15 seconds'
+      AND b.last_location_update>now()-interval '15 seconds'
+      AND ST_DistanceSphere(a.geom,b.geom)<=15
+  ) nearby,
+  EXISTS(SELECT 1 FROM combat_instance ci JOIN combatant c ON c.combat_instance_id=ci.id
+    WHERE c.team_id IN (${firstTeamId}::uuid,${secondTeamId}::uuid) AND ci.state<>'COMPLETED') in_combat,
+  EXISTS(SELECT 1 FROM pvp_challenge p WHERE (p.attacker_team_id IN (${firstTeamId}::uuid,${secondTeamId}::uuid)
+    OR p.defender_team_id IN (${firstTeamId}::uuid,${secondTeamId}::uuid)) AND p.state='WARNING') in_pvp`);
+  const state=result.rows[0] as {nearby:boolean;in_combat:boolean;in_pvp:boolean};
+  if(!state.nearby) throw httpError("Teams must be within 15 metres to trade",409);
+  if(state.in_combat || state.in_pvp) throw httpError("Trading is unavailable during combat or a PvP warning",409);
+}
+
 async function assertOwnsBundle(
   tx: Tx,
   teamId: string,
@@ -48,7 +67,7 @@ async function assertOwnsBundle(
   for (const it of side.items) {
     if (it.quantity <= 0) continue;
     const r = await tx.execute(sql`
-      SELECT quantity, owner_id, owner_type
+      SELECT quantity, owner_id, owner_type, is_bound, is_equipped, is_quest_locked, category
       FROM item_instance
       WHERE id = ${it.itemInstanceId}::uuid
       FOR UPDATE
@@ -57,6 +76,7 @@ async function assertOwnsBundle(
       quantity: number;
       owner_id: string;
       owner_type: string;
+      is_bound:boolean; is_equipped:boolean; is_quest_locked:boolean; category:string;
     }[])[0];
     if (!row) throw httpError("Item not found", 404);
     if (row.owner_type !== "TEAM" || row.owner_id !== teamId) {
@@ -64,6 +84,9 @@ async function assertOwnsBundle(
     }
     if (Number(row.quantity) < it.quantity) {
       throw httpError("Insufficient item quantity", 409);
+    }
+    if (row.is_bound || row.is_equipped || row.is_quest_locked || row.category === "QUEST") {
+      throw httpError("Bound, equipped and quest items cannot be traded", 409);
     }
   }
   if (side.denarii > 0) {
@@ -102,10 +125,10 @@ async function transferBundle(
         WHERE id = ${it.itemInstanceId}::uuid
       `);
       const defRes = await tx.execute(sql`
-        SELECT stackable, equip_slot AS slot, category
+        SELECT stackable, equip_slot AS slot, category,max_stack
         FROM item_def WHERE key = ${defKey}
       `);
-      const def = (defRes.rows as { stackable: boolean; slot: string | null; category: string }[])[0];
+      const def = (defRes.rows as { stackable: boolean; slot: string | null; category: string;max_stack:number }[])[0];
       if (def?.stackable) {
         const upd = await tx.execute(sql`
           UPDATE item_instance
@@ -113,6 +136,7 @@ async function transferBundle(
           WHERE owner_type = 'TEAM'::owner_type
             AND owner_id = ${receiverTeamId}::uuid
             AND definition_id = ${defKey}
+            AND quantity + ${it.quantity} <= ${def.max_stack}
           RETURNING id
         `);
         if (upd.rows.length === 0) {
@@ -224,7 +248,7 @@ export async function createTradeOffer(opts: {
     throw httpError("Cannot trade with your own team", 400);
   }
   const clean: TradeSide = {
-    items: side.items.filter((i) => i.quantity > 0),
+    items: normalizeTradeItems(side.items.filter((i) => i.quantity > 0)),
     denarii: Math.max(0, Math.floor(side.denarii || 0)),
   };
   if (isEmptySide(clean)) throw httpError("Offer cannot be empty", 400);
@@ -233,6 +257,7 @@ export async function createTradeOffer(opts: {
   const payload = { ...clean, itemLabels };
 
   const inserted = await db.transaction(async (tx) => {
+    await assertTradeAvailable(tx,initiatorTeamId,counterpartyTeamId);
     await assertOwnsBundle(tx, initiatorTeamId, clean);
     const res = await tx.execute(sql`
       INSERT INTO trade_offer (
@@ -292,7 +317,7 @@ export async function acceptTradeOffer(opts: {
   counterSide: TradeSide;
 }): Promise<TradeOfferRow> {
   const counter: TradeSide = {
-    items: opts.counterSide.items.filter((i) => i.quantity > 0),
+    items: normalizeTradeItems(opts.counterSide.items.filter((i) => i.quantity > 0)),
     denarii: Math.max(0, Math.floor(opts.counterSide.denarii || 0)),
   };
   if (isEmptySide(counter)) {
@@ -316,7 +341,7 @@ export async function acceptTradeOffer(opts: {
     }
 
     const initiatorSide: TradeSide = {
-      items: offer.initiator_payload.items ?? [],
+      items: normalizeTradeItems(offer.initiator_payload.items ?? []),
       denarii: offer.initiator_payload.denarii ?? 0,
     };
 
@@ -324,9 +349,20 @@ export async function acceptTradeOffer(opts: {
     await tx.execute(sql`
       SELECT id FROM team WHERE id IN (${a}::uuid, ${b}::uuid) FOR UPDATE
     `);
+    await assertTradeAvailable(tx,offer.initiator_team_id,offer.counterparty_team_id);
 
     await assertOwnsBundle(tx, offer.initiator_team_id, initiatorSide);
     await assertOwnsBundle(tx, offer.counterparty_team_id, counter);
+
+    const capacity = async (teamId:string, incoming:TradeSide, outgoing:TradeSide) => {
+      const result=await tx.execute(sql`SELECT COALESCE(SUM(quantity),0) total FROM item_instance
+        WHERE owner_type='TEAM' AND owner_id=${teamId}::uuid AND category::text<>'QUEST'`);
+      const after=Number((result.rows[0] as {total:string}).total) +
+        incoming.items.reduce((sum,item)=>sum+item.quantity,0) - outgoing.items.reduce((sum,item)=>sum+item.quantity,0);
+      if(after>INVENTORY_LIMITS.TEAM) throw httpError("Receiving team inventory is full",409);
+    };
+    await capacity(offer.initiator_team_id,counter,initiatorSide);
+    await capacity(offer.counterparty_team_id,initiatorSide,counter);
 
     await transferBundle(tx, offer.initiator_team_id, offer.counterparty_team_id, initiatorSide);
     await transferBundle(tx, offer.counterparty_team_id, offer.initiator_team_id, counter);

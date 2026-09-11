@@ -78,6 +78,35 @@ function httpError(message: string, statusCode: number): Error & { statusCode: n
   return Object.assign(new Error(message), { statusCode });
 }
 
+/** Delivers the exact quest-locked team item required by a USE_ITEM objective. */
+export async function deliverQuestItem(opts:{accountId:string;questRunId:string;stepId:string;itemInstanceId:string;wsHub?:WsHub}) {
+  const player=await resolvePlayer(opts.accountId);
+  const [run]=await db.select().from(questRuns).where(and(eq(questRuns.id,opts.questRunId),
+    eq(questRuns.teamId,player.teamId),eq(questRuns.state,"ACTIVE")));
+  if(!run) throw httpError("QuestRun not found or not active.",404);
+  await requireCurrentObjective(run,opts.stepId);
+  const [step]=await db.select().from(questSteps).where(and(eq(questSteps.questDefinitionId,run.questDefinitionId),
+    eq(questSteps.stepId,opts.stepId),eq(questSteps.stepActionType,"USE_ITEM")));
+  if(!step) throw httpError("Step does not accept a quest item.",400);
+  await db.transaction(async tx=>{
+    const result=await tx.execute(sql`SELECT i.id item_id,i.quantity FROM item_instance i
+      WHERE i.id=${opts.itemInstanceId}::uuid AND i.owner_type='TEAM' AND i.owner_id=${player.teamId}::uuid
+        AND i.category='QUEST' AND i.is_quest_locked=true AND i.definition_id=${step.targetRef} FOR UPDATE`);
+    const item=result.rows[0] as {item_id:string;quantity:number}|undefined;
+    if(!item) throw httpError("Required quest item is unavailable",409);
+    await tx.execute(sql`UPDATE item_instance SET quantity=quantity-1,is_quest_locked=false WHERE id=${item.item_id}::uuid`);
+    await tx.execute(sql`DELETE FROM item_instance WHERE id=${item.item_id}::uuid AND quantity=0`);
+    await tx.execute(sql`INSERT INTO objective_progress(quest_run_id,objective_id,status,progress_count)
+      VALUES(${opts.questRunId}::uuid,${opts.stepId},'COMPLETED',1)
+      ON CONFLICT(quest_run_id,objective_id) DO UPDATE SET status='COMPLETED',progress_count=1`);
+  });
+  const completed=await completeObjectiveStep({questRunId:run.id,stepId:step.stepId,
+    stepActionType:step.stepActionType,run,playerName:player.playerName,skipProgressWrite:true,
+    ...(opts.wsHub?{wsHub:opts.wsHub}:{})});
+  return {status:"COMPLETED" as const,stepId:opts.stepId,message:"Questitem erfolgreich abgegeben. ✓",
+    questCompleted:completed.allRequiredDone};
+}
+
 /**
  * Validate and persist class content. This is deliberately separate from main
  * quest steps: a class condition can therefore never become a completion guard.
@@ -474,7 +503,7 @@ export async function performQuestAction(opts: { accountId: string; questRunId: 
   if (!run) throw httpError("QuestRun not found or not active.", 404);
   await requireCurrentObjective(run, opts.stepId);
   const [step] = await db.select().from(questSteps).where(and(eq(questSteps.questDefinitionId, run.questDefinitionId), eq(questSteps.stepId, opts.stepId)));
-  if (!step || !["TALK_TO_NPC", "TEAM_DECISION", "CLASS_ACTION", "USE_ITEM"].includes(step.stepActionType)) throw httpError("Step does not support a direct quest action.", 400);
+  if (!step || !["TALK_TO_NPC", "TEAM_DECISION", "CLASS_ACTION"].includes(step.stepActionType)) throw httpError("Step does not support a direct quest action.", 400);
   const [definition] = await db.select().from(questDefinitions).where(eq(questDefinitions.id, run.questDefinitionId));
   const dialogue = authoredQuest(definition?.authoredContent).dialogues?.find((item) => item.sequenceId === step.targetRef);
   const option = dialogue?.options.find((item) => item.id === opts.optionId);
@@ -489,12 +518,6 @@ export async function performQuestAction(opts: { accountId: string; questRunId: 
   const runtime = { ...(run.runtimeState ?? {}),
     chosenEffects: option ? [...(oldRuntime.chosenEffects ?? []), option.effect] : (oldRuntime.chosenEffects ?? []),
     lastDialogue: dialogue ? { sequenceId: dialogue.sequenceId, nodeId: dialogue.nodeId, optionId: opts.optionId, response: option?.response } : undefined };
-  if (step.stepActionType === "USE_ITEM") {
-    await db.transaction(async (tx) => {
-      const consumed = await tx.execute(sql`DELETE FROM item_instance WHERE id=(SELECT id FROM item_instance WHERE owner_type='TEAM' AND owner_id=${player.teamId}::uuid AND definition_id=${step.targetRef} LIMIT 1 FOR UPDATE SKIP LOCKED) RETURNING id`);
-      if (consumed.rows.length === 0) throw httpError(`Required team quest item is missing: ${step.targetRef}`, 409);
-    });
-  }
   await db.update(questRuns).set({ runtimeState: runtime }).where(eq(questRuns.id, run.id));
   const result = await completeObjectiveStep({ questRunId: run.id, stepId: step.stepId, stepActionType: step.stepActionType, run, playerName: player.playerName, ...(opts.wsHub ? { wsHub: opts.wsHub } : {}) });
   return { stepId: step.stepId, status: "COMPLETED", message: option?.response ?? "Schritt abgeschlossen. ✓", questCompleted: result.allRequiredDone };
@@ -509,11 +532,12 @@ async function completeObjectiveStep(opts: {
   run: typeof questRuns.$inferSelect;
   playerName: string;
   wsHub?: WsHub;
+  skipProgressWrite?: boolean;
 }): Promise<{ allRequiredDone: boolean }> {
   const { questRunId, stepId, stepActionType, run, playerName, wsHub } = opts;
 
   // Upsert ObjectiveProgress → COMPLETED
-  await db
+  if(!opts.skipProgressWrite) await db
     .insert(objectiveProgress)
     .values({
       questRunId,

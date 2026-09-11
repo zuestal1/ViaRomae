@@ -23,9 +23,10 @@ import type {
   QuestAvailable,
   QuestRunDetail,
   StepResult,
+  InventoryListResponse,
 } from "@jlw/contracts";
 import { api } from "../../lib/api.js";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { QUEST_QUERY_KEYS } from "../../hooks/use-quests.js";
 
 // ── Props ─────────────────────────────────────────────────────────────────────
@@ -73,6 +74,7 @@ export function QuestBottomSheet({
   onClose,
 }: QuestBottomSheetProps) {
   const queryClient = useQueryClient();
+  const teamInventory=useQuery({queryKey:["inventory","team"],queryFn:()=>api.get<InventoryListResponse>("/inventory?owner=team"),enabled:activeRun?.currentStep?.stepActionType==="USE_ITEM"});
   const [answerInput, setAnswerInput] = useState("");
   const [dialogueOptionId, setDialogueOptionId] = useState<string | undefined>();
   const [feedback, setFeedback] = useState<{
@@ -89,6 +91,7 @@ export function QuestBottomSheet({
   const mediaStep = activeRun?.currentStep?.stepActionType === "UPLOAD_MEDIA"
     ? activeRun.currentStep
     : null;
+  async function handleQuestItem(itemInstanceId:string){if(!activeRun?.currentStep)return;setIsLoading(true);try{await api.post(`/quests/runs/${activeRun.id}/steps/${activeRun.currentStep.stepId}/item`,{itemInstanceId});setFeedback({ok:true,text:"Questitem erfolgreich abgegeben."});await queryClient.invalidateQueries({queryKey:QUEST_QUERY_KEYS.active});await queryClient.invalidateQueries({queryKey:["inventory"]});}catch(error){setFeedback({ok:false,text:(error as Error).message});}finally{setIsLoading(false);}}
 
   useEffect(() => {
     if (!activeRun || !mediaStep) return;
@@ -325,6 +328,8 @@ export function QuestBottomSheet({
             playerAccuracy={playerAccuracy}
             onAnswer={handleAnswer}
             onReach={handleReach}
+            questItems={(teamInventory.data?.items??[]).filter(item=>item.category==="QUEST"&&item.definitionId===activeRun.currentStep?.targetRef)}
+            onQuestItem={handleQuestItem}
             onDirectAction={handleDirectAction}
             onStartTimer={handleStartTimer}
             mediaSubmission={mediaSubmission}
@@ -508,6 +513,8 @@ function ActiveView({
   playerAccuracy,
   onAnswer,
   onReach,
+  questItems,
+  onQuestItem,
   onDirectAction,
   onStartTimer,
   mediaSubmission,
@@ -527,6 +534,8 @@ function ActiveView({
   playerAccuracy?: number | undefined;
   onAnswer: () => void;
   onReach: () => void;
+  questItems: InventoryListResponse["items"];
+  onQuestItem:(itemInstanceId:string)=>void;
   onDirectAction: (optionId?: string) => Promise<void>;
   onStartTimer: (timerId: string) => Promise<void>;
   mediaSubmission: MediaSubmission | null;
@@ -678,6 +687,7 @@ function ActiveView({
               <p className="rounded-lg border border-red-500/30 bg-red-900/20 p-3 text-xs text-red-200">Nähert euch dem markierten Gegner. Der Kampf startet serverseitig im Aggro-Radius; nur ein bestätigter Kampfsieg schließt diesen Schritt ab.</p>
             </div>
           )}
+          {step.stepActionType === "USE_ITEM"&&<div className="flex flex-col gap-2">{questItems.map(item=><button key={item.id} disabled={isLoading} onClick={()=>onQuestItem(item.id)} className="w-full rounded-xl bg-[#cd7f32] py-3 text-sm font-bold text-[#1a1a2e]">{item.name??item.definitionId} abgeben</button>)}{questItems.length===0&&<p className="text-sm text-amber-300">Das benötigte Questitem ({step.targetRef}) fehlt im Teaminventar.</p>}</div>}
 
           {/* UPLOAD_MEDIA */}
           {step.stepActionType === "UPLOAD_MEDIA" && (
@@ -692,7 +702,7 @@ function ActiveView({
               progressCount={run.objectives.find((item) => item.stepId === step.stepId)?.progress?.progressCount ?? 0}
             />
           )}
-          {!dialogue && ["TALK_TO_NPC", "TEAM_DECISION", "CLASS_ACTION", "USE_ITEM"].includes(step.stepActionType) && (
+          {!dialogue && ["TALK_TO_NPC", "TEAM_DECISION", "CLASS_ACTION"].includes(step.stepActionType) && (
             <button disabled={isLoading} onClick={() => void onDirectAction()} className="w-full rounded-xl bg-[#cd7f32] py-3 text-sm font-bold text-[#1a1a2e] disabled:opacity-50">Schritt bestätigen</button>
           )}
         </div>
