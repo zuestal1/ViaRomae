@@ -131,26 +131,17 @@ if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
 fi
 log_info "Backend is up!"
 
-# ─── Run Migrations ──────────────────────────────────────────────────────────
-log_info "Running database migrations..."
-docker compose -f $DOCKER_COMPOSE_FILE exec backend npm run db:migrate || {
-    log_error "Migration failed!"
-    log_info "Rolling back to previous version..."
-    git checkout $CURRENT_COMMIT
-    docker compose -f $DOCKER_COMPOSE_FILE up -d
-    exit 1
-}
-
 # ─── Health Checks ───────────────────────────────────────────────────────────
 log_info "Running health checks..."
 
 # Backend health
 BACKEND_HEALTH=$(curl -s http://localhost:3000/health || echo "fail")
-if [[ "$BACKEND_HEALTH" == *"healthy"* ]] || [[ "$BACKEND_HEALTH" == "OK"* ]]; then
+if [[ "$BACKEND_HEALTH" == *'"status":"ok"'* ]]; then
     log_info "✓ Backend health check passed"
 else
     log_error "✗ Backend health check failed"
     docker compose -f $DOCKER_COMPOSE_FILE logs --tail=50 backend
+    exit 1
 fi
 
 # Frontend health

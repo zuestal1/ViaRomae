@@ -11,6 +11,7 @@ import { db } from "../../db/client.js";
 import { eq } from "drizzle-orm";
 
 export const gmDashboardRoutes: FastifyPluginAsync = async (fastify) => {
+  fastify.addHook("onRequest", fastify.authorizeGM);
   const dashboardService = new GMDashboardService(fastify.log);
   const mediaService = new MediaService(fastify.log);
 

@@ -12,6 +12,9 @@ import { CommandPanel } from "./components/CommandPanel";
 import { EventControls } from "./components/EventControls";
 import { TeamStatusPanel } from "./components/TeamStatusPanel";
 import { LeaderboardPanel } from "./components/LeaderboardPanel";
+import { AccountPanel } from "./components/AccountPanel";
+import { LoginPage } from "./components/LoginPage";
+import { useGMAuth } from "./contexts/AuthContext";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -22,10 +25,13 @@ const queryClient = new QueryClient({
   },
 });
 
-type ActiveTab = "map" | "media" | "commands" | "leaderboard";
+type ActiveTab = "map" | "media" | "commands" | "accounts" | "leaderboard";
 
 export default function App() {
+  const { account, ready, logout } = useGMAuth();
   const [activeTab, setActiveTab] = useState<ActiveTab>("map");
+  if (!ready) return <div className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-300">Sitzung wird geprüft…</div>;
+  if (!account) return <LoginPage />;
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -39,6 +45,7 @@ export default function App() {
               <p className="text-sm text-slate-400">Game Master Control Center</p>
             </div>
             <EventControls />
+            <button onClick={logout} className="rounded border border-slate-600 px-3 py-1 text-sm">Abmelden</button>
           </div>
         }
         sidebar={
@@ -48,6 +55,12 @@ export default function App() {
         }
         tabs={
           <div className="flex gap-2 px-6 py-3 bg-slate-800 border-b border-slate-700">
+            <TabButton
+              active={activeTab === "accounts"}
+              onClick={() => setActiveTab("accounts")}
+            >
+              👥 Accounts
+            </TabButton>
             <TabButton
               active={activeTab === "map"}
               onClick={() => setActiveTab("map")}
@@ -79,6 +92,7 @@ export default function App() {
             {activeTab === "map" && <LiveMap />}
             {activeTab === "media" && <MediaInbox />}
             {activeTab === "commands" && <CommandPanel />}
+            {activeTab === "accounts" && <AccountPanel />}
             {activeTab === "leaderboard" && <LeaderboardPanel />}
           </div>
         }

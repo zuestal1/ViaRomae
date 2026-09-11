@@ -174,10 +174,9 @@ export async function getMe(accountId: string): Promise<MeResponse> {
   const equipped = await db.select({ slot: itemInstances.slot, name: itemDefs.name })
     .from(itemInstances).leftJoin(itemDefs, eq(itemInstances.definitionId, itemDefs.key))
     .where(eq(itemInstances.ownerId, player.id));
-  if (!player.class) throw Object.assign(new Error("Klasse noch nicht bestätigt."), { statusCode: 409 });
-  const stats = await getPlayerStats(player);
-  const abilities = CLASS_LOADOUTS[abilityClass(player.class)].map((id) => ABILITY_DEFINITIONS[id]);
-  const passive = abilities.find((ability) => ability.passive)!;
+  const stats = player.class ? await getPlayerStats(player) : { hpMax: 100, atk: 0, def: 0, initiative: 0 };
+  const abilities = player.class ? CLASS_LOADOUTS[abilityClass(player.class)].map((id) => ABILITY_DEFINITIONS[id]) : [];
+  const passive = abilities.find((ability) => ability.passive);
 
   return {
     account: { id: account.id, username: account.username, role: account.role },
@@ -188,9 +187,11 @@ export async function getMe(accountId: string): Promise<MeResponse> {
       preflightCompleted: player.preflightCompletedAt !== null,
       hpCurrent: player.hpCurrent,
       hpMax: stats.hpMax,
-      icon: CLASS_ICONS[player.class],
+      icon: player.class ? CLASS_ICONS[player.class] : "❔",
       stats: { atk: stats.atk, def: stats.def, init: stats.initiative },
-      passive: { name: passive.displayName, description: passive.description, icon: CLASS_ICONS[player.class] },
+      passive: passive
+        ? { name: passive.displayName, description: passive.description, icon: CLASS_ICONS[player.class!] }
+        : { name: "Noch keine Klasse", description: "Wähle zuerst deine dauerhafte Rolle.", icon: "❔" },
       abilities,
       statusEffects: [],
       equipment: (["WEAPON", "CLOTHING", "DEFENSE", "ARTIFACT"] as const).map((slot) => ({

@@ -7,7 +7,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { MediaSubmissionWithTeam } from "@jlw/contracts";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+import { API_ROOT } from "../lib/api";
 
 export function MediaInbox() {
   const queryClient = useQueryClient();
@@ -21,7 +21,7 @@ export function MediaInbox() {
   const { data: submissions, isLoading } = useQuery<MediaSubmissionWithTeam[]>({
     queryKey: ["gm", "media-inbox"],
     queryFn: async () => {
-      const res = await fetch(`${API_BASE}/api/v1/gm/dashboard/media-inbox`, {
+      const res = await fetch(`${API_ROOT}/gm/dashboard/media-inbox`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("gm_token")}`,
         },
@@ -45,7 +45,7 @@ export function MediaInbox() {
       reason?: string;
     }) => {
       const res = await fetch(
-        `${API_BASE}/api/v1/media/${submissionId}/review`,
+        `${API_ROOT}/media/${submissionId}/review`,
         {
           method: "POST",
           headers: {

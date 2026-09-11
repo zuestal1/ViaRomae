@@ -7,6 +7,7 @@ import type { FastifyPluginAsync } from "fastify";
 import { SeedControlService } from "./seed-control.service.js";
 
 export const seedControlRoutes: FastifyPluginAsync = async (fastify) => {
+  fastify.addHook("onRequest", fastify.authorizeGM);
   const service = new SeedControlService(fastify.log);
 
   // ── POST /api/v1/gm/seed/trigger ────────────────────────────────────────────

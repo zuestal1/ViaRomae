@@ -6,7 +6,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+import { API_ROOT } from "../lib/api";
 
 type CommandType = "hp_override" | "currency_correction" | "location_override" | "quest_reset";
 
@@ -35,7 +35,7 @@ export function CommandPanel() {
 
   const commandMutation = useMutation({
     mutationFn: async ({ endpoint, body }: { endpoint: string; body: any }) => {
-      const res = await fetch(`${API_BASE}${endpoint}`, {
+      const res = await fetch(`${API_ROOT}${endpoint}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -62,14 +62,14 @@ export function CommandPanel() {
 
   const handleHPOverride = () => {
     commandMutation.mutate({
-      endpoint: "/api/v1/gm/commands/hp-override",
+      endpoint: "/gm/commands/hp-override",
       body: { teamId: hpTeamId, newHP: hpValue },
     });
   };
 
   const handleCurrencyCorrection = () => {
     commandMutation.mutate({
-      endpoint: "/api/v1/gm/commands/currency-correction",
+      endpoint: "/gm/commands/currency-correction",
       body: {
         teamId: currTeamId,
         currencyType: currType,
@@ -81,14 +81,14 @@ export function CommandPanel() {
 
   const handleLocationOverride = () => {
     commandMutation.mutate({
-      endpoint: "/api/v1/gm/commands/location-override",
+      endpoint: "/gm/commands/location-override",
       body: { playerId: locPlayerId, lat: locLat, lng: locLng },
     });
   };
 
   const handleQuestReset = () => {
     commandMutation.mutate({
-      endpoint: "/api/v1/gm/commands/quest-reset",
+      endpoint: "/gm/commands/quest-reset",
       body: { questRunId },
     });
   };

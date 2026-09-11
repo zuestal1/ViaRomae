@@ -9,7 +9,7 @@ import type { Map } from "maplibre-gl";
 import type { PlayerPosition, WorldObjectMarker } from "@jlw/contracts";
 import "maplibre-gl/dist/maplibre-gl.css";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+import { API_ROOT } from "../lib/api";
 
 export function LiveMap() {
   const mapContainer = useRef<HTMLDivElement>(null);
@@ -19,7 +19,7 @@ export function LiveMap() {
   const { data: playerPositions } = useQuery<PlayerPosition[]>({
     queryKey: ["gm", "player-positions"],
     queryFn: async () => {
-      const res = await fetch(`${API_BASE}/api/v1/gm/dashboard/player-positions`, {
+      const res = await fetch(`${API_ROOT}/gm/dashboard/player-positions`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("gm_token")}`,
         },
@@ -33,7 +33,7 @@ export function LiveMap() {
   const { data: worldObjects } = useQuery<WorldObjectMarker[]>({
     queryKey: ["gm", "world-objects"],
     queryFn: async () => {
-      const res = await fetch(`${API_BASE}/api/v1/gm/dashboard/world-objects`, {
+      const res = await fetch(`${API_ROOT}/gm/dashboard/world-objects`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("gm_token")}`,
         },

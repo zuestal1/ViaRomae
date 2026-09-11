@@ -6,7 +6,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { EventState } from "@jlw/contracts";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+import { API_ROOT } from "../lib/api";
 
 export function EventControls() {
   const queryClient = useQueryClient();
@@ -15,7 +15,7 @@ export function EventControls() {
   const { data: eventState } = useQuery<EventState>({
     queryKey: ["gm", "event-state"],
     queryFn: async () => {
-      const res = await fetch(`${API_BASE}/api/v1/gm/event/state`, {
+      const res = await fetch(`${API_ROOT}/gm/event/state`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("gm_token")}`,
         },
@@ -28,7 +28,7 @@ export function EventControls() {
   // Event control mutations
   const controlMutation = useMutation({
     mutationFn: async (action: "start" | "pause" | "resume" | "end") => {
-      const res = await fetch(`${API_BASE}/api/v1/gm/event/${action}`, {
+      const res = await fetch(`${API_ROOT}/gm/event/${action}`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${localStorage.getItem("gm_token")}`,
