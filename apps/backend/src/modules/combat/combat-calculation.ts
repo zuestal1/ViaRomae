@@ -24,6 +24,11 @@ export interface DamageResult {
 const finite = (value: number | undefined, fallback = 0) =>
   Number.isFinite(value) ? (value as number) : fallback;
 
+/** GDD 7.10 uses commercial rounding for all final combat values. */
+export const commercialRound = (value: number): number => Math.floor(finite(value) + 0.5);
+export const clampCombatPercent = (value: number | undefined): number =>
+  Math.max(-0.6, Math.min(1, finite(value)));
+
 /** Implements the formula in its specified order; there is deliberately no RNG. */
 export function calculateDamage(
   attacker: CombatStats,
@@ -31,23 +36,23 @@ export function calculateDamage(
   abilityMultiplier = 1,
 ): number {
   const rawDamage = Math.max(0, finite(attacker.attack) * finite(abilityMultiplier));
-  const dealtDamage = rawDamage * (1 + finite(attacker.damageDealtPercent));
+  const dealtDamage = rawDamage * (1 + clampCombatPercent(attacker.damageDealtPercent));
   const effectiveDefense = Math.max(
     0,
-    finite(defender.defense) * (1 + finite(defender.defensePercent)) +
+    finite(defender.defense) * (1 + clampCombatPercent(defender.defensePercent)) +
       finite(defender.defenseFlat),
   );
   const reduction = effectiveDefense / (effectiveDefense + 50);
   const reducedDamage = dealtDamage * (1 - reduction);
-  const modifiedDamage = reducedDamage * (1 + finite(defender.damageTakenPercent));
-  return Math.max(1, Math.round(modifiedDamage));
+  const modifiedDamage = reducedDamage * (1 + clampCombatPercent(defender.damageTakenPercent));
+  return Math.max(1, commercialRound(modifiedDamage));
 }
 
 /** Shields absorb the rounded successful hit before HP is changed. */
 export function applyDamage(hp: number, shield: number, damage: number): DamageResult {
   const safeHp = Math.max(0, finite(hp));
   const safeShield = Math.max(0, finite(shield));
-  const successfulDamage = Math.max(1, Math.round(finite(damage)));
+  const successfulDamage = Math.max(1, commercialRound(damage));
   const absorbedByShield = Math.min(safeShield, successfulDamage);
   const hpDamage = Math.min(safeHp, successfulDamage - absorbedByShield);
   return {
@@ -66,8 +71,8 @@ export function calculateHealing(
   hpMax: number,
 ): number {
   const missingHp = Math.max(0, finite(hpMax) - finite(hpCurrent));
-  const modifiedHealing = Math.max(0, finite(baseHealing) * (1 + finite(healingPercent)));
-  return Math.min(missingHp, Math.round(modifiedHealing));
+  const modifiedHealing = Math.max(0, finite(baseHealing) * (1 + clampCombatPercent(healingPercent)));
+  return Math.min(missingHp, commercialRound(modifiedHealing));
 }
 
 export function calculateEffectiveInitiative(stats: CombatStats): number {

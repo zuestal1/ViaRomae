@@ -14,21 +14,20 @@ import { players, teams } from "../../db/schema/player.js";
 import { worldObjects } from "../../db/schema/world.js";
 import type { WsHub } from "../ws/ws.hub.js";
 import { randomUUID } from "node:crypto";
-import type { Combatant, CombatInstance } from "./combat.service.js";
-import { calculateHealing } from "./combat-calculation.js";
+import { getCombatInstance, lockAndResolveRound, type Combatant, type CombatInstance } from "./combat.service.js";
 import { getPlayerStats } from "../player/player-stats.service.js";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const BOSS_HP_BASE = 500; // Base HP for boss
-const BOSS_HP_SCALE_PER_TEAM = 300; // Additional HP per participating team
-const BOSS_ROUND_TIMER_MS = 20_000; // 20 seconds per round for boss fights
+const CANNONIERE_STATS = { hp: 2160, def: 24, initiative: 9 } as const;
+const NERO_STATS = { hp: 3240, def: 30, initiative: 11 } as const;
+const BOSS_ROUND_TIMER_MS = 15_000;
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
 interface BossGlobalAction {
   teamId: string;
-  actionType: "APPLAUD" | "CHEER" | "COORDINATED_ATTACK";
+    actionType: "APPLAUD";
   timestamp: Date;
 }
 
@@ -55,7 +54,18 @@ export async function getOrCreateBossCombat(opts: {
   // Check if there's already an active boss combat for this world object
   const existingBoss = activeBossInstances.get(worldObjectId);
   if (existingBoss) {
-    return await loadCombatInstance(existingBoss.combatId);
+    const loaded = await getCombatInstance(existingBoss.combatId);
+    if (loaded.state !== "COMPLETED") return loaded;
+    activeBossInstances.delete(worldObjectId);
+  }
+  const persisted = await db.execute<{ combat_id: string; team_id: string | null }>(sql`
+    SELECT ci.id combat_id,c.team_id FROM combat_instance ci JOIN combatant c ON c.combat_instance_id=ci.id
+    WHERE ci.type='BOSS' AND ci.state<>'COMPLETED' AND EXISTS (SELECT 1 FROM combatant boss
+      WHERE boss.combat_instance_id=ci.id AND boss.entity_type='ENEMY' AND boss.entity_id=${worldObjectId}::uuid)`);
+  if (persisted.rows[0]) {
+    activeBossInstances.set(worldObjectId, { combatId: persisted.rows[0].combat_id, worldObjectId,
+      participatingTeams: new Set(persisted.rows.flatMap((row) => row.team_id ? [row.team_id] : [])), globalActions: [] });
+    return getCombatInstance(persisted.rows[0].combat_id);
   }
 
   // Get boss data
@@ -74,7 +84,9 @@ export async function getOrCreateBossCombat(opts: {
     .values({
       type: "BOSS",
       state: "AWAITING_ACTIONS",
-      roundNumber: 0,
+      roundNumber: 1,
+      roundStartedAt: new Date(),
+      actionDeadline: new Date(Date.now() + BOSS_ROUND_TIMER_MS),
     })
     .returning();
 
@@ -84,7 +96,9 @@ export async function getOrCreateBossCombat(opts: {
   }
 
   // Start with base HP (will scale as teams join)
-  const bossHp = BOSS_HP_BASE;
+  const configured = boss.name.toLowerCase().includes("nero") ? NERO_STATS : CANNONIERE_STATS;
+  const bossProps = boss.rawPropertiesJson ? JSON.parse(boss.rawPropertiesJson) : {};
+  const bossHp = Number(bossProps.hp ?? configured.hp);
   // Create boss combatant (ENEMY type)
   await db.insert(combatants).values({
     combatInstanceId: combat.id,
@@ -100,6 +114,7 @@ export async function getOrCreateBossCombat(opts: {
     participatingTeams: new Set(),
     globalActions: [],
   });
+  setTimeout(() => void lockAndResolveRound(combat.id, wsHub).catch(() => undefined), BOSS_ROUND_TIMER_MS);
 
   // Transition to AWAITING_ACTIONS
   await db
@@ -174,20 +189,12 @@ export async function joinBossCombat(opts: {
     });
   }
 
-  // Scale boss HP
-  const newTeamCount = bossState.participatingTeams.size + 1;
-  const scaledBossHp = BOSS_HP_BASE + (newTeamCount - 1) * BOSS_HP_SCALE_PER_TEAM;
+  // GDD 26.4 deliberately leaves dynamic HP scaling open. Preserve the
+  // configured start HP so late participation never heals the boss.
   
   const bossCombatant = combat.combatants.find((c) => c.entityType === "ENEMY");
   if (bossCombatant) {
-    // Scale current HP proportionally
-    const hpRatio = bossCombatant.hpCurrent / bossCombatant.hpMax;
-    const newHpCurrent = Math.floor(scaledBossHp * hpRatio);
-    
-    await db
-      .update(combatants)
-      .set({ hpCurrent: newHpCurrent })
-      .where(eq(combatants.id, bossCombatant.id));
+    // no dynamic scaling
   }
 
   // Update state
@@ -214,9 +221,9 @@ export async function joinBossCombat(opts: {
         event: "boss:health_updated",
         data: {
           combatId,
-          hpCurrent: bossCombatant?.hpCurrent ?? scaledBossHp,
-          hpMax: scaledBossHp,
-          percentRemaining: ((bossCombatant?.hpCurrent ?? scaledBossHp) / scaledBossHp) * 100,
+          hpCurrent: bossCombatant?.hpCurrent ?? 0,
+          hpMax: bossCombatant?.hpMax ?? 0,
+          percentRemaining: bossCombatant?.hpMax ? bossCombatant.hpCurrent / bossCombatant.hpMax * 100 : 0,
         },
       });
     }
@@ -230,10 +237,12 @@ export async function joinBossCombat(opts: {
 export async function submitGlobalAction(opts: {
   combatId: string;
   teamId: string;
-  actionType: "APPLAUD" | "CHEER" | "COORDINATED_ATTACK";
+  actionType: "APPLAUD";
+  playerId: string;
+  requestId: string;
   wsHub?: WsHub;
 }): Promise<void> {
-  const { combatId, teamId, actionType, wsHub } = opts;
+  const { combatId, teamId, actionType, playerId, requestId, wsHub } = opts;
 
   // Get combat instance
   const combat = await loadCombatInstance(combatId);
@@ -252,6 +261,10 @@ export async function submitGlobalAction(opts: {
     throw new Error("Boss state not found");
   }
 
+  const accepted = await db.execute(sql`INSERT INTO boss_mechanic_response(request_id,combat_id,team_id,player_id,action_type)
+    VALUES (${requestId}::uuid,${combatId}::uuid,${teamId}::uuid,${playerId}::uuid,${actionType})
+    ON CONFLICT DO NOTHING RETURNING request_id`);
+  if (!accepted.rows.length) return;
   // Record global action
   bossState.globalActions.push({
     teamId,
@@ -263,22 +276,8 @@ export async function submitGlobalAction(opts: {
   let effect = "";
   switch (actionType) {
     case "APPLAUD":
-      // Buff all teams: +10% damage for next round
-      effect = "All teams gain +10% damage for the next round!";
-      break;
-    case "CHEER":
-      // Heal all players by 5 HP
-      effect = "All players healed by 5 HP!";
-      for (const target of combat.combatants.filter((c) => c.entityType === "PLAYER")) {
-        const healing = calculateHealing(5, target.stats?.healingPercent ?? 0, target.hpCurrent, target.hpMax);
-        if (healing === 0) continue; // Overheal changes neither HP nor contribution.
-        await db.update(combatants).set({ hpCurrent: target.hpCurrent + healing })
-          .where(eq(combatants.id, target.id));
-      }
-      break;
-    case "COORDINATED_ATTACK":
-      // All teams deal bonus damage this round
-      effect = "Coordinated attack! All teams deal +20 bonus damage!";
+      // GDD 26.8 fixes the response, but explicitly leaves quota and effects open.
+      effect = "Applaus bestätigt.";
       break;
   }
 
@@ -351,7 +350,15 @@ export async function getBossCombatStatus(worldObjectId: string): Promise<{
 } | null> {
   const bossState = activeBossInstances.get(worldObjectId);
   if (!bossState) {
-    return { active: false };
+    const persisted = await db.execute<{ id: string }>(sql`SELECT ci.id FROM combat_instance ci
+      WHERE ci.type='BOSS' AND ci.state<>'COMPLETED' AND EXISTS (SELECT 1 FROM combatant c
+        WHERE c.combat_instance_id=ci.id AND c.entity_type='ENEMY' AND c.entity_id=${worldObjectId}::uuid) LIMIT 1`);
+    if (!persisted.rows[0]) return { active: false };
+    const teams = await db.execute<{ team_id: string }>(sql`SELECT DISTINCT team_id FROM combatant
+      WHERE combat_instance_id=${persisted.rows[0].id}::uuid AND team_id IS NOT NULL`);
+    activeBossInstances.set(worldObjectId, { combatId: persisted.rows[0].id, worldObjectId,
+      participatingTeams: new Set(teams.rows.map((row) => row.team_id)), globalActions: [] });
+    return getBossCombatStatus(worldObjectId);
   }
 
   const combat = await loadCombatInstance(bossState.combatId);
@@ -422,10 +429,11 @@ async function loadCombatInstance(combatId: string): Promise<CombatInstance> {
           const props = enemy.rawPropertiesJson
             ? JSON.parse(enemy.rawPropertiesJson)
             : {};
-          hpMax = props.hp ?? BOSS_HP_BASE;
+          const configured = enemy.name.toLowerCase().includes("nero") ? NERO_STATS : CANNONIERE_STATS;
+          hpMax = props.hp ?? configured.hp;
           atk = props.atk ?? props.attack ?? 10;
-          def = props.def ?? props.defense ?? 0;
-          initiative = props.initiative ?? 0;
+          def = props.def ?? props.defense ?? configured.def;
+          initiative = props.initiative ?? configured.initiative;
         }
       }
 
@@ -439,7 +447,7 @@ async function loadCombatInstance(combatId: string): Promise<CombatInstance> {
         atk,
         def,
         initiative,
-        stats: { attack: 15, defense: 0, initiative },
+        stats: { attack: atk, defense: def, initiative },
         equipmentRarityScore: 0,
         shield: 0,
         name,
@@ -462,7 +470,7 @@ async function loadCombatInstance(combatId: string): Promise<CombatInstance> {
       id: a.id,
       roundNumber: a.roundNumber,
       actorId: a.actorId,
-      actionType: a.actionType,
+      actionType: (a.actionType === "SKILL" ? "SKILL" : "ATTACK") as "ATTACK" | "SKILL",
       targetId: a.targetId ?? undefined,
       isLocked: a.isLocked,
       origin: a.origin,

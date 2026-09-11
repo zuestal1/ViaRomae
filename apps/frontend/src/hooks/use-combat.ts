@@ -77,6 +77,7 @@ export function useCombat(playerId: string, token?: string) {
               Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify({
+              roundNumber: activeCombat.roundNumber,
               actionType,
               targetId,
               ...details,
@@ -97,6 +98,18 @@ export function useCombat(playerId: string, token?: string) {
     },
     [activeCombat, token, fetchActiveCombat]
   );
+
+  const submitRevive = useCallback(async (targetId: string, itemInstanceId: string) => {
+    if (!activeCombat || !token) return;
+    try {
+      const res = await fetch(`${API_BASE}/combat/${activeCombat.id}/revive`, {
+        method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ targetId, itemInstanceId, requestId: window.crypto.randomUUID() }),
+      });
+      if (!res.ok) throw new Error("Wiederbelebung konnte nicht vorgemerkt werden");
+      await fetchActiveCombat();
+    } catch (err) { setError((err as Error).message); }
+  }, [activeCombat, token, fetchActiveCombat]);
 
   // ── WebSocket Event Handlers (Epic 7) ──────────────────────────────────────
 
@@ -157,6 +170,7 @@ export function useCombat(playerId: string, token?: string) {
     isLoading,
     error,
     submitAction,
+    submitRevive,
     fetchActiveCombat,
   };
 }

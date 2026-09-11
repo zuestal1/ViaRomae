@@ -64,6 +64,7 @@ export const players = pgTable("player", {
   // PostGIS point stored as raw lat/lng for initial Epic 2; migrate to geometry later.
   lastLat: doublePrecision("last_lat"),
   lastLng: doublePrecision("last_lng"),
+  lastAccuracy: doublePrecision("last_accuracy"),
   // Epic 9: Track when player location was last updated
   lastLocationUpdate: timestamp("last_location_update", { withTimezone: true }),
   lastLocationAccuracy: doublePrecision("last_location_accuracy"),

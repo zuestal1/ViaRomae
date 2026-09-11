@@ -59,9 +59,9 @@ import {
 import { QuestHUD } from "../quest/quest-hud.js";
 import { QuestBottomSheet } from "../quest/quest-bottom-sheet.js";
 import { EconomySheet } from "../inventory/economy-sheet.js";
+import { useEconomySummary, usePlayerInventory } from "../../hooks/use-economy.js";
 import { StoreSheet } from "../store/store-sheet.js";
 import type { WorldObjectNearby } from "@jlw/contracts";
-import { useEconomySummary } from "../../hooks/use-economy.js";
 import { useCombat } from "../../hooks/use-combat.js";
 import { CombatScreen } from "../combat/combat-screen.js";
 import { PvPChallengeWarning } from "../combat/pvp-challenge-warning.js";
@@ -112,10 +112,11 @@ interface GameMapProps {
 export function GameMap({ onBack }: GameMapProps) {
   const { profile, token } = useAuth();
   const playerId = profile?.player?.id ?? "";
-  const { activeCombat, activeChallenge, logs, submitAction } = useCombat(
+  const { activeCombat, activeChallenge, logs, submitAction, submitRevive } = useCombat(
     playerId,
     token ?? undefined,
   );
+  const combatInventory = usePlayerInventory(token);
   const { position, error: geoError, isReady } = useGeolocation();
   
   // ── State Recovery (Epic 7) ───────────────────────────────────────────────
@@ -475,6 +476,8 @@ export function GameMap({ onBack }: GameMapProps) {
           playerId={playerId}
           logs={logs}
           onSubmitAction={submitAction}
+          reviveItemId={combatInventory.data?.items.find((item) => item.definitionId === "balm_returning" && (item.quantity ?? 0) > 0)?.id}
+          onRevive={submitRevive}
         />
       )}
     </div>

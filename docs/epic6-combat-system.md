@@ -22,8 +22,8 @@ Das Combat System implementiert ein rundenbasiertes Kampfsystem für sowohl PvE 
 - `getCombatInstance()` - Lädt vollständiges Combat-Objekt
 - `submitCombatAction()` - Spieler reicht Aktion ein
 - `lockAndResolveRound()` - Sperrt Runde und berechnet Ergebnisse
-- `handleTeamWipe()` - Respawn nach Team-Wipe (50% HP, -50 Denare)
-- `regenerateHPOutOfCombat()` - HP-Regeneration außerhalb des Kampfes (5 HP/s)
+- `handleTeamWipe()` - idempotente GDD-Wipefolgen und Auswahl des nächsten Respawnpunkts
+- `regenerateHPOutOfCombat()` - lineare Regeneration auf 100 % in 900 Sekunden
 
 **PvP-Funktionen:**
 - `checkPvPProximity()` - Prüft Nähe zu anderen Teams (60m Sichtbarkeit)
@@ -31,11 +31,10 @@ Das Combat System implementiert ein rundenbasiertes Kampfsystem für sowohl PvE 
 - `startPvPChallenge()` - Startet 20-Sekunden-Warnung
 - `schedulePvPEscalation()` - Plant automatische Eskalation zum Kampf
 
-**Damage-Berechnung:**
-- Basis-Schaden: 10-20 (randomisiert)
-- TODO: Waffen-Boni anwenden
-- TODO: Rüstungs-Boni anwenden
-- TODO: Buffs/Debuffs anwenden
+**Damage-Berechnung:** Die serverautoritative Pipeline folgt GDD 7.9-7.11. Sie
+verwendet effektive Klassen-/Ausrüstungswerte, Fähigkeitsmultiplikator,
+Damage-Dealt, `DEF / (DEF + 50)`, Damage-Taken, kaufmännische Endrundung sowie
+Shield vor HP. Es gibt keinen allgemeinen Zufallsschaden oder kritischen Treffer.
 
 #### 2. Combat Routes (`apps/backend/src/modules/combat/combat.routes.ts`)
 
@@ -213,19 +212,18 @@ const {
 
 ## Team Wipe & Respawn
 
-**Bei vollständigem Team-Down:**
-- `handleTeamWipe()` wird aufgerufen
-- Alle Spieler respawnen mit 50% HP
-- -50 Denare Strafe
-- Status zurück auf `ACTIVE`
-- WebSocket-Event an Team
+**Bei vollständigem Team-Down:** Pro Downed werden 10 Teamdenare abgezogen. Der
+vollständige Wipe kostet zusätzlich 10 % der aktuellen Teamdenare und 3 % des
+aktuellen Teamruhms (maximal 100). Das Team bleibt DOWNED, bis der Server die
+Ankunft am nächsten aktiven Respawnpunkt bestätigt; dann werden volle HP und
+`ACTIVE` gesetzt.
 
 ## HP-Regeneration
 
 **Out-of-Combat:**
 - `regenerateHPOutOfCombat()` wird periodisch aufgerufen
-- +5 HP/Sekunde
-- Max 100 HP
+- `maxHP / 900` pro Sekunde
+- bis zum persönlichen, GDD-konform abgeleiteten maxHP
 - Nur wenn kein aktives Combat für Team
 
 ## Konstanten
@@ -236,36 +234,21 @@ const PVP_WARNING_TIMER_MS = 20_000;        // 20 Sekunden PvP-Warnung
 const PVP_AGGRO_RADIUS_M = 20;              // 20m Angriffsradius
 const PVP_VISIBILITY_RADIUS_M = 60;         // 60m Sichtbarkeit
 const HP_REGEN_OUT_OF_COMBAT = 5;           // 5 HP/s Regeneration
-const RESPAWN_HP_PERCENTAGE = 0.5;          // 50% HP nach Respawn
+const PVP_ESCAPE_RADIUS_M = 30;             // >30m, zwei gültige Messungen
 ```
 
-## TODO / Future Enhancements
+## Offene, im GDD noch nicht beschlossene Erweiterungen
 
-1. **Waffen & Rüstungs-Boni:**
-   - Equipped Items in Damage-Berechnung einbeziehen
-   - Defense-Stats für DEFEND-Aktion
+Konkrete World-Boss-Phasen, dynamische HP-Skalierung und die Balancewirkung der
+Applausmechanik sind laut GDD 26 offen und werden deshalb nicht mit
+Prototypwerten implementiert.
 
-2. **Skills:**
-   - Skill-Definitions aus Item-System
-   - Cooldowns verwalten
-   - Spezial-Effekte (Buffs/Debuffs)
-
-3. **Boss-Mechaniken:**
-   - Skalierte HP basierend auf Team-Anzahl
-   - Globale Aktionen (z.B. "Applaudieren")
-   - Phase-basierte Kämpfe
-
-4. **AI-Verbesserungen:**
-   - Intelligentere Zielauswahl
-   - Defensive Taktiken
-   - Skill-Usage
-
-5. **WebSocket-Optimierung:**
+1. **WebSocket-Optimierung:**
    - Dedizierte WebSocket-Connection für Combat
    - State-Synchronisation optimieren
    - Reconnect-Handling verbessern
 
-6. **Animations & VFX:**
+2. **Animations & VFX:**
    - Attack-Animationen
    - Damage-Numbers
    - HP-Bar-Transitions

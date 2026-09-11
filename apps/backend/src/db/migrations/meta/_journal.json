@@ -105,13 +105,18 @@
       "version": "7",
       "when": 1789056001000,
       "tag": "0014_ability_definitions",
-      "when": 1789056000001,
-      "tag": "0014_equipment_model",
-      "tag": "0014_class_assignment",
-      "tag": "0014_fame_tiers_and_regeneration",
-      "when": 1789074021073,
-      "tag": "0014_breezy_diamondback",
       "breakpoints": true
-    }
+    },
+    { "idx": 15, "version": "7", "when": 1789056001001, "tag": "0014_authoritative_player_stats", "breakpoints": true },
+    { "idx": 16, "version": "7", "when": 1789056001002, "tag": "0014_breezy_diamondback", "breakpoints": true },
+    { "idx": 17, "version": "7", "when": 1789056001003, "tag": "0014_class_assignment", "breakpoints": true },
+    { "idx": 18, "version": "7", "when": 1789056001004, "tag": "0014_class_gated_quest_content", "breakpoints": true },
+    { "idx": 19, "version": "7", "when": 1789056001005, "tag": "0014_combat_round_order", "breakpoints": true },
+    { "idx": 20, "version": "7", "when": 1789056001006, "tag": "0014_combat_status_effects", "breakpoints": true },
+    { "idx": 21, "version": "7", "when": 1789056001007, "tag": "0014_equipment_model", "breakpoints": true },
+    { "idx": 22, "version": "7", "when": 1789056001008, "tag": "0014_fame_tiers_and_regeneration", "breakpoints": true },
+    { "idx": 23, "version": "7", "when": 1789056001009, "tag": "0014_gdd_class_system", "breakpoints": true },
+    { "idx": 24, "version": "7", "when": 1789056001010, "tag": "0015_derive_player_stats", "breakpoints": true },
+    { "idx": 25, "version": "7", "when": 1789056001011, "tag": "0016_gdd_combat_lifecycle", "breakpoints": true }
   ]
 }

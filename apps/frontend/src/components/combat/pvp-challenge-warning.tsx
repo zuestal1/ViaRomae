@@ -11,6 +11,8 @@ interface PvPChallengeWarningProps {
   role: "attacker" | "defender";
   opponentTeamId: string;
   expiresAt: string;
+  currentDistanceM: number;
+  escapeDistanceM: number;
 }
 
 export function PvPChallengeWarning({
@@ -18,6 +20,8 @@ export function PvPChallengeWarning({
   role,
   opponentTeamId,
   expiresAt,
+  currentDistanceM,
+  escapeDistanceM,
 }: PvPChallengeWarningProps) {
   const [timeRemaining, setTimeRemaining] = useState(0);
 
@@ -75,6 +79,7 @@ export function PvPChallengeWarning({
           <p className="text-xs text-gray-400">
             Opponent team: {opponentTeamId.substring(0, 8)}
           </p>
+          <p className="text-lg font-bold text-white">Bestätigte Distanz: {currentDistanceM.toFixed(1)} m</p>
         </div>
 
         {/* Timer */}
@@ -103,7 +108,7 @@ export function PvPChallengeWarning({
             ) : (
               <>
                 <strong className="text-red-400">Run!</strong> Get more than{" "}
-                <strong className="text-red-400">30m away</strong> or reach a{" "}
+                <strong className="text-red-400">{escapeDistanceM} m Abstand</strong> (zwei gültige Messungen) oder eine{" "}
                 <strong className="text-green-400">safe zone</strong> to escape!
               </>
             )}
