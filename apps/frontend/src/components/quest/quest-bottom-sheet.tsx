@@ -15,13 +15,18 @@
  * Bottom-to-Top Slide-Animation via Tailwind.
  */
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type {
   CompleteQuestResponse,
+  MediaSubmission,
+  PresignedUploadResponse,
   QuestAvailable,
   QuestRunDetail,
   StepResult,
 } from "@jlw/contracts";
+import { api } from "../../lib/api.js";
+import { useQueryClient } from "@tanstack/react-query";
+import { QUEST_QUERY_KEYS } from "../../hooks/use-quests.js";
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -69,6 +74,7 @@ export function QuestBottomSheet({
   onDefeatEnemy,
   onClose,
 }: QuestBottomSheetProps) {
+  const queryClient = useQueryClient();
   const [answerInput, setAnswerInput] = useState("");
   const [feedback, setFeedback] = useState<{
     text: string;
@@ -76,6 +82,40 @@ export function QuestBottomSheet({
   } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [reward, setReward] = useState<CompleteQuestResponse | null>(null);
+  const [mediaSubmission, setMediaSubmission] = useState<MediaSubmission | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const mediaStep = activeRun?.currentStep?.stepActionType === "UPLOAD_MEDIA"
+    ? activeRun.currentStep
+    : null;
+
+  useEffect(() => {
+    if (!activeRun || !mediaStep) return;
+    let cancelled = false;
+    const loadSubmission = async () => {
+      try {
+        const result = await api.get<{ submissions: MediaSubmission[] }>(
+          `/media/quest/${activeRun.id}`,
+        );
+        if (!cancelled) {
+          const latest = result.submissions.find((item) => item.stepId === mediaStep.stepId) ?? null;
+          setMediaSubmission((previous) => {
+            if (latest && latest.status !== previous?.status && ["APPROVED", "REJECTED"].includes(latest.status)) {
+              void queryClient.invalidateQueries({ queryKey: QUEST_QUERY_KEYS.active });
+            }
+            return latest;
+          });
+        }
+      } catch {
+        // Upload controls remain usable; actionable errors are shown on submission.
+      }
+    };
+    void loadSubmission();
+    const interval = window.setInterval(() => void loadSubmission(), 5_000);
+    return () => { cancelled = true; window.clearInterval(interval); };
+  }, [activeRun?.id, mediaStep?.stepId, queryClient]);
 
   // ── Determine mode ──────────────────────────────────────────────────────────
   const allDone =
@@ -196,6 +236,35 @@ export function QuestBottomSheet({
     }
   }
 
+  async function handleMediaFile(file: File) {
+    if (!activeRun || !mediaStep) return;
+    setIsLoading(true);
+    setFeedback(null);
+    setUploadProgress(0);
+    try {
+      const upload = await api.post<PresignedUploadResponse>("/media/upload-url", {
+        questRunId: activeRun.id,
+        stepId: mediaStep.stepId,
+        fileType: file.type,
+        fileSizeBytes: file.size,
+      });
+      await uploadFile(upload.uploadUrl, file, setUploadProgress);
+      const confirmed = await api.post<{ submission: MediaSubmission }>(
+        `/media/confirm/${encodeURIComponent(upload.objectKey)}`,
+        {},
+      );
+      setMediaSubmission(confirmed.submission);
+      setFeedback({ text: "Upload abgeschlossen. Das Foto wartet auf die Prüfung durch den GM.", ok: true });
+    } catch (error) {
+      setFeedback({ text: (error as Error).message, ok: false });
+    } finally {
+      setIsLoading(false);
+      setUploadProgress(null);
+      if (cameraInputRef.current) cameraInputRef.current.value = "";
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <>
@@ -252,6 +321,11 @@ export function QuestBottomSheet({
             onAnswer={handleAnswer}
             onReach={handleReach}
             onDefeat={handleDefeat}
+            mediaSubmission={mediaSubmission}
+            uploadProgress={uploadProgress}
+            cameraInputRef={cameraInputRef}
+            fileInputRef={fileInputRef}
+            onMediaFile={handleMediaFile}
             onClose={onClose}
           />
         )}
@@ -386,6 +460,11 @@ function ActiveView({
   onAnswer,
   onReach,
   onDefeat,
+  mediaSubmission,
+  uploadProgress,
+  cameraInputRef,
+  fileInputRef,
+  onMediaFile,
   onClose,
 }: {
   run: QuestRunDetail;
@@ -399,6 +478,11 @@ function ActiveView({
   onAnswer: () => void;
   onReach: () => void;
   onDefeat: () => void;
+  mediaSubmission: MediaSubmission | null;
+  uploadProgress: number | null;
+  cameraInputRef: React.RefObject<HTMLInputElement>;
+  fileInputRef: React.RefObject<HTMLInputElement>;
+  onMediaFile: (file: File) => Promise<void>;
   onClose: () => void;
 }) {
   const step = run.currentStep;
@@ -413,7 +497,7 @@ function ActiveView({
       <div className="flex items-start justify-between">
         <div>
           <p className="text-xs font-bold tracking-widest text-[#cd7f32] uppercase mb-1">
-            ⚔ Aktive Quest
+            {run.state === "PENDING_REVIEW" ? "⏳ Prüfung ausstehend" : "⚔ Aktive Quest"}
           </p>
           <h2 className="text-base font-bold text-[#f4e4c1]">{run.questTitle}</h2>
         </div>
@@ -522,9 +606,14 @@ function ActiveView({
 
           {/* UPLOAD_MEDIA */}
           {step.stepActionType === "UPLOAD_MEDIA" && (
-            <p className="text-xs text-white/50">
-              📸 Ladet ein Foto hoch um diesen Schritt abzuschließen. (Epic 8)
-            </p>
+            <MediaUploadControls
+              submission={mediaSubmission}
+              isLoading={isLoading}
+              uploadProgress={uploadProgress}
+              cameraInputRef={cameraInputRef}
+              fileInputRef={fileInputRef}
+              onMediaFile={onMediaFile}
+            />
           )}
         </div>
       )}
@@ -601,6 +690,79 @@ function CompleteView({
           {isLoading ? "Laden…" : "🏆 Quest abschließen"}
         </button>
       </div>
+    </div>
+  );
+}
+
+function MediaUploadControls({
+  submission,
+  isLoading,
+  uploadProgress,
+  cameraInputRef,
+  fileInputRef,
+  onMediaFile,
+}: {
+  submission: MediaSubmission | null;
+  isLoading: boolean;
+  uploadProgress: number | null;
+  cameraInputRef: React.RefObject<HTMLInputElement>;
+  fileInputRef: React.RefObject<HTMLInputElement>;
+  onMediaFile: (file: File) => Promise<void>;
+}) {
+  const awaitingReview = submission && ["UPLOADING", "RECEIVED", "IN_REVIEW"].includes(submission.status);
+  const rejected = submission?.status === "REJECTED";
+
+  return (
+    <div className="flex flex-col gap-3">
+      {awaitingReview && (
+        <div className="rounded-lg border border-yellow-500/30 bg-yellow-900/20 px-3 py-3">
+          <p className="text-sm font-semibold text-yellow-300">
+            {submission.status === "IN_REVIEW" ? "🔎 Wird gerade geprüft" : "⏳ Prüfung ausstehend"}
+          </p>
+          <p className="mt-1 text-xs text-white/50">Die Quest bleibt sichtbar. Ein GM gibt eure Aufnahme frei.</p>
+        </div>
+      )}
+      {submission?.status === "APPROVED" && (
+        <div className="rounded-lg border border-green-500/30 bg-green-900/20 px-3 py-3 text-sm text-green-300">
+          ✓ Aufnahme freigegeben – der Schritt wurde abgeschlossen.
+        </div>
+      )}
+      {rejected && (
+        <div className="rounded-lg border border-red-500/30 bg-red-900/20 px-3 py-3">
+          <p className="text-sm font-semibold text-red-300">✗ Aufnahme abgelehnt</p>
+          <p className="mt-1 text-xs text-red-200/80">
+            GM-Feedback: {submission.reviewReason ?? "Bitte nehmt eine neue Aufnahme auf."}
+          </p>
+          <p className="mt-2 text-xs text-white/50">Ihr könnt direkt eine verbesserte Aufnahme einreichen.</p>
+        </div>
+      )}
+      {!awaitingReview && submission?.status !== "APPROVED" && (
+        <>
+          <p className="text-xs text-white/50">📸 Nehmt ein Foto auf oder wählt eine vorhandene Datei.</p>
+          <input ref={cameraInputRef} className="hidden" type="file" accept="image/jpeg,image/png" capture="environment"
+            onChange={(event) => { const file = event.target.files?.[0]; if (file) void onMediaFile(file); }} />
+          <input ref={fileInputRef} className="hidden" type="file" accept="image/jpeg,image/png,video/mp4,video/quicktime"
+            onChange={(event) => { const file = event.target.files?.[0]; if (file) void onMediaFile(file); }} />
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" disabled={isLoading} onClick={() => cameraInputRef.current?.click()}
+              className="rounded-xl bg-[#cd7f32] py-3 text-sm font-bold text-[#1a1a2e] disabled:opacity-50">
+              📷 Kamera
+            </button>
+            <button type="button" disabled={isLoading} onClick={() => fileInputRef.current?.click()}
+              className="rounded-xl border border-[#cd7f32]/50 py-3 text-sm font-bold text-[#f4e4c1] disabled:opacity-50">
+              🖼 Datei wählen
+            </button>
+          </div>
+        </>
+      )}
+      {uploadProgress != null && (
+        <div aria-live="polite">
+          <div className="mb-1 flex justify-between text-xs text-white/60"><span>Upload läuft…</span><span>{uploadProgress}%</span></div>
+          <div className="h-2 overflow-hidden rounded-full bg-white/10">
+            <div className="h-full bg-[#cd7f32] transition-all" style={{ width: `${uploadProgress}%` }} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -793,4 +955,20 @@ function stepLabel(actionType: string): string {
 
 function formatDay(day: string): string {
   return day.replace("DAY_", "Tag ").replace("_", " ");
+}
+
+function uploadFile(uploadUrl: string, file: File, onProgress: (progress: number) => void): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    request.open("PUT", uploadUrl);
+    request.setRequestHeader("Content-Type", file.type);
+    request.upload.onprogress = (event) => {
+      if (event.lengthComputable) onProgress(Math.round((event.loaded / event.total) * 100));
+    };
+    request.onload = () => request.status >= 200 && request.status < 300
+      ? resolve()
+      : reject(new Error(`Direkter Upload fehlgeschlagen (HTTP ${request.status}).`));
+    request.onerror = () => reject(new Error("Direkter Upload fehlgeschlagen. Bitte Verbindung prüfen."));
+    request.send(file);
+  });
 }

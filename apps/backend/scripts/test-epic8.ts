@@ -64,6 +64,7 @@ async function setupTestData(): Promise<{
   accountId2: string;
   gmAccountId: string;
   questDefId: string;
+  mediaStepId: string;
   bossWorldObjectId: string;
 }> {
   console.log("\n📦 Setting up test data...");
@@ -168,6 +169,7 @@ async function setupTestData(): Promise<{
     accountId2: account2!.id,
     gmAccountId: gmAccount!.id,
     questDefId: questDef!.id,
+    mediaStepId: `test-step-${suffix}`,
     bossWorldObjectId: bossWo!.id,
   };
 }
@@ -228,6 +230,7 @@ async function testMediaWorkflow(data: Awaited<ReturnType<typeof setupTestData>>
     const uploadUrl = await mediaService.requestUploadUrl(
       data.teamId1,
       questRun!.id,
+      data.mediaStepId,
       "image/jpeg",
       2 * 1024 * 1024, // 2 MB
     );
@@ -241,12 +244,13 @@ async function testMediaWorkflow(data: Awaited<ReturnType<typeof setupTestData>>
   const [submission] = await db.insert(mediaSubmissions).values({
     teamId: data.teamId1,
     questRunId: questRun!.id,
+    stepId: data.mediaStepId,
     objectKey: `team/${data.teamId1}/quest/${questRun!.id}/test.jpg`,
     status: "UPLOADING",
   }).returning();
 
   console.log("  2️⃣  Confirming upload (simulate S3 completion)...");
-  const confirmed = await mediaService.confirmUploadComplete(submission!.objectKey);
+  const confirmed = await mediaService.confirmUploadComplete(submission!.objectKey, data.teamId1);
   assert(confirmed.status === "RECEIVED", "Status transitioned to RECEIVED");
 
   // Check quest run state
@@ -276,6 +280,7 @@ async function testMediaWorkflow(data: Awaited<ReturnType<typeof setupTestData>>
   const [submission2] = await db.insert(mediaSubmissions).values({
     teamId: data.teamId1,
     questRunId: questRun!.id,
+    stepId: data.mediaStepId,
     objectKey: `team/${data.teamId1}/quest/${questRun!.id}/test2.jpg`,
     status: "RECEIVED",
   }).returning();

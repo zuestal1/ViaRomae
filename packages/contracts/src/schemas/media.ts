@@ -13,13 +13,19 @@ export const MediaSubmissionSchema = z.object({
   id: z.string().uuid(),
   teamId: z.string().uuid(),
   questRunId: z.string().uuid(),
+  stepId: z.string(),
   objectKey: z.string(),
   status: MediaStatusSchema,
   submittedAt: z.string().datetime(),
+  /** Latest GM feedback. Present after a review decision. */
+  reviewScore: z.number().int().min(0).max(10).nullable().optional(),
+  reviewReason: z.string().nullable().optional(),
+  reviewedAt: z.string().datetime().nullable().optional(),
 });
 export type MediaSubmission = z.infer<typeof MediaSubmissionSchema>;
 
 export const PresignedUploadResponseSchema = z.object({
+  submissionId: z.string().uuid(),
   uploadUrl: z.string().url(),
   objectKey: z.string(),
   expiresIn: z.number().int(),
@@ -32,6 +38,7 @@ export type PresignedUploadResponse = z.infer<
 
 export const RequestUploadUrlBodySchema = z.object({
   questRunId: z.string().uuid(),
+  stepId: z.string().min(1).max(64),
   fileType: z.enum(["image/jpeg", "image/png", "video/mp4", "video/quicktime"]),
   fileSizeBytes: z.number().int().positive().max(50 * 1024 * 1024), // 50 MB max
 });

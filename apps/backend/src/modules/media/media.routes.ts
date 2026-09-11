@@ -15,6 +15,7 @@ export async function mediaRoutes(server: FastifyInstance): Promise<void> {
   server.post<{
     Body: {
       questRunId: string;
+      stepId: string;
       fileType: string;
       fileSizeBytes: number;
     };
@@ -35,6 +36,7 @@ export async function mediaRoutes(server: FastifyInstance): Promise<void> {
         const result = await mediaService.requestUploadUrl(
           teamId,
           body.questRunId,
+          body.stepId,
           body.fileType,
           body.fileSizeBytes,
         );
@@ -62,6 +64,7 @@ export async function mediaRoutes(server: FastifyInstance): Promise<void> {
       try {
         const submission = await mediaService.confirmUploadComplete(
           decodeURIComponent(request.params.objectKey),
+          (request.user as { teamId: string }).teamId,
         );
 
         // Emit WebSocket event to team
@@ -111,10 +114,7 @@ export async function mediaRoutes(server: FastifyInstance): Promise<void> {
         );
 
         // Get submission to emit event
-        const submissions = await mediaService.getSubmissionsByQuestRun(
-          decision.submissionId,
-        );
-        const submission = submissions[0];
+        const submission = await mediaService.getSubmissionById(decision.submissionId);
 
         if (submission) {
           server.wsHub.sendToTeam(submission.teamId, {
@@ -171,6 +171,7 @@ export async function mediaRoutes(server: FastifyInstance): Promise<void> {
     async (request, reply) => {
       const submissions = await mediaService.getSubmissionsByQuestRun(
         request.params.questRunId,
+        (request.user as { teamId: string }).teamId,
       );
       return reply.status(200).send({ submissions });
     },
