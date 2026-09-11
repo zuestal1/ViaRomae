@@ -53,6 +53,7 @@ export const itemInstances = pgTable("item_instance", {
   slot: itemSlotEnum("slot"),
   isEquipped: boolean("is_equipped").notNull().default(false),
   isBound: boolean("is_bound").notNull().default(false),
+  isQuestLocked: boolean("is_quest_locked").notNull().default(false),
 });
 
 export const itemDefs = pgTable("item_def", {

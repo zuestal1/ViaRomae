@@ -19,7 +19,7 @@ export const CombatStateSchema = z.enum([
 ]);
 export type CombatState = z.infer<typeof CombatStateSchema>;
 
-export const ActionTypeSchema = z.enum(["ATTACK", "DEFEND", "SKILL", "FLEE"]);
+export const ActionTypeSchema = z.enum(["ATTACK", "SKILL"]);
 export type ActionType = z.infer<typeof ActionTypeSchema>;
 
 export const CombatActionOriginSchema = z.enum([
@@ -112,10 +112,17 @@ export type CombatLog = z.infer<typeof CombatLogSchema>;
 // ── Request Bodies ────────────────────────────────────────────────────────────
 
 export const SubmitActionBodySchema = z.union([
-  z.object({ abilityId: AbilityIdSchema, targetId: z.string().uuid().optional(), idempotencyKey: z.string().uuid() }),
-  z.object({ actionType: z.enum(["ATTACK", "DEFEND", "FLEE"]), targetId: z.string().uuid().optional(), idempotencyKey: z.string().uuid() }),
+  z.object({ roundNumber: z.number().int().positive(), abilityId: AbilityIdSchema, targetId: z.string().uuid().optional(), idempotencyKey: z.string().uuid() }),
+  z.object({ roundNumber: z.number().int().positive(), actionType: z.literal("ATTACK"), targetId: z.string().uuid(), idempotencyKey: z.string().uuid() }),
 ]);
 export type SubmitActionBody = z.infer<typeof SubmitActionBodySchema>;
+
+export const SubmitReviveBodySchema = z.object({
+  targetId: z.string().uuid(),
+  itemInstanceId: z.string().uuid(),
+  requestId: z.string().uuid(),
+});
+export type SubmitReviveBody = z.infer<typeof SubmitReviveBodySchema>;
 
 // ── WebSocket Events ──────────────────────────────────────────────────────────
 
@@ -167,6 +174,8 @@ export const PvPChallengeStartedEventSchema = z.object({
     role: z.enum(["attacker", "defender"]),
     opponentTeamId: z.string().uuid(),
     expiresAt: z.string().datetime(),
+    currentDistanceM: z.number().nonnegative(),
+    escapeDistanceM: z.number().positive(),
   }),
 });
 export type PvPChallengeStartedEvent = z.infer<typeof PvPChallengeStartedEventSchema>;
@@ -197,8 +206,9 @@ export const BossJoinRequestBodySchema = z.object({
 export type BossJoinRequestBody = z.infer<typeof BossJoinRequestBodySchema>;
 
 export const BossGlobalActionBodySchema = z.object({
-  actionType: z.enum(["APPLAUD", "CHEER", "COORDINATED_ATTACK"]),
+  actionType: z.literal("APPLAUD"),
   teamId: z.string().uuid(),
+  requestId: z.string().uuid(),
 });
 export type BossGlobalActionBody = z.infer<typeof BossGlobalActionBodySchema>;
 

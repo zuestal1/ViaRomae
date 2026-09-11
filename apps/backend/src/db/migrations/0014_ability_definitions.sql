@@ -1,5 +1,5 @@
-ALTER TYPE "player_class" ADD VALUE IF NOT EXISTS 'BILDHAUER';
-ALTER TYPE "player_class" ADD VALUE IF NOT EXISTS 'CONDOTTIERE';
+-- Player classes use only the canonical GDD ids declared by PlayerClassSchema:
+-- guard, cleric, sculptor and condottiere.
 ALTER TABLE "combat_action" ADD COLUMN IF NOT EXISTS "ability_id" varchar(64);
 ALTER TABLE "combat_action_submission" ADD COLUMN IF NOT EXISTS "ability_id" varchar(64);
 CREATE TABLE IF NOT EXISTS "combat_ability_cooldown" (

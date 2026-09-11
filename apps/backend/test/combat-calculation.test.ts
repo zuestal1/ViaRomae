@@ -7,6 +7,8 @@ import {
   calculateEquipmentRarityScore,
   calculateHealing,
   compareRoundOrder,
+  clampCombatPercent,
+  commercialRound,
 } from "../src/modules/combat/combat-calculation.js";
 
 test("damage follows GDD 7.10 and rounds only at the end", () => {
@@ -21,6 +23,17 @@ test("damage follows GDD 7.10 and rounds only at the end", () => {
     { attack: 0, defense: 0, initiative: 0 },
     { attack: 0, defense: 999, initiative: 0 },
   ), 1);
+});
+
+test("GDD percent caps and commercial rounding are enforced", () => {
+  assert.equal(clampCombatPercent(-9), -0.6);
+  assert.equal(clampCombatPercent(9), 1);
+  assert.equal(commercialRound(2.49), 2);
+  assert.equal(commercialRound(2.5), 3);
+  assert.equal(calculateDamage(
+    { attack: 100, defense: 0, initiative: 0, damageDealtPercent: 5 },
+    { attack: 0, defense: 0, initiative: 0, damageTakenPercent: -5 },
+  ), 80, "+100% dealt and -60% taken are the GDD caps");
 });
 
 test("shield is consumed before HP", () => {

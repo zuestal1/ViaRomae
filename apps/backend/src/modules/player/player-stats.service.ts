@@ -3,19 +3,13 @@ import { and, eq } from "drizzle-orm";
 import { db } from "../../db/client.js";
 import { itemDefs, itemInstances } from "../../db/schema/economy_v2.js";
 import { players } from "../../db/schema/player.js";
+import { CLASSES } from "../classes/class-rules.js";
 
 type StatName = "hp" | "atk" | "def" | "initiative";
 type EquipmentStats = Partial<Record<StatName | `${StatName}Percent`, number>>;
 
 // GDD 5.6/7.2 values live only on the authoritative server. The shared package
 // describes the class identifiers and response shape, not a client-side table.
-const CLASS_BASE_STATS: Record<PlayerClass, CharacterStats> = {
-  guard: { hpMax: 120, atk: 8, def: 14, initiative: 8 },
-  cleric: { hpMax: 90, atk: 7, def: 9, initiative: 10 },
-  sculptor: { hpMax: 100, atk: 11, def: 10, initiative: 8 },
-  condottiere: { hpMax: 100, atk: 14, def: 8, initiative: 12 },
-};
-
 export interface StatModifiers {
   equipment?: EquipmentStats;
   fameTierHp?: number;
@@ -25,7 +19,8 @@ export interface StatModifiers {
 }
 
 function derive(base: number, flat: number, percent: number): number {
-  return Math.max(0, Math.round((base + flat) * (1 + percent / 100)));
+  const cappedPercent = Math.max(-60, Math.min(100, percent));
+  return Math.max(0, Math.floor((base + flat) * (1 + cappedPercent / 100) + 0.5));
 }
 
 /** Applies all flat modifiers first and percentage modifiers last. */
@@ -33,7 +28,9 @@ export function calculateCharacterStats(
   playerClass: PlayerClass,
   modifiers: StatModifiers = {},
 ): CharacterStats {
-  const base = CLASS_BASE_STATS[playerClass];
+  const classBase = CLASSES[playerClass].baseStats;
+  const base: CharacterStats = { hpMax: classBase.maxHP, atk: classBase.atk,
+    def: classBase.def, initiative: classBase.initiative };
   const equipment = modifiers.equipment ?? {};
   const permanent = modifiers.permanent ?? {};
   const temporary = modifiers.temporary ?? {};

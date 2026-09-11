@@ -8,12 +8,14 @@ interface CombatScreenProps {
   logs: CombatLog[];
   onSubmitAction: (actionType: ActionType, targetId?: string, details?: { abilityId: string; targetIds: string[] }) => void;
   onOpenItems?: () => void;
+  reviveItemId?: string | undefined;
+  onRevive?: (targetId: string, itemInstanceId: string) => void;
 }
 
 const STATE_LABELS: Record<string, string> = { INITIALIZING: "Vorbereitung", AWAITING_ACTIONS: "Aktion wählen", LOCKED: "Aktionen bestätigt", RESOLVING: "Auswertung", COMPLETED: "Beendet" };
 const TARGET_LABELS: Record<string, string> = { SELF: "Selbst", ALLY: "Teammitglied", ENEMY: "Gegner", ALL_ACTIVE_ALLIES: "Ganzes Team", PASSIVE: "Passiv" };
 
-export function CombatScreen({ combat, playerId, logs, onSubmitAction, onOpenItems }: CombatScreenProps) {
+export function CombatScreen({ combat, playerId, logs, onSubmitAction, onOpenItems, reviveItemId, onRevive }: CombatScreenProps) {
   const [abilityId, setAbilityId] = useState<string | null>(null);
   const [targetIds, setTargetIds] = useState<string[]>([]);
   const [seconds, setSeconds] = useState(15);
@@ -34,13 +36,12 @@ export function CombatScreen({ combat, playerId, logs, onSubmitAction, onOpenIte
 
   const candidates = useMemo(() => {
     if (!selectedAbility || !player) return [];
-    switch (selectedAbility.allowedTargetTypes[0]!) {
-      case "SELF": return [player];
-      case "ALLY": return team;
-      case "ENEMY": return opponents;
-      case "ALL_ACTIVE_ALLIES": return team.filter((c) => !c.isDowned);
-            default: return combat.combatants;
-    }
+    if (selectedAbility.allowedTargetTypes.includes("ALL_ACTIVE_ALLIES")) return team.filter((c) => !c.isDowned);
+    if (selectedAbility.allowedTargetTypes.includes("ENEMY")) return opponents.filter((c) => !c.isDowned);
+    if (selectedAbility.allowedTargetTypes.includes("SELF") && selectedAbility.allowedTargetTypes.includes("ALLY")) return team.filter((c) => !c.isDowned);
+    if (selectedAbility.allowedTargetTypes.includes("SELF")) return [player];
+    if (selectedAbility.allowedTargetTypes.includes("ALLY")) return team.filter((c) => c.id !== player.id && !c.isDowned);
+    return [];
   }, [selectedAbility, player, team, opponents, combat.combatants]);
 
   const reason = (ability: AbilityDefinition) => {
@@ -48,31 +49,32 @@ export function CombatScreen({ combat, playerId, logs, onSubmitAction, onOpenIte
     if (player?.isDowned) return "Du bist kampfunfähig.";
     const cooldown = player?.abilityCooldowns?.[ability.id] ?? 0;
     if (cooldown > 0) return `Noch ${cooldown} Runde${cooldown === 1 ? "" : "n"} Cooldown.`;
-    if ((ability.allowedTargetTypes[0]! === "ALLY" || ability.allowedTargetTypes[0]! === "ENEMY") && !candidates.some((c) => !c.isDowned)) return "Kein gültiges Ziel verfügbar.";
+    if (!ability.allowedTargetTypes.includes("ALL_ACTIVE_ALLIES") && !candidates.some((c) => !c.isDowned)) return "Kein gültiges Ziel verfügbar.";
     return null;
   };
   const chooseAbility = (ability: AbilityDefinition) => {
     if (reason(ability)) return;
     setAbilityId(ability.id);
-    setTargetIds(["SELF", "ALL_ACTIVE_ALLIES"].includes(ability.allowedTargetTypes[0]!) ? candidates.map((c) => c.id) : []);
+    setTargetIds(ability.allowedTargetTypes.length === 1 && ability.allowedTargetTypes.includes("SELF") ? [player!.id] : []);
   };
   const submit = () => {
     if (!selectedAbility) return;
-    const needsChoice = ["ALLY", "ENEMY"].includes(selectedAbility.allowedTargetTypes[0]!);
+    const needsChoice = !selectedAbility.allowedTargetTypes.includes("ALL_ACTIVE_ALLIES");
     if (needsChoice && targetIds.length === 0) return;
-    onSubmitAction("SKILL", targetIds[0], { abilityId: selectedAbility.id, targetIds });
+    onSubmitAction("SKILL", selectedAbility.allowedTargetTypes.includes("ALL_ACTIVE_ALLIES") ? undefined : targetIds[0], { abilityId: selectedAbility.id, targetIds });
   };
 
   return <div className="fixed inset-0 z-50 flex flex-col bg-gradient-to-b from-gray-950 via-red-950 to-gray-950 text-white">
     <header className="flex items-center justify-between border-b border-white/10 bg-black/50 p-4"><div><h1 className="text-xl font-bold">⚔️ Kampf</h1><p className="text-sm text-gray-300">Runde {combat.roundNumber} · {STATE_LABELS[combat.state]}</p></div><div className={`flex items-center gap-2 rounded-full border px-4 py-2 font-mono text-xl ${seconds <= 5 ? "border-red-400 text-red-300" : "border-amber-500/50 text-amber-300"}`}><Clock3 className="h-5 w-5" /> 00:{String(seconds).padStart(2, "0")}</div></header>
     <main className="flex-1 space-y-5 overflow-y-auto p-4">
-      <Group title="Gegner" color="text-red-400" entries={opponents} selected={targetIds} onSelect={(id) => selectedAbility && ["ENEMY"].includes(selectedAbility.allowedTargetTypes[0]!) && setTargetIds([id])} />
+      <Group title="Gegner" color="text-red-400" entries={opponents} selected={targetIds} onSelect={(id) => selectedAbility?.allowedTargetTypes.includes("ENEMY") && setTargetIds([id])} />
       {player && <Group title="Du" color="text-blue-400" entries={[player]} selected={targetIds} onSelect={(id) => selectedAbility?.allowedTargetTypes.includes("SELF") && setTargetIds([id])} />}
-      <Group title="Dein Team" color="text-green-400" entries={team.filter((c) => c.id !== player?.id)} selected={targetIds} onSelect={(id) => selectedAbility && ["ALLY"].includes(selectedAbility.allowedTargetTypes[0]!) && setTargetIds([id])} />
+      <Group title="Dein Team" color="text-green-400" entries={team.filter((c) => c.id !== player?.id)} selected={targetIds} onSelect={(id) => selectedAbility?.allowedTargetTypes.includes("ALLY") && setTargetIds([id])} />
+      {reviveItemId && team.some((member) => member.isDowned) && <section className="rounded-xl border border-emerald-400/40 bg-emerald-950/40 p-3"><h2 className="font-bold text-emerald-300">Balsam der Wiederkehr</h2><p className="mb-2 text-xs text-gray-300">Wirkt serverbestätigt zu Beginn der nächsten Runde (30 % maxHP, durch Kleriker 50 %).</p>{team.filter((member) => member.isDowned).map((member) => <button key={member.id} onClick={() => onRevive?.(member.id, reviveItemId)} className="mr-2 rounded-lg bg-emerald-500 px-3 py-2 text-sm font-bold text-black">{member.name} wiederbeleben</button>)}</section>}
       {logs.length > 0 && <section className="rounded-lg bg-black/50 p-3"><h2 className="mb-2 text-sm font-bold text-amber-300">Aktuelle Ereignisse</h2>{logs.slice(-3).map((log, i) => <p key={`${log.timestamp}-${i}`} className="text-sm text-gray-200">{log.message}</p>)}<button className="mt-3 flex items-center gap-1 text-xs text-gray-400" onClick={() => setShowLog(!showLog)}>{showLog ? <ChevronUp size={14}/> : <ChevronDown size={14}/>} Älteres Kampfprotokoll</button>{showLog && <div className="mt-2 max-h-40 space-y-1 overflow-y-auto border-t border-white/10 pt-2">{logs.slice(0, -3).reverse().map((log, i) => <p key={`${log.timestamp}-old-${i}`} className="text-xs text-gray-400">{new Date(log.timestamp).toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" })} · {log.message}</p>)}</div>}</section>}
     </main>
     <footer className="border-t border-white/10 bg-black/80 p-4"><p className="mb-2 text-xs text-gray-400">Du kannst deine Auswahl bis zur Serverbestätigung ändern.</p><div className="grid grid-cols-3 gap-2">{abilities.map((ability) => { const disabledReason = reason(ability); return <button key={ability.id} onClick={() => chooseAbility(ability)} disabled={!!disabledReason} title={disabledReason ?? ability.description} className={`min-h-28 rounded-xl border p-3 text-left ${abilityId === ability.id ? "border-amber-400 bg-amber-500/20" : "border-white/10 bg-gray-800"} disabled:opacity-50`}><span className="text-2xl">{"⚔️"}</span><strong className="mt-1 block text-sm">{ability.displayName}</strong><span className="block text-xs text-gray-300">{ability.description}</span><span className="mt-1 block text-[11px] text-amber-300">{TARGET_LABELS[ability.allowedTargetTypes[0]!]} · CD {ability.cooldownRounds}</span>{disabledReason && <span className="mt-1 block text-[11px] font-semibold text-red-300">{disabledReason}</span>}</button>})}</div>
-      {selectedAbility && <button onClick={submit} disabled={locked || (["ALLY", "ENEMY"].includes(selectedAbility.allowedTargetTypes[0]!) && !targetIds.length)} className="mt-3 w-full rounded-lg bg-amber-500 py-3 font-bold text-black disabled:bg-gray-600 disabled:text-gray-300">{locked ? "Auswahl bestätigt" : targetIds.length ? "Aktion wählen / aktualisieren" : "Bitte Ziel wählen"}</button>}
+      {selectedAbility && <button onClick={submit} disabled={locked || (!selectedAbility.allowedTargetTypes.includes("ALL_ACTIVE_ALLIES") && !targetIds.length)} className="mt-3 w-full rounded-lg bg-amber-500 py-3 font-bold text-black disabled:bg-gray-600 disabled:text-gray-300">{locked ? "Auswahl bestätigt" : selectedAbility.allowedTargetTypes.includes("ALL_ACTIVE_ALLIES") || targetIds.length ? "Aktion wählen / aktualisieren" : "Bitte Ziel wählen"}</button>}
       <button onClick={onOpenItems} className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-gray-600 py-2 text-sm text-gray-300"><Backpack size={17}/> Items öffnen</button>
     </footer>
   </div>;

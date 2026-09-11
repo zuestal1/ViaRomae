@@ -2,6 +2,9 @@
  * Boss Combat Routes (Epic 8)
  */
 import type { FastifyInstance, FastifyRequest } from "fastify";
+import { db } from "../../db/client.js";
+import { players } from "../../db/schema/player.js";
+import { eq } from "drizzle-orm";
 import {
   getOrCreateBossCombat,
   joinBossCombat,
@@ -79,7 +82,7 @@ export async function bossRoutes(server: FastifyInstance): Promise<void> {
 
   /**
    * POST /api/v1/boss/:combatId/global-action
-   * Submit a global boss action (APPLAUD, CHEER, COORDINATED_ATTACK).
+   * Submit the GDD-defined APPLAUD response.
    */
   server.post<{
     Params: { combatId: string };
@@ -91,7 +94,9 @@ export async function bossRoutes(server: FastifyInstance): Promise<void> {
     },
     async (request, reply) => {
       const body = BossGlobalActionBodySchema.parse(request.body);
-      const userTeamId = (request.user as { teamId: string }).teamId;
+      const { sub: accountId } = request.user as { sub: string };
+      const [player] = await db.select({ id: players.id, teamId: players.teamId }).from(players).where(eq(players.accountId, accountId));
+      const userTeamId = player?.teamId;
 
       // Verify that the action is from the user's team
       if (body.teamId !== userTeamId) {
@@ -102,7 +107,9 @@ export async function bossRoutes(server: FastifyInstance): Promise<void> {
         await submitGlobalAction({
           combatId: request.params.combatId,
           teamId: body.teamId,
-          actionType: body.actionType as "APPLAUD" | "CHEER" | "COORDINATED_ATTACK",
+          actionType: body.actionType,
+          playerId: player!.id,
+          requestId: body.requestId,
           wsHub: server.wsHub,
         });
 

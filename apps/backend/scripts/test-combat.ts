@@ -136,6 +136,7 @@ async function testCombatSystem() {
     const action = await submitCombatAction({
       combatId: combat.id,
       playerId: testPlayer.id,
+      roundNumber: combat.roundNumber,
       actionType: "ATTACK",
       targetId: enemyCombatant.id,
       idempotencyKey: randomUUID(),

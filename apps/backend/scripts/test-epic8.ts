@@ -310,7 +310,7 @@ async function testBossCombat(data: Awaited<ReturnType<typeof setupTestData>>): 
   assert(combat.combatants.length === 1, "One boss combatant created");
 
   const bossCombatant = combat.combatants.find((c) => c.entityType === "ENEMY");
-  assert(bossCombatant?.hpCurrent === 500, "Boss starts with 500 HP");
+  assert(bossCombatant?.hpCurrent === 2160, "Day-1 boss uses the GDD Cannoniere HP");
 
   console.log("  2️⃣  Team 1 joins boss combat...");
   await joinBossCombat({
@@ -324,7 +324,7 @@ async function testBossCombat(data: Awaited<ReturnType<typeof setupTestData>>): 
   const playerCombatants = combatAfterJoin1.combatants.filter((c) => c.entityType === "PLAYER");
   assert(playerCombatants.length >= 1, "Player combatants added");
 
-  console.log("  3️⃣  Team 2 joins boss combat (HP should scale)...");
+  console.log("  3️⃣  Team 2 joins boss combat (HP must not scale dynamically)...");
   await joinBossCombat({
     combatId: combat.id,
     teamId: data.teamId2,
@@ -334,21 +334,24 @@ async function testBossCombat(data: Awaited<ReturnType<typeof setupTestData>>): 
     worldObjectId: data.bossWorldObjectId,
   });
   const bossAfterScale = combatAfterJoin2.combatants.find((c) => c.entityType === "ENEMY");
-  // HP should scale: 500 + (2-1) * 300 = 800, but proportionally adjusted
-  assert(bossAfterScale && bossAfterScale.hpCurrent >= 500, "Boss HP scaled up");
+  assert(bossAfterScale && bossAfterScale.hpCurrent === bossCombatant!.hpCurrent, "Late joins do not heal the boss");
 
   console.log("  4️⃣  Testing global boss actions...");
   await submitGlobalAction({
     combatId: combat.id,
     teamId: data.teamId1,
     actionType: "APPLAUD",
+    playerId: data.playerId1,
+    requestId: randomUUID(),
   });
   console.log("     APPLAUD action submitted successfully");
 
   await submitGlobalAction({
     combatId: combat.id,
     teamId: data.teamId2,
-    actionType: "CHEER",
+    actionType: "APPLAUD",
+    playerId: data.playerId2,
+    requestId: randomUUID(),
   });
   console.log("     CHEER action submitted successfully");
 

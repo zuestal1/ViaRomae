@@ -9,6 +9,7 @@ import {
   jsonb,
   uniqueIndex,
   index,
+  doublePrecision,
 } from "drizzle-orm/pg-core";
 import { teams } from "./player.js";
 
@@ -50,6 +51,12 @@ export const combatInstances = pgTable("combat_instance", {
   startedAt: timestamp("started_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
+  roundStartedAt: timestamp("round_started_at", { withTimezone: true }),
+  actionDeadline: timestamp("action_deadline", { withTimezone: true }),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+  outcome: varchar("outcome", { length: 32 }),
+  winnerTeamId: uuid("winner_team_id").references(() => teams.id),
+  resolutionVersion: integer("resolution_version").notNull().default(0),
 });
 
 export const combatants = pgTable("combatant", {
@@ -61,6 +68,8 @@ export const combatants = pgTable("combatant", {
   entityId: uuid("entity_id").notNull(),
   teamId: uuid("team_id").references(() => teams.id),
   hpCurrent: integer("hp_current").notNull(),
+  lastTargetId: uuid("last_target_id"),
+  modeMultiplier: doublePrecision("mode_multiplier").notNull().default(1),
 });
 
 export const combatActions = pgTable("combat_action", {
@@ -194,5 +203,14 @@ export const pvpChallenges = pgTable("pvp_challenge", {
     .notNull()
     .references(() => teams.id),
   state: pvpChallengeStateEnum("state").notNull().default("WARNING"),
+  startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  escapeConfirmations: integer("escape_confirmations").notNull().default(0),
+});
+
+export const pvpProtections = pgTable("pvp_protection", {
+  teamId: uuid("team_id").primaryKey().references(() => teams.id, { onDelete: "cascade" }),
+  startsAt: timestamp("starts_at", { withTimezone: true }).notNull().defaultNow(),
+  endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
+  reason: varchar("reason", { length: 64 }).notNull(),
 });

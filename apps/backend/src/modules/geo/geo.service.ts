@@ -20,7 +20,7 @@ import { db } from "../../db/client.js";
 import { players } from "../../db/schema/player.js";
 import { worldObjects, playAreas } from "../../db/schema/world.js";
 import { playerProximityStates } from "../../db/schema/proximity.js";
-import { questRuns, questSteps } from "../../db/schema/quest.js";
+import { questRuns, questSteps, objectiveProgress } from "../../db/schema/quest.js";
 import {
   evaluateZones,
   computeExitTransitions,
@@ -34,7 +34,7 @@ import type {
   RadiusEvent,
   PlayArea,
 } from "@jlw/contracts";
-import { startPvECombat, getActiveCombatForTeam } from "../combat/combat.service.js";
+import { startPvECombat, getActiveCombatForTeam, checkRespawnArrival, checkPvPEscape } from "../combat/combat.service.js";
 import { getOrCreateBossCombat, joinBossCombat } from "../combat/boss.service.js";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -111,9 +111,13 @@ export async function updatePlayerLocation(opts: {
     SET
       last_lat = ${lat},
       last_lng = ${lng},
+      last_accuracy = ${accuracy},
       geom     = ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)
+      , last_location_update = now()
     WHERE id = ${player.id}
   `);
+  await checkRespawnArrival({ teamId: player.teamId, lat, lng, accuracy });
+  await checkPvPEscape(player.teamId, wsHub);
 
   // ── 3. Query WorldObjects within discovery radius via PostGIS ─────────────
   const nearbyRows = await queryNearbyWorldObjects({ lat, lng, accuracy });
@@ -572,20 +576,30 @@ async function checkPvEEncounterTrigger(opts: {
   }
 
   // Check if any active quest has a DEFEAT_ENEMY step
-  const questDefIds = activeQuests.map((q) => q.questDefId);
-  const defeatEnemySteps = await db
+  const pendingSteps = await db
     .select({
+      questRunId: questRuns.id,
       stepId: questSteps.stepId,
       targetRef: questSteps.targetRef,
+      sequence: questSteps.sequence,
+      actionType: questSteps.stepActionType,
+      progressStatus: objectiveProgress.status,
     })
-    .from(questSteps)
+    .from(questRuns)
+    .innerJoin(questSteps, eq(questSteps.questDefinitionId, questRuns.questDefinitionId))
+    .leftJoin(objectiveProgress, and(eq(objectiveProgress.questRunId, questRuns.id),
+      eq(objectiveProgress.objectiveId, questSteps.stepId)))
     .where(
       and(
-        inArray(questSteps.questDefinitionId, questDefIds),
-        eq(questSteps.stepActionType, "DEFEAT_ENEMY"),
+        inArray(questRuns.id, activeQuests.map((quest) => quest.questRunId)),
         eq(questSteps.flowPhase, "OBJECTIVE")
       )
     );
+  const defeatEnemySteps = pendingSteps.filter((step) => {
+    const firstPending = pendingSteps.filter((candidate) => candidate.questRunId === step.questRunId &&
+      candidate.progressStatus !== "COMPLETED").sort((a, b) => a.sequence - b.sequence)[0];
+    return firstPending?.stepId === step.stepId && step.actionType === "DEFEAT_ENEMY";
+  });
 
   if (defeatEnemySteps.length === 0) {
     return; // No DEFEAT_ENEMY steps in active quests
