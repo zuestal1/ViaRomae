@@ -30,13 +30,11 @@ GM Dashboard läuft auf: `http://localhost:5174`
 
 ## 🔐 Login
 
-**Hinweis**: Der GM-Client benötigt ein JWT-Token im LocalStorage:
+Das Dashboard zeigt beim ersten Aufruf eine eigene GM-Anmeldung. Verwende dort
+den Zugangscode eines Accounts mit Rolle `GM` oder `ADMIN`.
 
-```javascript
-localStorage.setItem("gm_token", "YOUR_JWT_TOKEN_HERE");
-```
-
-Aktuell gibt es noch keine separate GM-Login-UI. Verwende das Standard-Login (`/api/v1/auth/login`) mit einem Account, der Admin-Rechte hat, und kopiere das Token in den LocalStorage.
+Die Sitzung wird beim Start serverseitig geprüft; abgelaufene oder unberechtigte
+Sitzungen führen automatisch zurück zur Anmeldung.
 
 ---
 

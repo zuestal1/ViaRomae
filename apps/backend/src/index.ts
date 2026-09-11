@@ -57,6 +57,19 @@ server.decorate(
     }
   },
 );
+server.decorate(
+  "authorizeGM",
+  async function (request: import("fastify").FastifyRequest, reply: import("fastify").FastifyReply) {
+    try {
+      await request.jwtVerify();
+      if (request.user.role !== "GM" && request.user.role !== "ADMIN") {
+        return reply.status(403).send({ message: "GM role required" });
+      }
+    } catch (err) {
+      return reply.send(err);
+    }
+  },
+);
 
 // ── WebSocket Hub (Epic 2 + Epic 7) ───────────────────────────────────────
 const wsHub = new WsHub(server.log);

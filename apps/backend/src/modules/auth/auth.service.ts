@@ -184,9 +184,11 @@ export async function getMe(accountId: string): Promise<MeResponse> {
       preflightCompleted: player.preflightCompletedAt !== null,
       hpCurrent: player.hpCurrent,
       hpMax: stats.hpMax,
-      icon: CLASS_ICONS[player.class],
+      icon: player.class ? CLASS_ICONS[player.class] : "❔",
       stats: { atk: stats.atk, def: stats.def, init: stats.initiative },
-      passive: { name: passive.displayName, description: passive.description, icon: CLASS_ICONS[player.class] },
+      passive: passive
+        ? { name: passive.displayName, description: passive.description, icon: CLASS_ICONS[player.class!] }
+        : { name: "Noch keine Klasse", description: "Wähle zuerst deine dauerhafte Rolle.", icon: "❔" },
       abilities,
       statusEffects: [],
       equipment: (["WEAPON", "CLOTHING", "DEFENSE", "ARTIFACT"] as const).map((slot) => ({

@@ -34,7 +34,7 @@ export async function authRoutes(server: FastifyInstance): Promise<void> {
 
     // 3. Sign a JWT (expires in 7 days, matching the session lifetime)
     const token = server.jwt.sign(
-      { sub: account.id, role: account.role, username: account.username },
+      { sub: account.id, accountId: account.id, role: account.role, username: account.username },
       { expiresIn: "7d" },
     );
 

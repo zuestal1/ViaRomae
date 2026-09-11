@@ -6,7 +6,7 @@
 import { useQuery } from "@tanstack/react-query";
 import type { TeamLeaderboardEntry, EventSummary } from "@jlw/contracts";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+import { API_ROOT } from "../lib/api";
 
 export function LeaderboardPanel() {
   const { data: leaderboard, isLoading: leaderboardLoading } = useQuery<
@@ -14,7 +14,7 @@ export function LeaderboardPanel() {
   >({
     queryKey: ["gm", "leaderboard"],
     queryFn: async () => {
-      const res = await fetch(`${API_BASE}/api/v1/gm/event/leaderboard`, {
+      const res = await fetch(`${API_ROOT}/gm/event/leaderboard`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("gm_token")}`,
         },
@@ -27,7 +27,7 @@ export function LeaderboardPanel() {
   const { data: summary, isLoading: summaryLoading } = useQuery<EventSummary>({
     queryKey: ["gm", "event-summary"],
     queryFn: async () => {
-      const res = await fetch(`${API_BASE}/api/v1/gm/event/summary`, {
+      const res = await fetch(`${API_ROOT}/gm/event/summary`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("gm_token")}`,
         },

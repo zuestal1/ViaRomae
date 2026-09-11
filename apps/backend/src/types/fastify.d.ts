@@ -9,6 +9,7 @@ import type { WsHub } from "../modules/ws/ws.hub.js";
 declare module "fastify" {
   interface FastifyInstance {
     authenticate: import("fastify").preHandlerHookHandler;
+    authorizeGM: import("fastify").preHandlerHookHandler;
     /** WebSocket hub for team-scoped radius-event broadcasting. */
     wsHub: WsHub;
   }
