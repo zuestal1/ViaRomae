@@ -42,6 +42,7 @@ COPY --from=builder /app/apps/backend/scripts ./apps/backend/scripts
 COPY --from=builder /app/apps/backend/drizzle.config.ts ./apps/backend/
 COPY --from=builder /app/apps/backend/tsconfig.json ./apps/backend/
 COPY --from=builder /app/packages/contracts ./packages/contracts
+COPY --from=builder /app/apps/backend/content ./apps/backend/content
 COPY tsconfig.base.json ./
 
 WORKDIR /app/apps/backend
