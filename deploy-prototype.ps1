@@ -86,3 +86,12 @@ Write-Host ""
 Write-Host "View logs:" -ForegroundColor Cyan
 Write-Host "   docker compose -f docker-compose.prototype.yml logs -f" -ForegroundColor White
 Write-Host "===================================================================" -ForegroundColor Green
+
+Write-Host "Warte auf Datenbank-Bereitschaft..."
+Start-Sleep -Seconds 5
+
+Write-Host "Führe Datenbank-Migrationen aus..."
+docker compose -f docker-compose.prototype.yml exec -T backend-prototype npm run db:migrate
+
+Write-Host "Spiele Prototyp-Seed-Daten ein..."
+docker compose -f docker-compose.prototype.yml exec -T backend-prototype npm run seed:prototype
