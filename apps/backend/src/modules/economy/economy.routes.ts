@@ -131,6 +131,7 @@ export async function economyRoutes(server: FastifyInstance): Promise<void> {
     "/ledger/append",
     { onRequest: [server.authenticate] },
     async (request, reply) => {
+      if ((request.user as {role?:string}).role !== "GM") return reply.status(403).send({message:"GM role required"});
       const body = AppendLedgerBody.safeParse(request.body);
       if (!body.success) {
         return reply.status(400).send({ message: "Invalid body", errors: body.error.flatten() });

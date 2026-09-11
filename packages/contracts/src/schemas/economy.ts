@@ -31,7 +31,7 @@ export const ItemSlotSchema = z.enum([
   "ARTIFACT",
 ]);
 export type ItemSlot = z.infer<typeof ItemSlotSchema>;
-export const ItemCategorySchema = z.enum(["EQUIPMENT", "CONSUMABLE"]);
+export const ItemCategorySchema = z.enum(["EQUIPMENT", "CONSUMABLE", "QUEST"]);
 export type ItemCategory = z.infer<typeof ItemCategorySchema>;
 export const ItemRaritySchema = z.enum(["N", "R", "SR", "SSR", "E", "L"]);
 export type ItemRarity = z.infer<typeof ItemRaritySchema>;
@@ -110,6 +110,8 @@ export const StoreCatalogItemSchema = z.object({
   price: z.number().int().positive(),
   sellPrice: z.number().int().nonnegative(),
   stackable: z.boolean(),
+  rarity: ItemRaritySchema,
+  stats: z.record(z.unknown()).default({}),
 });
 export type StoreCatalogItem = z.infer<typeof StoreCatalogItemSchema>;
 
@@ -135,6 +137,7 @@ export const StoreSaleRequestSchema = z.object({
   idempotencyKey: z.string().uuid(),
   itemInstanceId: z.string().uuid(),
   quantity: z.number().int().min(1).max(40),
+  confirmed: z.boolean().optional().default(false),
 });
 export type StoreSaleRequest = z.infer<typeof StoreSaleRequestSchema>;
 

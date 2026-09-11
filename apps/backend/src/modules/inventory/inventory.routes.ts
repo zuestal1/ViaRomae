@@ -8,8 +8,10 @@ import {
   unequipItem,
   computeEquippedStats,
   getItemCount,
+  moveInventoryItem,
 } from "../economy/inventory.service.js";
 import { db } from "../../db/client.js";
+import { useConsumable } from "../economy/consumable.service.js";
 
 const LootBody = z.object({
   idempotencyKey: z.string().uuid(),
@@ -33,6 +35,8 @@ const LootBody = z.object({
 
 const EquipBody = z.object({ itemInstanceId: z.string().uuid() });
 const UnequipBody = z.object({ itemInstanceId: z.string().uuid() });
+const MoveBody = z.object({ itemInstanceId:z.string().uuid(), quantity:z.number().int().min(1).max(40), equip:z.boolean().optional() });
+const UseBody=z.object({itemInstanceId:z.string().uuid(),targetId:z.string().uuid().optional(),requestId:z.string().uuid()});
 
 function mapItem(row: Record<string, unknown>) {
   const statsRaw = row["stats"];
@@ -81,6 +85,7 @@ async function resolvePlayer(accountId: string) {
 
 export async function inventoryRoutes(server: FastifyInstance): Promise<void> {
   server.post("/loot", { onRequest: [server.authenticate] }, async (request, reply) => {
+    if ((request.user as {role?:string}).role !== "GM") return reply.status(403).send({message:"GM role required"});
     const body = LootBody.safeParse(request.body);
     if (!body.success) {
       return reply.status(400).send({ message: "Invalid body", errors: body.error.flatten() });
@@ -114,6 +119,20 @@ export async function inventoryRoutes(server: FastifyInstance): Promise<void> {
       owner === "team" ? player.team_id : player.player_id,
     );
     return reply.send({ items: (rows as Record<string, unknown>[]).map(mapItem) });
+  });
+
+  for (const [path, direction] of [["/take", "TAKE"], ["/deposit", "DEPOSIT"]] as const) {
+    server.post(path, { onRequest:[server.authenticate] }, async (request, reply) => {
+      const body=MoveBody.safeParse(request.body);
+      if(!body.success) return reply.status(400).send({message:"Invalid body",errors:body.error.flatten()});
+      try { const {sub}=request.user as {sub:string}; return reply.send(await moveInventoryItem(sub,{itemInstanceId:body.data.itemInstanceId,quantity:body.data.quantity,direction,...(body.data.equip===undefined?{}:{equip:body.data.equip})})); }
+      catch(error){const e=error as Error&{statusCode?:number};return reply.status(e.statusCode??500).send({message:e.message});}
+    });
+  }
+  server.post("/use",{onRequest:[server.authenticate]},async(request,reply)=>{
+    const body=UseBody.safeParse(request.body);if(!body.success)return reply.status(400).send({message:"Invalid body",errors:body.error.flatten()});
+    try{const {sub}=request.user as {sub:string};return reply.send(await useConsumable(sub,{itemInstanceId:body.data.itemInstanceId,requestId:body.data.requestId,...(body.data.targetId?{targetId:body.data.targetId}:{})}));}
+    catch(error){const e=error as Error&{statusCode?:number};return reply.status(e.statusCode??500).send({message:e.message});}
   });
 
   server.post("/equip", { onRequest: [server.authenticate] }, async (request, reply) => {

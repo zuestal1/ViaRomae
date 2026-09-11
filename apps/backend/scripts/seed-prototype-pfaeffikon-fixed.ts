@@ -259,14 +259,14 @@ async function seedPrototype() {
       { key: 'panis_viatoris', name: 'Panis Viatoris', price: 15 },
       { key: 'aqua_vitae', name: 'Aqua Vitae', price: 30 },
       { key: 'rauchkugel', name: 'Rauchkugel', price: 45 },
-      { key: 'balsam_der_wiederkehr', name: 'Balsam der Wiederkehr', price: 120 },
+      { key: 'balm_returning', name: 'Balsam der Wiederkehr', price: 120 },
     ];
     for (const item of storeItems) {
       await db.execute(sql`
         INSERT INTO item_def (id,key,name,equip_slot,category,rarity,allowed_classes,stats,stackable,max_stack,buy_price,sell_price)
-        VALUES(gen_random_uuid(),${item.key},${item.name},NULL,'CONSUMABLE','N','[]','{}',true,40,${item.price},${Math.max(0, Math.round(item.price * 0.15 / 5) * 5)})
+        VALUES(gen_random_uuid(),${item.key},${item.name},NULL,'CONSUMABLE','N','[]','{}',true,10,${item.price},${Math.max(0, Math.round(item.price * 0.15 / 5) * 5)})
         ON CONFLICT(key) DO UPDATE SET name=EXCLUDED.name, category='CONSUMABLE', stackable=true,
-          max_stack=40, buy_price=EXCLUDED.buy_price, sell_price=EXCLUDED.sell_price
+          max_stack=10, buy_price=EXCLUDED.buy_price, sell_price=EXCLUDED.sell_price
       `);
       await db.execute(sql`
         INSERT INTO store_catalog_item(id,store_id,definition_id,price)

@@ -19,7 +19,7 @@ export const CombatStateSchema = z.enum([
 ]);
 export type CombatState = z.infer<typeof CombatStateSchema>;
 
-export const ActionTypeSchema = z.enum(["ATTACK", "SKILL"]);
+export const ActionTypeSchema = z.enum(["ATTACK", "SKILL", "DEFEND"]);
 export type ActionType = z.infer<typeof ActionTypeSchema>;
 
 export const CombatActionOriginSchema = z.enum([

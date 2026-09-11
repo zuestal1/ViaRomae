@@ -11,6 +11,7 @@ export interface CombatStats {
   initiativePercent?: number;
   initiativeFlat?: number;
   healingPercent?: number;
+  armorBreakPercentPoints?: number;
 }
 
 export interface DamageResult {

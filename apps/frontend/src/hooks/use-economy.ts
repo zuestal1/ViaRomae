@@ -44,7 +44,7 @@ export function useBuyStoreItem(storeId: string) {
 export function useSellStoreItem(storeId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: { itemInstanceId: string; quantity: number; idempotencyKey: string }) =>
+    mutationFn: (input: { itemInstanceId: string; quantity: number; idempotencyKey: string;confirmed?:boolean }) =>
       api.post<StoreTransactionResponse>(`/stores/${storeId}/sell`, input),
     onSuccess: () => { invalidateEconomy(queryClient); void queryClient.invalidateQueries({queryKey:["store",storeId]}); },
   });
@@ -122,6 +122,17 @@ export function useUnequipItem() {
     onSuccess: () => invalidateEconomy(queryClient),
   });
 }
+
+export function useMoveInventoryItem(direction: "take" | "deposit") {
+  const queryClient=useQueryClient();
+  return useMutation({mutationFn:(body:{itemInstanceId:string;quantity:number;equip?:boolean}) =>
+    api.post<{moved:string;equipped?:string}>(`/inventory/${direction}`,body),
+    onSuccess:()=>invalidateEconomy(queryClient)});
+}
+
+export function useConsumableItem(){const queryClient=useQueryClient();return useMutation({
+  mutationFn:(body:{itemInstanceId:string;targetId?:string;requestId:string})=>api.post<Record<string,unknown>>("/inventory/use",body),
+  onSuccess:()=>invalidateEconomy(queryClient)});}
 
 export function useCreateTradeOffer() {
   const queryClient = useQueryClient();

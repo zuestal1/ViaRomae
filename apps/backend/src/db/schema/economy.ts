@@ -23,7 +23,7 @@ export const itemSlotEnum = pgEnum("item_slot", [
   "DEFENSE",
   "ARTIFACT",
 ]);
-export const itemCategoryEnum = pgEnum("item_category", ["EQUIPMENT", "CONSUMABLE"]);
+export const itemCategoryEnum = pgEnum("item_category", ["EQUIPMENT", "CONSUMABLE", "QUEST"]);
 export const itemRarityEnum = pgEnum("item_rarity", ["N", "R", "SR", "SSR", "E", "L"]);
 
 /** Append-only ledger – never update, only insert. */

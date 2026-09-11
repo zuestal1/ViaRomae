@@ -23,9 +23,10 @@ import type {
   QuestAvailable,
   QuestRunDetail,
   StepResult,
+  InventoryListResponse,
 } from "@jlw/contracts";
 import { api } from "../../lib/api.js";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { QUEST_QUERY_KEYS } from "../../hooks/use-quests.js";
 
 // ── Props ─────────────────────────────────────────────────────────────────────
@@ -75,6 +76,7 @@ export function QuestBottomSheet({
   onClose,
 }: QuestBottomSheetProps) {
   const queryClient = useQueryClient();
+  const teamInventory=useQuery({queryKey:["inventory","team"],queryFn:()=>api.get<InventoryListResponse>("/inventory?owner=team"),enabled:activeRun?.currentStep?.stepActionType==="USE_ITEM"});
   const [answerInput, setAnswerInput] = useState("");
   const [feedback, setFeedback] = useState<{
     text: string;
@@ -90,6 +92,7 @@ export function QuestBottomSheet({
   const mediaStep = activeRun?.currentStep?.stepActionType === "UPLOAD_MEDIA"
     ? activeRun.currentStep
     : null;
+  async function handleQuestItem(itemInstanceId:string){if(!activeRun?.currentStep)return;setIsLoading(true);try{await api.post(`/quests/runs/${activeRun.id}/steps/${activeRun.currentStep.stepId}/item`,{itemInstanceId});setFeedback({ok:true,text:"Questitem erfolgreich abgegeben."});await queryClient.invalidateQueries({queryKey:QUEST_QUERY_KEYS.active});await queryClient.invalidateQueries({queryKey:["inventory"]});}catch(error){setFeedback({ok:false,text:(error as Error).message});}finally{setIsLoading(false);}}
 
   useEffect(() => {
     if (!activeRun || !mediaStep) return;
@@ -321,6 +324,8 @@ export function QuestBottomSheet({
             onAnswer={handleAnswer}
             onReach={handleReach}
             onDefeat={handleDefeat}
+            questItems={(teamInventory.data?.items??[]).filter(item=>item.category==="QUEST"&&item.definitionId===activeRun.currentStep?.targetRef)}
+            onQuestItem={handleQuestItem}
             mediaSubmission={mediaSubmission}
             uploadProgress={uploadProgress}
             cameraInputRef={cameraInputRef}
@@ -460,6 +465,8 @@ function ActiveView({
   onAnswer,
   onReach,
   onDefeat,
+  questItems,
+  onQuestItem,
   mediaSubmission,
   uploadProgress,
   cameraInputRef,
@@ -478,6 +485,8 @@ function ActiveView({
   onAnswer: () => void;
   onReach: () => void;
   onDefeat: () => void;
+  questItems: InventoryListResponse["items"];
+  onQuestItem:(itemInstanceId:string)=>void;
   mediaSubmission: MediaSubmission | null;
   uploadProgress: number | null;
   cameraInputRef: React.RefObject<HTMLInputElement>;
@@ -603,6 +612,7 @@ function ActiveView({
               </button>
             </div>
           )}
+          {step.stepActionType === "USE_ITEM"&&<div className="flex flex-col gap-2">{questItems.map(item=><button key={item.id} disabled={isLoading} onClick={()=>onQuestItem(item.id)} className="w-full rounded-xl bg-[#cd7f32] py-3 text-sm font-bold text-[#1a1a2e]">{item.name??item.definitionId} abgeben</button>)}{questItems.length===0&&<p className="text-sm text-amber-300">Das benötigte Questitem ({step.targetRef}) fehlt im Teaminventar.</p>}</div>}
 
           {/* UPLOAD_MEDIA */}
           {step.stepActionType === "UPLOAD_MEDIA" && (

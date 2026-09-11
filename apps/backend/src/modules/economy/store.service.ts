@@ -69,7 +69,7 @@ async function balance(executor: SqlExecutor, teamId: string): Promise<number> {
 export async function getStoreCatalog(accountId: string, storeId: string) {
   const ctx = await context(db, accountId, storeId);
   const catalog = await db.execute(sql`
-    SELECT d.key definition_id, d.name, d.category, d.stackable, sci.price
+    SELECT d.key definition_id, d.name, d.category, d.stackable, d.rarity,d.stats,sci.price
       FROM store_catalog_item sci JOIN item_def d ON d.key = sci.definition_id
      WHERE sci.store_id = ${storeId}::uuid ORDER BY sci.price, d.name
   `);
@@ -78,9 +78,9 @@ export async function getStoreCatalog(accountId: string, storeId: string) {
     storeId: ctx.store_id, externalId: ctx.external_id, name: ctx.store_name,
     denarii: await balance(db, ctx.team_id), interactionAllowed: blockedReason === null,
     blockedReason,
-    items: (catalog.rows as Array<{definition_id:string; name:string; category:"EQUIPMENT"|"CONSUMABLE"; stackable:boolean; price:number}>).map(item => ({
+    items: (catalog.rows as Array<{definition_id:string; name:string; category:"EQUIPMENT"|"CONSUMABLE"; stackable:boolean;rarity:"N"|"R"|"SR"|"SSR"|"E"|"L";stats:Record<string,unknown>; price:number}>).map(item => ({
       definitionId: item.definition_id, name: item.name, category: item.category,
-      stackable: item.stackable, price: item.price, sellPrice: calculateStoreSellPrice(item.price),
+      stackable: item.stackable,rarity:item.rarity,stats:item.stats, price: item.price, sellPrice: calculateStoreSellPrice(item.price),
     })),
   };
 }
@@ -109,19 +109,18 @@ export async function purchaseStoreItem(accountId: string, storeId: string, inpu
     if (reason) throw httpError(reason, 409);
     await tx.execute(sql`SELECT id FROM team WHERE id = ${ctx.team_id}::uuid FOR UPDATE`);
     const catalog = await tx.execute(sql`
-      SELECT sci.price, d.key, d.category, d.equip_slot, d.stackable
+      SELECT sci.price, d.key, d.category, d.equip_slot, d.stackable,d.max_stack
         FROM store_catalog_item sci JOIN item_def d ON d.key = sci.definition_id
        WHERE sci.store_id = ${storeId}::uuid AND sci.definition_id = ${input.definitionId}
     `);
-    const item = (catalog.rows as Array<{price:number;key:string;category:string;equip_slot:string|null;stackable:boolean}>)[0];
+    const item = (catalog.rows as Array<{price:number;key:string;category:string;equip_slot:string|null;stackable:boolean;max_stack:number}>)[0];
     if (!item) throw httpError("Artikel gehört nicht zum Sortiment dieses Stores.", 404);
     const total = item.price * input.quantity;
     if (await balance(tx, ctx.team_id) < total) throw httpError("Nicht genügend Denare.", 409);
     const count = await tx.execute(sql`SELECT COALESCE(SUM(quantity),0) total FROM item_instance WHERE owner_type='TEAM' AND owner_id=${ctx.team_id}::uuid`);
     if (Number((count.rows as {total:string}[])[0]?.total ?? 0) + input.quantity > TEAM_INVENTORY_LIMIT) throw httpError("Team-Inventar ist voll.", 409);
     if (item.stackable) {
-      const updated = await tx.execute(sql`UPDATE item_instance SET quantity=quantity+${input.quantity} WHERE owner_type='TEAM' AND owner_id=${ctx.team_id}::uuid AND definition_id=${item.key} RETURNING id`);
-      if (!updated.rows.length) await tx.execute(sql`INSERT INTO item_instance (id,definition_id,owner_type,owner_id,quantity,category,slot,is_equipped,is_bound,is_quest_locked) VALUES (gen_random_uuid(),${item.key},'TEAM',${ctx.team_id}::uuid,${input.quantity},${item.category}::item_category,${item.equip_slot}::item_slot,false,false,false)`);
+      let remaining=input.quantity;while(remaining>0){const stack=await tx.execute(sql`SELECT id,quantity FROM item_instance WHERE owner_type='TEAM' AND owner_id=${ctx.team_id}::uuid AND definition_id=${item.key} AND quantity<${item.max_stack} ORDER BY id LIMIT 1 FOR UPDATE`);const current=stack.rows[0] as {id:string;quantity:number}|undefined;const amount=Math.min(remaining,item.max_stack-(current?.quantity??0));if(current)await tx.execute(sql`UPDATE item_instance SET quantity=quantity+${amount} WHERE id=${current.id}::uuid`);else await tx.execute(sql`INSERT INTO item_instance (id,definition_id,owner_type,owner_id,quantity,category,slot,is_equipped,is_bound,is_quest_locked) VALUES (gen_random_uuid(),${item.key},'TEAM',${ctx.team_id}::uuid,${amount},${item.category}::item_category,${item.equip_slot}::item_slot,false,false,false)`);remaining-=amount;}
     } else {
       await tx.execute(sql`INSERT INTO item_instance (id,definition_id,owner_type,owner_id,quantity,category,slot,is_equipped,is_bound,is_quest_locked) SELECT gen_random_uuid(),${item.key},'TEAM',${ctx.team_id}::uuid,1,${item.category}::item_category,${item.equip_slot}::item_slot,false,false,false FROM generate_series(1,${input.quantity})`);
     }
@@ -131,7 +130,7 @@ export async function purchaseStoreItem(accountId: string, storeId: string, inpu
   });
 }
 
-export async function sellStoreItem(accountId:string, storeId:string, input:{idempotencyKey:string;itemInstanceId:string;quantity:number}) {
+export async function sellStoreItem(accountId:string, storeId:string, input:{idempotencyKey:string;itemInstanceId:string;quantity:number;confirmed?:boolean}) {
   return db.transaction(async tx => {
     await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${input.idempotencyKey}, 0))`);
     const prior = await existingTransaction(tx, input.idempotencyKey);
@@ -139,10 +138,12 @@ export async function sellStoreItem(accountId:string, storeId:string, input:{ide
     const ctx = await context(tx, accountId, storeId);
     const reason = storeInteractionBlockReason(ctx); if (reason) throw httpError(reason,409);
     await tx.execute(sql`SELECT id FROM team WHERE id=${ctx.team_id}::uuid FOR UPDATE`);
-    const found = await tx.execute(sql`SELECT i.*, d.buy_price FROM item_instance i JOIN item_def d ON d.key=i.definition_id WHERE i.id=${input.itemInstanceId}::uuid AND i.owner_type='TEAM' AND i.owner_id=${ctx.team_id}::uuid FOR UPDATE`);
-    const item = (found.rows as Array<{definition_id:string;quantity:number;is_equipped:boolean;is_bound:boolean;is_quest_locked:boolean;buy_price:number|null}>)[0];
+    const found = await tx.execute(sql`SELECT i.*, d.buy_price,d.rarity,d.category definition_category FROM item_instance i JOIN item_def d ON d.key=i.definition_id WHERE i.id=${input.itemInstanceId}::uuid AND i.owner_type='TEAM' AND i.owner_id=${ctx.team_id}::uuid FOR UPDATE`);
+    const item = (found.rows as Array<{definition_id:string;quantity:number;is_equipped:boolean;is_bound:boolean;is_quest_locked:boolean;buy_price:number|null;rarity:string;definition_category:string}>)[0];
     if (!item) throw httpError("Gegenstand nicht im Team-Inventar gefunden.",404);
     if (item.is_equipped || item.is_bound || item.is_quest_locked) throw httpError("Gebundene, Quest- oder ausgerüstete Gegenstände können nicht verkauft werden.",409);
+    if(item.definition_category!=="EQUIPMENT") throw httpError("Nur normale Ausrüstung kann verkauft werden.",409);
+    if(item.rarity!=="N"&&!input.confirmed) throw httpError("R und höhere Ausrüstung muss ausdrücklich bestätigt werden.",409);
     if (item.quantity < input.quantity) throw httpError("Nicht genügend Gegenstände vorhanden.",409);
     if (item.buy_price == null) throw httpError("Für diesen Gegenstand existiert kein Referenzpreis.",409);
     const unitPrice=calculateStoreSellPrice(item.buy_price); const total=unitPrice*input.quantity;

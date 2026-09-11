@@ -117,6 +117,11 @@
     { "idx": 22, "version": "7", "when": 1789056001008, "tag": "0014_fame_tiers_and_regeneration", "breakpoints": true },
     { "idx": 23, "version": "7", "when": 1789056001009, "tag": "0014_gdd_class_system", "breakpoints": true },
     { "idx": 24, "version": "7", "when": 1789056001010, "tag": "0015_derive_player_stats", "breakpoints": true },
-    { "idx": 25, "version": "7", "when": 1789056001011, "tag": "0016_gdd_combat_lifecycle", "breakpoints": true }
+    { "idx": 25, "version": "7", "when": 1789056001011, "tag": "0016_gdd_combat_lifecycle", "breakpoints": true },
+    { "idx": 26, "version": "7", "when": 1789056001012, "tag": "0016_gdd_store", "breakpoints": true },
+    { "idx": 27, "version": "7", "when": 1789056001013, "tag": "0016_quest_repeatability", "breakpoints": true },
+    { "idx": 28, "version": "7", "when": 1789056001014, "tag": "0017_media_submission_step", "breakpoints": true },
+    { "idx": 29, "version": "7", "when": 1789056001015, "tag": "0018_item_quest_category", "breakpoints": true },
+    { "idx": 30, "version": "7", "when": 1789056001016, "tag": "0019_gdd_items_complete", "breakpoints": true }
   ]
 }

@@ -72,6 +72,28 @@ function httpError(message: string, statusCode: number): Error & { statusCode: n
   return Object.assign(new Error(message), { statusCode });
 }
 
+/** Delivers the exact quest-locked team item required by a USE_ITEM objective. */
+export async function deliverQuestItem(opts:{accountId:string;questRunId:string;stepId:string;itemInstanceId:string}) {
+  const player=await resolvePlayer(opts.accountId);
+  return db.transaction(async tx=>{
+    const result=await tx.execute(sql`SELECT qr.id,qs.target_ref,i.id item_id,i.definition_id,i.quantity
+      FROM quest_run qr JOIN quest_step qs ON qs.quest_definition_id=qr.quest_definition_id
+      JOIN item_instance i ON i.id=${opts.itemInstanceId}::uuid
+      WHERE qr.id=${opts.questRunId}::uuid AND qr.team_id=${player.teamId}::uuid AND qr.state='ACTIVE'
+        AND qs.step_id=${opts.stepId} AND qs.step_action_type='USE_ITEM'
+        AND i.owner_type='TEAM' AND i.owner_id=qr.team_id AND i.category='QUEST' AND i.is_quest_locked=true
+        AND i.definition_id=qs.target_ref FOR UPDATE`);
+    const item=result.rows[0] as {item_id:string;quantity:number}|undefined;
+    if(!item) throw httpError("Required quest item is unavailable",409);
+    await tx.execute(sql`UPDATE item_instance SET quantity=quantity-1,is_quest_locked=false WHERE id=${item.item_id}::uuid`);
+    await tx.execute(sql`DELETE FROM item_instance WHERE id=${item.item_id}::uuid AND quantity=0`);
+    await tx.execute(sql`INSERT INTO objective_progress(quest_run_id,objective_id,status,progress_count)
+      VALUES(${opts.questRunId}::uuid,${opts.stepId},'COMPLETED',1)
+      ON CONFLICT(quest_run_id,objective_id) DO UPDATE SET status='COMPLETED',progress_count=1`);
+    return {status:"COMPLETED" as const,stepId:opts.stepId};
+  });
+}
+
 /**
  * Validate and persist class content. This is deliberately separate from main
  * quest steps: a class condition can therefore never become a completion guard.

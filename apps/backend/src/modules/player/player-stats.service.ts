@@ -4,6 +4,7 @@ import { db } from "../../db/client.js";
 import { itemDefs, itemInstances } from "../../db/schema/economy_v2.js";
 import { players } from "../../db/schema/player.js";
 import { CLASSES } from "../classes/class-rules.js";
+import { effectiveItemStats } from "../economy/item-rules.js";
 
 type StatName = "hp" | "atk" | "def" | "initiative";
 type EquipmentStats = Partial<Record<StatName | `${StatName}Percent`, number>>;
@@ -71,10 +72,14 @@ function parseEquipmentStats(value: unknown): EquipmentStats {
 
 export async function getPlayerStats(player: typeof players.$inferSelect): Promise<CharacterStats> {
   if (!player.class) throw new Error("PLAYER_CLASS_NOT_CONFIRMED");
-  const equipped = await db.select({ stats: itemDefs.stats }).from(itemInstances)
+  const equipped = await db.select({ stats: itemDefs.stats, rarity: itemDefs.rarity }).from(itemInstances)
     .innerJoin(itemDefs, eq(itemDefs.key, itemInstances.definitionId))
     .where(and(eq(itemInstances.ownerId, player.id), eq(itemInstances.isEquipped, true)));
-  const equipment = equipped.map(({ stats }) => parseEquipmentStats(stats)).reduce<EquipmentStats>(
+  const equipment = equipped.map(({ stats, rarity }) => {
+    const item = effectiveItemStats(stats, rarity);
+    return { hp: item.maxHP, atk: item.ATK, def: item.DEF, initiative: item.INIT,
+      healingPercent: item.healingPercent } as EquipmentStats;
+  }).reduce<EquipmentStats>(
     (total, stats) => {
       for (const [key, value] of Object.entries(stats)) {
         total[key as keyof EquipmentStats] = (total[key as keyof EquipmentStats] ?? 0) + value;
