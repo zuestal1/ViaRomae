@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { AbilityDefinitionSchema } from "./ability.js";
 
 export const ClassIdSchema = z.enum(["guard", "cleric", "sculptor", "condottiere"]);
 export type ClassId = z.infer<typeof ClassIdSchema>;
@@ -21,7 +22,7 @@ export const AbilitySchema = z.object({
 export const ClassDefinitionSchema = z.object({
   id: ClassIdSchema, name: z.string(), aliases: z.array(z.string()),
   baseStats: z.object({ maxHP: z.number(), atk: z.number(), def: z.number(), initiative: z.number() }),
-  slots: z.array(EquipmentSlotSchema).length(4), abilities: z.array(AbilitySchema).length(4),
+  slots: z.array(EquipmentSlotSchema).length(4), abilities: z.array(AbilityDefinitionSchema).length(4),
 });
 
 export const CharacterStateSchema = z.object({

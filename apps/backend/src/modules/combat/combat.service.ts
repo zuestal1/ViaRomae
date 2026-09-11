@@ -33,14 +33,15 @@ import {
   type CombatStats,
   type EquipmentRarity,
 } from "./combat-calculation.js";
-import type { ClassId, PlayerClass } from "@jlw/contracts";
-import { ABILITY_DEFINITIONS, CLASS_LOADOUTS, type AbilityClass, type AbilityDefinition, type AbilityId } from "@jlw/contracts";
+import type { ClassId } from "@jlw/contracts";
+import { ABILITY_DEFINITIONS, CLASS_LOADOUTS, type AbilityDefinition, type AbilityId } from "@jlw/contracts";
 import type { StatusEffect } from "@jlw/contracts";
 import { materializeHealthRegeneration, markTeamRegenStopped } from "./health-regeneration.service.js";
 import { getPlayerStats } from "../player/player-stats.service.js";
 import { resolveCombatConsumable } from "../economy/consumable.service.js";
 import { effectiveItemStats } from "../economy/item-rules.js";
 import { resolveDefeatEnemy } from "../quest/quest.service.js";
+import { abilitiesForClass, CLASS_ABILITY_CLASSES } from "../classes/class-rules.js";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -333,7 +334,7 @@ export async function getCombatInstance(combatId: string): Promise<CombatInstanc
       profile.stats.damageDealtPercent = (profile.stats.damageDealtPercent ?? 0) + c.modeMultiplier - 1;
       profile.stats.healingPercent = (profile.stats.healingPercent ?? 0) + c.modeMultiplier - 1;
     }
-    const abilityDefinitions = abilityClass ? CLASS_LOADOUTS[abilityClass].map((id) => ABILITY_DEFINITIONS[id]) : [];
+    const abilityDefinitions = playerClass ? abilitiesForClass(playerClass) : [];
     return {
       id: c.id, entityType: c.entityType as "PLAYER" | "ENEMY", entityId: c.entityId,
       teamId: c.teamId ?? undefined, hpCurrent: Math.min(c.hpCurrent, hpMax), hpMax,
@@ -378,11 +379,8 @@ export async function getCombatInstance(combatId: string): Promise<CombatInstanc
   };
 }
 
-function toAbilityClass(playerClass: string): AbilityClass | undefined {
-  const mapping: Record<PlayerClass, AbilityClass> = {
-    guard: "GARDIST", cleric: "MONASTIC", sculptor: "SCULPTOR", condottiere: "CONDOTTIERE",
-  };
-  return mapping[playerClass as PlayerClass];
+function toAbilityClass(playerClass: string) {
+  return CLASS_ABILITY_CLASSES[playerClass as ClassId];
 }
 
 /**

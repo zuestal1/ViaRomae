@@ -1,4 +1,4 @@
-import type { ClassId } from "@jlw/contracts";
+import { ABILITY_DEFINITIONS, CLASS_LOADOUTS, type AbilityClass, type ClassId } from "@jlw/contracts";
 
 export const SLOTS = ["WEAPON", "CLOTHING", "DEFENSE", "ARTIFACT"] as const;
 export const STARTER_WEAPONS = {
@@ -12,31 +12,19 @@ export const REGEN_SECONDS = 900;
 export const STAT_PERCENT_CAP = { min: -0.6, max: 1 } as const;
 
 export const CLASSES = {
-  guard: { id: "guard", name: "Schweizer Gardist", aliases: [], baseStats: { maxHP: 120, atk: 8, def: 14, initiative: 8 }, abilities: [
-    { id: "halberd_thrust", name: "Hellebardenstoss", kind: "BASIC", targets: ["ENEMY"], cooldownRounds: 0, multiplier: 1, threatMultiplier: 1.5 },
-    { id: "bodyguard", name: "Leibwache", kind: "ACTIVE", targets: ["ALLY"], cooldownRounds: 2, redirect: .6, duration: "UNTIL_NEXT_OWN_ACTION" },
-    { id: "shield_wall", name: "Schildwall", kind: "ACTIVE", targets: ["ALL_ACTIVE_ALLIES"], cooldownRounds: 3, damageTakenPercent: -.3, durationRounds: 1 },
-    { id: "steadfast", name: "Standhaft", kind: "PASSIVE", targets: ["SELF"], cooldownRounds: 0, damageTakenPercent: -.1 },
-  ]},
-  cleric: { id: "cleric", name: "Nonne / Mönch", aliases: ["Nonne", "Mönch"], baseStats: { maxHP: 90, atk: 7, def: 9, initiative: 10 }, abilities: [
-    { id: "pilgrim_staff", name: "Pilgerstab", kind: "BASIC", targets: ["ENEMY"], cooldownRounds: 0, multiplier: 1 },
-    { id: "pilgrim_blessing", name: "Pilgersegen", kind: "ACTIVE", targets: ["SELF", "ALLY"], cooldownRounds: 2, healBase: 20, healAtkMultiplier: 1.5 },
-    { id: "intercession", name: "Fürbitte", kind: "ACTIVE", targets: ["SELF", "ALLY"], cooldownRounds: 3, dispels: 1, shield: 10 },
-    { id: "mercy", name: "Barmherzigkeit", kind: "PASSIVE", targets: ["SELF"], cooldownRounds: 0, revivePercent: .5 },
-  ]},
-  sculptor: { id: "sculptor", name: "Bildhauer", aliases: [], baseStats: { maxHP: 100, atk: 11, def: 10, initiative: 8 }, abilities: [
-    { id: "chisel_strike", name: "Meisselschlag", kind: "BASIC", targets: ["ENEMY"], cooldownRounds: 0, multiplier: 1 },
-    { id: "weak_spot", name: "Schwachstelle", kind: "ACTIVE", targets: ["ENEMY"], cooldownRounds: 2, multiplier: .7, defPercent: -.25, durationRounds: 2 },
-    { id: "marble_dust", name: "Marmorstaub", kind: "ACTIVE", targets: ["ENEMY"], cooldownRounds: 3, damageDealtPercent: -.35, remainingTriggers: 1 },
-    { id: "masterful_eye", name: "Meisterliches Auge", kind: "PASSIVE", targets: ["SELF"], cooldownRounds: 0, optionalContentTags: ["ART", "FOUNTAIN", "CHURCH", "STATUE", "ARCHITECTURE"] },
-  ]},
-  condottiere: { id: "condottiere", name: "Condottiere", aliases: [], baseStats: { maxHP: 100, atk: 14, def: 8, initiative: 12 }, abilities: [
-    { id: "blade_slash", name: "Klingenhieb", kind: "BASIC", targets: ["ENEMY"], cooldownRounds: 0, multiplier: 1 },
-    { id: "duel", name: "Duell", kind: "ACTIVE", targets: ["ENEMY"], cooldownRounds: 2, multiplier: 1.6, selfDamageTakenPercent: .15, duration: "UNTIL_NEXT_OWN_ACTION" },
-    { id: "finisher", name: "Finisher", kind: "ACTIVE", targets: ["ENEMY"], cooldownRounds: 3, multiplier: 2.2, maxTargetHpRatio: .3 },
-    { id: "blood_in_water", name: "Blut im Wasser", kind: "PASSIVE", targets: ["ENEMY"], cooldownRounds: 0, damageDealtPercent: .15, maxTargetHpRatioExclusive: .3 },
-  ]},
+  guard: { id: "guard", name: "Schweizer Gardist", aliases: [], baseStats: { maxHP: 120, atk: 8, def: 14, initiative: 8 } },
+  cleric: { id: "cleric", name: "Nonne / Mönch", aliases: ["Nonne", "Mönch"], baseStats: { maxHP: 90, atk: 7, def: 9, initiative: 10 } },
+  sculptor: { id: "sculptor", name: "Bildhauer", aliases: [], baseStats: { maxHP: 100, atk: 11, def: 10, initiative: 8 } },
+  condottiere: { id: "condottiere", name: "Condottiere", aliases: [], baseStats: { maxHP: 100, atk: 14, def: 8, initiative: 12 } },
 } as const;
+
+export const CLASS_ABILITY_CLASSES: Readonly<Record<ClassId, AbilityClass>> = Object.freeze({
+  guard: "GARDIST", cleric: "MONASTIC", sculptor: "SCULPTOR", condottiere: "CONDOTTIERE",
+});
+
+/** Returns the canonical ability objects shared by class, auth, and combat responses. */
+export const abilitiesForClass = (classId: ClassId) =>
+  CLASS_LOADOUTS[CLASS_ABILITY_CLASSES[classId]].map((id) => ABILITY_DEFINITIONS[id]);
 
 export type Stats = { maxHP: number; atk: number; def: number; initiative: number };
 export function deriveStats(classId: ClassId, equipment: Partial<Stats> = {}, fameHP = 0, permanent: Partial<Stats> = {}, temporary: Partial<Stats> = {}, percentages: Partial<Record<keyof Stats, number>> = {}): Stats {

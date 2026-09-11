@@ -13,15 +13,11 @@ import { eq, inArray } from "drizzle-orm";
 import { db } from "../../db/client.js";
 import { accounts, sessions } from "../../db/schema/account.js";
 import { players, teams } from "../../db/schema/player.js";
-import { ABILITY_DEFINITIONS, CLASS_LOADOUTS, type AbilityClass, type MeResponse, type PlayerClass } from "@jlw/contracts";
+import { type MeResponse, type PlayerClass } from "@jlw/contracts";
 import { getTeamBalance } from "../economy/ledger.service.js";
 import { itemDefs, itemInstances } from "../../db/schema/economy_v2.js";
-import { CLASSES } from "../classes/class-rules.js";
+import { abilitiesForClass, CLASSES } from "../classes/class-rules.js";
 import { getPlayerStats } from "../player/player-stats.service.js";
-
-const abilityClass = (playerClass: PlayerClass): AbilityClass => ({
-  guard: "GARDIST", cleric: "MONASTIC", sculptor: "SCULPTOR", condottiere: "CONDOTTIERE",
-})[playerClass] as AbilityClass;
 
 const CLASS_ICONS: Record<PlayerClass, string> = {
   guard: "🛡️", cleric: "🙏", sculptor: "🗿", condottiere: "⚔️",
@@ -174,9 +170,10 @@ export async function getMe(accountId: string): Promise<MeResponse> {
   const equipped = await db.select({ slot: itemInstances.slot, name: itemDefs.name })
     .from(itemInstances).leftJoin(itemDefs, eq(itemInstances.definitionId, itemDefs.key))
     .where(eq(itemInstances.ownerId, player.id));
-  const stats = player.class ? await getPlayerStats(player) : { hpMax: 100, atk: 0, def: 0, initiative: 0 };
-  const abilities = player.class ? CLASS_LOADOUTS[abilityClass(player.class)].map((id) => ABILITY_DEFINITIONS[id]) : [];
-  const passive = abilities.find((ability) => ability.passive);
+  if (!player.class) throw Object.assign(new Error("Klasse noch nicht bestätigt."), { statusCode: 409 });
+  const stats = await getPlayerStats(player);
+  const abilities = abilitiesForClass(player.class);
+  const passive = abilities.find((ability) => ability.passive)!;
 
   return {
     account: { id: account.id, username: account.username, role: account.role },
