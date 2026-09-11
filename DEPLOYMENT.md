@@ -251,7 +251,7 @@ server {
     }
 
     # WebSocket Support
-    location /ws {
+    location = /api/v1/geo/ws {
         proxy_pass http://localhost:3000;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
@@ -372,8 +372,9 @@ curl https://gm.jlw2026.example.com
 # PostgreSQL
 docker compose -f docker-compose.production.yml exec postgres psql -U postgres -d jugendleiter2026 -c "SELECT version();"
 
-# WebSocket
-wscat -c ws://localhost:3000/ws
+# WebSocket über den öffentlichen Spieler-vHost (erwartet HTTP 101)
+WS_TOKEN=<player-jwt> PLAYER_BASE_URL=https://jlw2026.example.com \
+  ./scripts/test-websocket-deployment.sh
 ```
 
 ---
