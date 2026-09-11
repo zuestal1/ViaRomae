@@ -49,8 +49,9 @@ services:
       - ./docs/Via_Romae_Pfaeffikon_Prototype_Questdoc_v0.1.pdf:/app/data/questdoc.pdf:ro
       # Synchronisiert den Content-Ordner direkt zwischen Windows und Container:
       - ./apps/backend/content:/app/apps/backend/content
-      # Führt Migrationen vor dem Start des Node-Prozesses aus:
-      command: sh -c "pnpm db:migrate && node dist/index.js"
+
+    # Führt Migrationen vor dem Start des Node-Prozesses aus:
+    command: sh -c "pnpm db:migrate && node dist/index.js"
   # ── Frontend (PROTOTYPE) ────────────────────────────────────────────────────
   frontend-prototype:
     build:
