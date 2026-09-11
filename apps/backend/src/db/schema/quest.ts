@@ -8,7 +8,10 @@ import {
   text,
   boolean,
   unique,
+  uniqueIndex,
+  check,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { players, teams } from "./player.js";
 import { worldObjects } from "./world.js";
 
@@ -102,7 +105,14 @@ export const questDefinitions = pgTable("quest_definition", {
    * (story_conflict, dramatic_arc, ordered_candidate_ids, …).
    */
   contentJson: text("content_json").notNull().default("{}"),
-});
+
+  /** Explicit opt-in: completed quests are not repeatable by default. */
+  repeatable: boolean("repeatable").notNull().default(false),
+  /** Minimum time after completion before a repeatable quest can be accepted. */
+  repeatCooldownSeconds: integer("repeat_cooldown_seconds"),
+}, (table) => [
+  check("quest_definition_repeat_cooldown_nonnegative", sql`${table.repeatCooldownSeconds} IS NULL OR ${table.repeatCooldownSeconds} >= 0`),
+]);
 
 // ── QuestRun ──────────────────────────────────────────────────────────────────
 
@@ -122,7 +132,12 @@ export const questRuns = pgTable("quest_run", {
   acceptedAt: timestamp("accepted_at", { withTimezone: true }),
   /** Set when state transitions to COMPLETED or FAILED. */
   completedAt: timestamp("completed_at", { withTimezone: true }),
-});
+}, (table) => [
+  /** Last line of defence in addition to acceptQuest's transactional team lock. */
+  uniqueIndex("quest_run_team_definition_open_unique")
+    .on(table.teamId, table.questDefinitionId)
+    .where(sql`${table.state} IN ('ACTIVE', 'PENDING_REVIEW')`),
+]);
 
 // ── ObjectiveProgress ─────────────────────────────────────────────────────────
 

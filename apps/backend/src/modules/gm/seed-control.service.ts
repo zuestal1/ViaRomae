@@ -296,6 +296,8 @@ export class SeedControlService {
         type: this.mapQuestType(props.quest_type),
         day: props.day,
         contentJson,
+        repeatable: Boolean((props as any).repeatable),
+        repeatCooldownSeconds: (props as any).repeat_cooldown_seconds ?? null,
       })
       .onConflictDoUpdate({
         target: questDefinitions.externalId,
@@ -304,6 +306,8 @@ export class SeedControlService {
           type: this.mapQuestType(props.quest_type),
           day: props.day,
           contentJson,
+          repeatable: Boolean((props as any).repeatable),
+          repeatCooldownSeconds: (props as any).repeat_cooldown_seconds ?? null,
         },
       });
   }
