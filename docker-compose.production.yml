@@ -53,6 +53,8 @@ services:
         condition: service_completed_successfully
       seed-content:
         condition: service_completed_successfully
+      roster-import:
+        condition: service_completed_successfully
       release-preflight:
         condition: service_completed_successfully
       minio:
@@ -102,6 +104,27 @@ services:
     networks:
       - jlw_network
 
+  # Kontrollierter One-shot: prüft die freigegebene Datei und importiert sie idempotent.
+  roster-import:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    restart: "no"
+    command: ["pnpm", "run", "roster:import"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      ROSTER_FILE: /run/roster/roster.json
+      ROSTER_SHA256: ${ROSTER_SHA256}
+      EXPECTED_PLAYER_COUNT: ${EXPECTED_PLAYER_COUNT}
+      EXPECTED_TEAM_COUNT: ${EXPECTED_TEAM_COUNT}
+    volumes:
+      - ${ROSTER_FILE:?ROSTER_FILE must point to an approved roster}:/run/roster/roster.json:ro
+    depends_on:
+      seed-content:
+        condition: service_completed_successfully
+    networks:
+      - jlw_network
+
   release-preflight:
     build:
       context: .
@@ -113,7 +136,7 @@ services:
       EXPECTED_PLAYER_COUNT: ${EXPECTED_PLAYER_COUNT:-13}
       EXPECTED_TEAM_COUNT: ${EXPECTED_TEAM_COUNT:-4}
     depends_on:
-      seed-content:
+      roster-import:
         condition: service_completed_successfully
     networks:
       - jlw_network
