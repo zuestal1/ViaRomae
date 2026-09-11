@@ -27,3 +27,20 @@ test("combat resolver applies all combat consumable mechanics",()=>{
   for(const key of ["wetzstein_legionaer","rauchkugel","geweihter_weihrauch","adlerstandarte","notfallreliquie"])
     assert.match(service,new RegExp(key));
 });
+
+test("quest content migrations precede the QUEST enum conversion and final item migration",()=>{
+  const journal=JSON.parse(readFileSync(new URL("../src/db/migrations/meta/_journal.json",import.meta.url),"utf8")) as
+    {entries:Array<{idx:number;tag:string}>};
+  const tags=journal.entries.map(entry=>entry.tag);
+  assert.ok(tags.indexOf("0018_gdd_quest_content")<tags.indexOf("0018_item_quest_category"));
+  assert.ok(tags.indexOf("0018_item_quest_category")<tags.indexOf("0019_gdd_items_complete"));
+  assert.equal(new Set(journal.entries.map(entry=>entry.idx)).size,journal.entries.length);
+});
+
+test("generic quest actions cannot bypass atomic quest-item delivery",()=>{
+  const service=readFileSync(new URL("../src/modules/quest/quest.service.ts",import.meta.url),"utf8");
+  const directAction=service.slice(service.indexOf("export async function performQuestAction"),
+    service.indexOf("// ── Internal: mark one objective",service.indexOf("export async function performQuestAction")));
+  assert.doesNotMatch(directAction,/\[.*"USE_ITEM".*\]/s);
+  assert.match(service,/i\.category='QUEST'.*i\.is_quest_locked=true/s);
+});

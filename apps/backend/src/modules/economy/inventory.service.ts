@@ -176,10 +176,11 @@ export async function assignLoot(opts: {
           else {
           await tx.execute(sql`
             INSERT INTO item_instance
-              (id, definition_id, owner_type, owner_id, quantity, category, slot, is_equipped, is_bound,is_quest_locked)
+              (id, definition_id, owner_type, owner_id, quantity, category, slot, is_equipped, is_bound, is_quest_locked)
             VALUES (
               gen_random_uuid(), ${it.defKey}, ${ownerType}::owner_type, ${ownerId}::uuid,
-              ${amount}, ${category}::item_category, ${slot}::item_slot, false, false,${category === "QUEST"}
+              ${amount}, ${category}::item_category, ${slot}::item_slot, false,
+              ${it.defKey.startsWith("qi_")}, ${category === "QUEST" || it.defKey.startsWith("qi_")}
             )
           `);}
           remaining-=amount;
@@ -188,10 +189,11 @@ export async function assignLoot(opts: {
         for (let i = 0; i < it.quantity; i++) {
           await tx.execute(sql`
             INSERT INTO item_instance
-              (id, definition_id, owner_type, owner_id, quantity, category, slot, is_equipped, is_bound,is_quest_locked)
+              (id, definition_id, owner_type, owner_id, quantity, category, slot, is_equipped, is_bound, is_quest_locked)
             VALUES (
               gen_random_uuid(), ${it.defKey}, ${ownerType}::owner_type, ${ownerId}::uuid,
-              1, ${category}::item_category, ${slot}::item_slot, false, false,${category === "QUEST"}
+              1, ${category}::item_category, ${slot}::item_slot, false,
+              ${it.defKey.startsWith("qi_")}, ${category === "QUEST" || it.defKey.startsWith("qi_")}
             )
           `);
         }

@@ -13,7 +13,8 @@ export function MediaInbox() {
   const queryClient = useQueryClient();
   const [selectedSubmission, setSelectedSubmission] =
     useState<MediaSubmissionWithTeam | null>(null);
-  const [score, setScore] = useState(5);
+  const [criteria, setCriteria] = useState({ taskLocation: 2, storyRoles: 1, creativity: 1, execution: 1 });
+  const score = Object.values(criteria).reduce((sum, value) => sum + value, 0);
   const [reason, setReason] = useState("");
 
   // Fetch pending submissions
@@ -35,21 +36,23 @@ export function MediaInbox() {
     mutationFn: async ({
       submissionId,
       score,
+      criteria,
       reason,
     }: {
       submissionId: string;
       score: number;
+      criteria: { taskLocation: number; storyRoles: number; creativity: number; execution: number };
       reason?: string;
     }) => {
       const res = await fetch(
-        `${API_BASE}/api/v1/media/submissions/${submissionId}/review`,
+        `${API_BASE}/api/v1/media/${submissionId}/review`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${localStorage.getItem("gm_token")}`,
           },
-          body: JSON.stringify({ score, reason }),
+          body: JSON.stringify({ score, criteria, reason }),
         },
       );
       if (!res.ok) throw new Error("Failed to submit review");
@@ -58,7 +61,7 @@ export function MediaInbox() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["gm", "media-inbox"] });
       setSelectedSubmission(null);
-      setScore(5);
+      setCriteria({ taskLocation: 2, storyRoles: 1, creativity: 1, execution: 1 });
       setReason("");
     },
   });
@@ -68,10 +71,12 @@ export function MediaInbox() {
     const payload: {
       submissionId: string;
       score: number;
+      criteria: { taskLocation: number; storyRoles: number; creativity: number; execution: number };
       reason?: string;
     } = {
       submissionId: selectedSubmission.id,
       score,
+      criteria,
     };
     if (reason) {
       payload.reason = reason;
@@ -134,33 +139,22 @@ export function MediaInbox() {
                 <p className="text-sm text-slate-400">
                   Object Key: <code className="text-xs">{selectedSubmission.objectKey}</code>
                 </p>
-                <p className="text-xs text-slate-500 mt-2">
-                  Media preview would be loaded here from S3
-                </p>
+                {selectedSubmission.previewUrl && selectedSubmission.mimeType.startsWith("image/") &&
+                  <img src={selectedSubmission.previewUrl} alt="Eingereichtes Questmedium" className="mt-3 max-h-[55vh] w-full rounded object-contain" />}
+                {selectedSubmission.previewUrl && selectedSubmission.mimeType.startsWith("video/") &&
+                  <video src={selectedSubmission.previewUrl} controls className="mt-3 max-h-[55vh] w-full rounded" />}
               </div>
 
-              {/* Score input */}
+              {/* GDD 4.13 rubric */}
               <div className="mb-6">
                 <label className="block text-sm font-medium mb-2">
-                  Score (0-10)
+                  GDD-Bewertungsraster (0–10): {score}
                 </label>
-                <div className="flex items-center gap-4">
-                  <input
-                    type="range"
-                    min="0"
-                    max="10"
-                    value={score}
-                    onChange={(e) => setScore(Number(e.target.value))}
-                    className="flex-1"
-                  />
-                  <span className="text-2xl font-bold w-12 text-center">
-                    {score}
-                  </span>
-                </div>
-                <div className="flex justify-between text-xs text-slate-400 mt-1">
-                  <span>Rejected (0-4)</span>
-                  <span>Approved (5-10)</span>
-                </div>
+                {([['taskLocation','Aufgabe / Ort',2],['storyRoles','Geschichte / Rollen',3],['creativity','Kreativität',3],['execution','Ausführung / Vollständigkeit',2]] as const).map(([key,label,max]) =>
+                  <label key={key} className="mb-3 block text-sm text-slate-300">{label}: {criteria[key]}/{max}
+                    <input className="mt-1 w-full" type="range" min="0" max={max} value={criteria[key]}
+                      onChange={(event) => setCriteria((old) => ({ ...old, [key]: Number(event.target.value) }))} />
+                  </label>)}
               </div>
 
               {/* Reason input */}

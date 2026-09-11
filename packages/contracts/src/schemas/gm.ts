@@ -163,6 +163,9 @@ export const MediaSubmissionWithTeamSchema = z.object({
   teamName: z.string(),
   questRunId: z.string().uuid(),
   objectKey: z.string(),
+  mimeType: z.string(),
+  fileSizeBytes: z.number().int().nonnegative(),
+  previewUrl: z.string().url().optional(),
   status: z.enum(["UPLOADING", "RECEIVED", "IN_REVIEW", "APPROVED", "REJECTED"]),
   submittedAt: z.string().datetime(),
 });

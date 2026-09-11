@@ -121,7 +121,8 @@
     { "idx": 26, "version": "7", "when": 1789056001012, "tag": "0016_gdd_store", "breakpoints": true },
     { "idx": 27, "version": "7", "when": 1789056001013, "tag": "0016_quest_repeatability", "breakpoints": true },
     { "idx": 28, "version": "7", "when": 1789056001014, "tag": "0017_media_submission_step", "breakpoints": true },
-    { "idx": 29, "version": "7", "when": 1789056001015, "tag": "0018_item_quest_category", "breakpoints": true },
-    { "idx": 30, "version": "7", "when": 1789056001016, "tag": "0019_gdd_items_complete", "breakpoints": true }
+    { "idx": 29, "version": "7", "when": 1789123200000, "tag": "0018_gdd_quest_content", "breakpoints": true },
+    { "idx": 30, "version": "7", "when": 1789123200001, "tag": "0018_item_quest_category", "breakpoints": true },
+    { "idx": 31, "version": "7", "when": 1789123200002, "tag": "0019_gdd_items_complete", "breakpoints": true }
   ]
 }
