@@ -2,7 +2,32 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const sql = await readFile(new URL("../src/db/migrations/0014_gdd_class_system.sql",import.meta.url),"utf8");
-test("database atomically prevents a duplicate class per team",()=>assert.match(sql,/UNIQUE INDEX[\s\S]*\(team_id, class\)/i));
-test("database persists binding and an auditable GM correction",()=>{ assert.match(sql,/class_bound_at/); assert.match(sql,/player_class_audit/); assert.match(sql,/previous_class/); assert.match(sql,/gm_account_id/); assert.match(sql,/reason text NOT NULL/); });
-test("database catalog migration contains precisely all new technical ids",()=>{ for(const id of ["guard","cleric","sculptor","condottiere"]) assert.match(sql,new RegExp(`'${id}'`)); });
+const read = (path: string) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
+
+test("current schema exposes the partial uniqueness invariant for confirmed choices", async () => {
+  const schema = await read("src/db/schema/player.ts");
+  assert.match(schema, /uniqueIndex\("player_team_confirmed_class_unique"\)/);
+  assert.match(schema, /\.on\(table\.teamId, table\.class\)/);
+  assert.match(schema, /where\(sql`\$\{table\.classConfirmed\} = true AND \$\{table\.class\} IS NOT NULL`\)/);
+});
+
+test("current architecture persists GM overrides in shared auditEvents", async () => {
+  const auditSchema = await read("src/db/schema/media.ts");
+  const service = await read("src/modules/player/class-selection.service.ts");
+  assert.match(auditSchema, /export const auditEvents = pgTable\("audit_event"/);
+  assert.match(service, /insert\(auditEvents\)/);
+  assert.match(service, /action: "CLASS_ASSIGNMENT_OVERRIDE"/);
+});
+
+test("transactional service locks teams, handles index conflicts, and grants starter weapons", async () => {
+  const service = await read("src/modules/player/class-selection.service.ts");
+  assert.match(service, /FOR UPDATE/);
+  assert.match(service, /code\?: string \}\)\.code === "23505"/);
+  assert.match(service, /grantStarterWeapon\(player\.id, STARTER_WEAPONS\[playerClass\]\.id\)/);
+});
+
+test("active class migration creates the partial index rather than the legacy unconditional index", async () => {
+  const migration = await read("src/db/migrations/0014_class_assignment.sql");
+  assert.match(migration, /player_team_confirmed_class_unique[\s\S]*WHERE "class_confirmed" = true AND "class" IS NOT NULL/);
+  assert.doesNotMatch(migration, /player_class_audit/);
+});
