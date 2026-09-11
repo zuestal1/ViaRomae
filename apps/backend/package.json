@@ -15,6 +15,7 @@
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx scripts/seed-test-account.ts",
     "seed": "tsx scripts/seed.ts",
+    "roster:import": "tsx scripts/import-roster.ts",
     "release:preflight": "tsx scripts/release-preflight.ts",
     "seed:dev": "cross-env SEED_SKIP_FILTER=true tsx scripts/seed.ts",
     "seed:prototype": "tsx scripts/seed-prototype-pfaeffikon-fixed.ts",
