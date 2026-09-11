@@ -10,6 +10,7 @@ import websocketPlugin from "@fastify/websocket";
 import { authRoutes } from "./modules/auth/auth.routes.js";
 import { geoRoutes } from "./modules/geo/geo.routes.js";
 import { questRoutes } from "./modules/quest/quest.routes.js";
+import { recoverQuestTimers } from "./modules/quest/quest.service.js";
 import { combatRoutes } from "./modules/combat/combat.routes.js";
 import { bossRoutes } from "./modules/combat/boss.routes.js";
 import { economyRoutes } from "./modules/economy/economy.routes.js";
@@ -133,7 +134,8 @@ server.get("/health/ws", async () => ({
 
 // ── Start ─────────────────────────────────────────────────────────────────────
 try {
-  await recoverCombatTimers(wsHub);
+await recoverCombatTimers(wsHub);
+await recoverQuestTimers();
   await server.listen({ port: PORT, host: HOST });
   server.log.info(`Server running at http://${HOST}:${PORT}`);
 } catch (err) {

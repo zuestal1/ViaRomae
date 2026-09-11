@@ -40,7 +40,7 @@ interface QuestBottomSheetProps {
   playerLng?: number | undefined;
   playerAccuracy?: number | undefined;
   /** Callback when user taps "Annehmen" */
-  onAccept?: ((questDefinitionId: string) => Promise<void>) | undefined;
+  onAccept?: ((questDefinitionId: string, dialogueOptionId?: string) => Promise<void>) | undefined;
   /** Callback when user submits an answer */
   onSubmitAnswer?: ((
     questRunId: string,
@@ -54,7 +54,6 @@ interface QuestBottomSheetProps {
   ) => Promise<StepResult>) | undefined;
   /** Callback when user taps "Quest abschließen" */
   onComplete?: ((questRunId: string) => Promise<CompleteQuestResponse>) | undefined;
-  onDefeatEnemy?: ((questRunId: string, stepId: string) => Promise<StepResult>) | undefined;
   /** Close the sheet */
   onClose: () => void;
 }
@@ -71,11 +70,11 @@ export function QuestBottomSheet({
   onSubmitAnswer,
   onConfirmReach,
   onComplete,
-  onDefeatEnemy,
   onClose,
 }: QuestBottomSheetProps) {
   const queryClient = useQueryClient();
   const [answerInput, setAnswerInput] = useState("");
+  const [dialogueOptionId, setDialogueOptionId] = useState<string | undefined>();
   const [feedback, setFeedback] = useState<{
     text: string;
     ok: boolean;
@@ -139,7 +138,7 @@ export function QuestBottomSheet({
     if (!availableQuest || !onAccept) return;
     setIsLoading(true);
     try {
-      await onAccept(availableQuest.questDefinitionId);
+      await onAccept(availableQuest.questDefinitionId, dialogueOptionId);
       onClose();
     } catch (e) {
       setFeedback({ text: (e as Error).message, ok: false });
@@ -204,21 +203,25 @@ export function QuestBottomSheet({
     }
   }
 
-  async function handleDefeat() {
-    if (!activeRun?.currentStep || !onDefeatEnemy) return;
-    setIsLoading(true);
-    setFeedback(null);
+  async function handleDirectAction(optionId?: string) {
+    if (!activeRun?.currentStep) return;
+    setIsLoading(true); setFeedback(null);
     try {
-      const result = await onDefeatEnemy(activeRun.id, activeRun.currentStep.stepId);
-      setFeedback({
-        text: result.message,
-        ok: result.status === "COMPLETED",
-      });
-    } catch (e) {
-      setFeedback({ text: (e as Error).message, ok: false });
-    } finally {
-      setIsLoading(false);
-    }
+      const result = await api.post<StepResult>(`/quests/runs/${activeRun.id}/steps/${activeRun.currentStep.stepId}/action`, optionId ? { optionId } : {});
+      setFeedback({ text: result.message, ok: result.status === "COMPLETED" });
+      await queryClient.invalidateQueries({ queryKey: QUEST_QUERY_KEYS.active });
+    } catch (error) { setFeedback({ text: (error as Error).message, ok: false }); }
+    finally { setIsLoading(false); }
+  }
+
+  async function handleStartTimer(timerId: string) {
+    if (!activeRun) return;
+    setIsLoading(true);
+    try {
+      await api.post(`/quests/runs/${activeRun.id}/timers/${timerId}/start`, {});
+      await queryClient.invalidateQueries({ queryKey: QUEST_QUERY_KEYS.active });
+    } catch (error) { setFeedback({ text: (error as Error).message, ok: false }); }
+    finally { setIsLoading(false); }
   }
 
   async function handleComplete() {
@@ -303,6 +306,8 @@ export function QuestBottomSheet({
             isLoading={isLoading}
             feedback={feedback}
             onAccept={handleAccept}
+            selectedOptionId={dialogueOptionId}
+            onSelectOption={setDialogueOptionId}
             onClose={onClose}
           />
         )}
@@ -320,7 +325,8 @@ export function QuestBottomSheet({
             playerAccuracy={playerAccuracy}
             onAnswer={handleAnswer}
             onReach={handleReach}
-            onDefeat={handleDefeat}
+            onDirectAction={handleDirectAction}
+            onStartTimer={handleStartTimer}
             mediaSubmission={mediaSubmission}
             uploadProgress={uploadProgress}
             cameraInputRef={cameraInputRef}
@@ -354,12 +360,16 @@ function AvailableView({
   isLoading,
   feedback,
   onAccept,
+  selectedOptionId,
+  onSelectOption,
   onClose,
 }: {
   quest: QuestAvailable;
   isLoading: boolean;
   feedback: { text: string; ok: boolean } | null;
   onAccept: () => void;
+  selectedOptionId: string | undefined;
+  onSelectOption: (value: string) => void;
   onClose: () => void;
 }) {
   const isDialogue = quest.discoveryPhase === "DIALOGUE";
@@ -389,6 +399,23 @@ function AvailableView({
           ✕
         </button>
       </div>
+
+      {quest.offerDialogue && isDialogue && (
+        <div className="rounded-xl border border-[#cd7f32]/30 bg-black/20 p-4" role="dialog" aria-label={`Dialog mit ${quest.offerDialogue.speaker}`}>
+          <p className="text-xs font-bold text-[#cd7f32]">{quest.offerDialogue.speaker}</p>
+          {quest.offerDialogue.mood && <p className="text-[10px] italic text-white/40">{quest.offerDialogue.mood}</p>}
+          <p className="mt-2 text-sm leading-relaxed text-[#f4e4c1]">{quest.offerDialogue.text}</p>
+          <div className="mt-3 flex flex-col gap-2">
+            {quest.offerDialogue.options.map((option) => (
+              <button key={option.id} onClick={() => onSelectOption(option.id)}
+                className={`rounded-lg border p-3 text-left text-xs ${selectedOptionId === option.id ? "border-[#cd7f32] bg-[#cd7f32]/15" : "border-white/15 bg-white/5"}`}>
+                {option.text}
+                {selectedOptionId === option.id && <span className="mt-1 block text-white/50">{option.response}</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Location info */}
       <div className="flex items-center gap-2 rounded-lg bg-white/5 px-3 py-2">
@@ -433,7 +460,7 @@ function AvailableView({
         {isDialogue && (
           <button
             onClick={onAccept}
-            disabled={isLoading}
+            disabled={isLoading || Boolean(quest.offerDialogue && !selectedOptionId)}
             className="flex-1 rounded-xl bg-[#cd7f32] py-3 text-sm font-bold
                        text-[#1a1a2e] hover:bg-[#b8712d] disabled:opacity-50
                        transition active:scale-95"
@@ -444,6 +471,28 @@ function AvailableView({
       </div>
     </div>
   );
+}
+
+function QuestTimerView({ timer, runtime, disabled, onStart }: {
+  timer: QuestRunDetail["timers"][number];
+  runtime: { state: string; deadlineAt: string; consequence?: string } | undefined;
+  disabled: boolean; onStart: () => void;
+}) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    if (runtime?.state !== "RUNNING") return;
+    const id = window.setInterval(() => setNow(Date.now()), 250);
+    return () => window.clearInterval(id);
+  }, [runtime?.state, runtime?.deadlineAt]);
+  const remaining = runtime ? Math.max(0, Math.ceil((new Date(runtime.deadlineAt).getTime() - now) / 1000)) : timer.durationSec;
+  return <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 p-3" aria-live="polite">
+    <div className="flex justify-between"><strong className="text-sm text-amber-200">⏱ {timer.title}</strong><span className="font-mono text-amber-100">{remaining}s</span></div>
+    <p className="mt-1 text-xs text-white/60">{timer.startsWhen}</p>
+    <p className="mt-1 text-xs text-white/50">Bei Ablauf: {timer.onExpire}</p>
+    {!runtime && <button disabled={disabled} onClick={onStart} className="mt-2 rounded-lg bg-amber-300 px-3 py-2 text-xs font-bold text-black disabled:opacity-50">Timer starten</button>}
+    {runtime?.state === "EXPIRED" && <p className="mt-2 text-xs font-bold text-red-300">Zeit abgelaufen – die angekündigte Konsequenz ist aktiv.</p>}
+    {runtime?.state === "COMPLETED" && <p className="mt-2 text-xs font-bold text-green-300">Ziel rechtzeitig erfüllt.</p>}
+  </div>;
 }
 
 // ── Active view ───────────────────────────────────────────────────────────────
@@ -459,7 +508,8 @@ function ActiveView({
   playerAccuracy,
   onAnswer,
   onReach,
-  onDefeat,
+  onDirectAction,
+  onStartTimer,
   mediaSubmission,
   uploadProgress,
   cameraInputRef,
@@ -477,7 +527,8 @@ function ActiveView({
   playerAccuracy?: number | undefined;
   onAnswer: () => void;
   onReach: () => void;
-  onDefeat: () => void;
+  onDirectAction: (optionId?: string) => Promise<void>;
+  onStartTimer: (timerId: string) => Promise<void>;
   mediaSubmission: MediaSubmission | null;
   uploadProgress: number | null;
   cameraInputRef: React.RefObject<HTMLInputElement>;
@@ -490,6 +541,9 @@ function ActiveView({
     (o) => o.required && o.progress?.status === "COMPLETED",
   ).length;
   const total = run.objectives.filter((o) => o.required).length;
+  const dialogue = step ? run.dialogues.find((item) => item.sequenceId === step.targetRef) : undefined;
+  const timer = step ? run.timers.find((item) => item.stepId === step.stepId) : undefined;
+  const timerRuntime = timer ? (run.runtimeState.timers as Record<string, { state: string; deadlineAt: string; consequence?: string }> | undefined)?.[timer.id] : undefined;
 
   return (
     <div className="flex flex-col gap-4">
@@ -526,6 +580,29 @@ function ActiveView({
               </p>
             </div>
           </div>
+
+          {step.instruction && <p className="text-sm leading-relaxed text-[#f4e4c1]/90">{step.instruction}</p>}
+          {step.puzzle && (
+            <div className="rounded-lg border border-white/10 bg-black/20 p-3">
+              <p className="text-sm font-medium text-[#f4e4c1]">{step.puzzle.prompt}</p>
+              {step.puzzle.evidence && <p className="mt-2 text-xs text-white/50">Beobachtung: {step.puzzle.evidence}</p>}
+              <details className="mt-2 text-xs text-[#cd7f32]"><summary>Hinweise</summary>
+                <p className="mt-1 text-white/60">{step.puzzle.hint1}</p><p className="mt-1 text-white/60">{step.puzzle.hint2}</p>
+              </details>
+            </div>
+          )}
+
+          {timer && <QuestTimerView timer={timer} runtime={timerRuntime} disabled={isLoading} onStart={() => onStartTimer(timer.id)} />}
+
+          {dialogue && (
+            <div className="rounded-xl border border-[#cd7f32]/30 bg-black/20 p-3">
+              <p className="text-xs font-bold text-[#cd7f32]">{dialogue.speaker}</p>
+              <p className="mt-2 text-sm text-[#f4e4c1]">{dialogue.text}</p>
+              <div className="mt-3 flex flex-col gap-2">{dialogue.options.map((option) => (
+                <button key={option.id} disabled={isLoading} onClick={() => void onDirectAction(option.id)} className="rounded-lg border border-white/15 bg-white/5 p-3 text-left text-xs text-[#f4e4c1] disabled:opacity-50">{option.text}</button>
+              ))}</div>
+            </div>
+          )}
 
           {/* REACH_LOCATION */}
           {step.stepActionType === "REACH_LOCATION" && (
@@ -573,6 +650,12 @@ function ActiveView({
                            px-4 py-3 text-sm text-[#f4e4c1] placeholder:text-white/30
                            focus:border-[#cd7f32] focus:outline-none"
               />
+              {step.puzzle && step.puzzle.options.length > 0 && (
+                <div className="grid grid-cols-1 gap-2">
+                  {step.puzzle.options.map((option) => <button key={option} onClick={() => setAnswerInput(option)}
+                    className="rounded-lg border border-white/15 bg-white/5 p-2 text-left text-xs text-[#f4e4c1]">{option}</button>)}
+                </div>
+              )}
               <button
                 onClick={onAnswer}
                 disabled={isLoading || !answerInput.trim()}
@@ -592,15 +675,7 @@ function ActiveView({
                 ⚔️ Besiegt den Gegner, um Beute zu erhalten und den Schritt abzuschließen.
                 (Volles Kampfsystem folgt in Epic 6.)
               </p>
-              <button
-                onClick={onDefeat}
-                disabled={isLoading}
-                className="w-full rounded-xl bg-[#cd7f32] py-3 text-sm font-bold
-                           text-[#1a1a2e] disabled:opacity-50 transition active:scale-95
-                           hover:bg-[#b8712d]"
-              >
-                {isLoading ? "Kampf…" : "⚔️ Gegner besiegen"}
-              </button>
+              <p className="rounded-lg border border-red-500/30 bg-red-900/20 p-3 text-xs text-red-200">Nähert euch dem markierten Gegner. Der Kampf startet serverseitig im Aggro-Radius; nur ein bestätigter Kampfsieg schließt diesen Schritt ab.</p>
             </div>
           )}
 
@@ -613,7 +688,12 @@ function ActiveView({
               cameraInputRef={cameraInputRef}
               fileInputRef={fileInputRef}
               onMediaFile={onMediaFile}
+              allowMore={run.objectives.find((item) => item.stepId === step.stepId)?.progress?.status !== "COMPLETED"}
+              progressCount={run.objectives.find((item) => item.stepId === step.stepId)?.progress?.progressCount ?? 0}
             />
+          )}
+          {!dialogue && ["TALK_TO_NPC", "TEAM_DECISION", "CLASS_ACTION", "USE_ITEM"].includes(step.stepActionType) && (
+            <button disabled={isLoading} onClick={() => void onDirectAction()} className="w-full rounded-xl bg-[#cd7f32] py-3 text-sm font-bold text-[#1a1a2e] disabled:opacity-50">Schritt bestätigen</button>
           )}
         </div>
       )}
@@ -666,7 +746,8 @@ function CompleteView({
           💬 Kehrt zum Quest-Geber zurück und schließt die Quest ab.
         </p>
         <p className="text-xs text-white/30 mt-2">
-          Belohnungen: Ruhm + Denare
+          Belohnungen: {run.reward.glory} Ruhm · {run.reward.denarii} Denare
+          {run.reward.itemRule && <span className="block mt-1">{run.reward.itemRule}</span>}
         </p>
       </div>
 
@@ -701,6 +782,8 @@ function MediaUploadControls({
   cameraInputRef,
   fileInputRef,
   onMediaFile,
+  allowMore,
+  progressCount,
 }: {
   submission: MediaSubmission | null;
   isLoading: boolean;
@@ -708,6 +791,8 @@ function MediaUploadControls({
   cameraInputRef: React.RefObject<HTMLInputElement>;
   fileInputRef: React.RefObject<HTMLInputElement>;
   onMediaFile: (file: File) => Promise<void>;
+  allowMore: boolean;
+  progressCount: number;
 }) {
   const awaitingReview = submission && ["UPLOADING", "RECEIVED", "IN_REVIEW"].includes(submission.status);
   const rejected = submission?.status === "REJECTED";
@@ -724,7 +809,7 @@ function MediaUploadControls({
       )}
       {submission?.status === "APPROVED" && (
         <div className="rounded-lg border border-green-500/30 bg-green-900/20 px-3 py-3 text-sm text-green-300">
-          ✓ Aufnahme freigegeben – der Schritt wurde abgeschlossen.
+          ✓ Aufnahme freigegeben. Bestätigte Medien: {progressCount}{allowMore ? " – mindestens 6 erforderlich." : " – Schritt abgeschlossen."}
         </div>
       )}
       {rejected && (
@@ -736,7 +821,7 @@ function MediaUploadControls({
           <p className="mt-2 text-xs text-white/50">Ihr könnt direkt eine verbesserte Aufnahme einreichen.</p>
         </div>
       )}
-      {!awaitingReview && submission?.status !== "APPROVED" && (
+      {!awaitingReview && (submission?.status !== "APPROVED" || allowMore) && (
         <>
           <p className="text-xs text-white/50">📸 Nehmt ein Foto auf oder wählt eine vorhandene Datei.</p>
           <input ref={cameraInputRef} className="hidden" type="file" accept="image/jpeg,image/png" capture="environment"

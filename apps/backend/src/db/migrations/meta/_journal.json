@@ -117,6 +117,7 @@
     { "idx": 22, "version": "7", "when": 1789056001008, "tag": "0014_fame_tiers_and_regeneration", "breakpoints": true },
     { "idx": 23, "version": "7", "when": 1789056001009, "tag": "0014_gdd_class_system", "breakpoints": true },
     { "idx": 24, "version": "7", "when": 1789056001010, "tag": "0015_derive_player_stats", "breakpoints": true },
-    { "idx": 25, "version": "7", "when": 1789056001011, "tag": "0016_gdd_combat_lifecycle", "breakpoints": true }
+    { "idx": 25, "version": "7", "when": 1789056001011, "tag": "0016_gdd_combat_lifecycle", "breakpoints": true },
+    { "idx": 26, "version": "7", "when": 1789123200000, "tag": "0018_gdd_quest_content", "breakpoints": true }
   ]
 }

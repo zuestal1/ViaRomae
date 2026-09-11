@@ -121,11 +121,34 @@ export class S3Service {
   /**
    * Validate uploaded object exists (optional – for webhook verification).
    */
-  async validateObjectExists(objectKey: string): Promise<boolean> {
-    // TODO: Implement HEAD request to S3 if needed
-    // For now, we trust the upload webhook or S3 event notification
-    this.logger.debug({ objectKey }, "Skipping object existence validation");
-    return true;
+  async validateObject(objectKey: string, mimeType: string, expectedSize: number): Promise<boolean> {
+    try {
+      const response = await fetch(this.generatePresignedObjectUrl("HEAD", objectKey, 300), { method: "HEAD" });
+      const size = Number(response.headers.get("content-length") ?? -1);
+      const actualType = response.headers.get("content-type")?.split(";")[0];
+      return response.ok && size === expectedSize && actualType === mimeType;
+    } catch (error) {
+      this.logger.warn({ objectKey, error }, "S3 object validation failed");
+      return false;
+    }
+  }
+
+  async generatePresignedDownloadUrl(objectKey: string): Promise<string> {
+    return this.generatePresignedObjectUrl("GET", objectKey, 900);
+  }
+
+  private generatePresignedObjectUrl(method: "GET" | "HEAD", objectKey: string, expiresIn: number): string {
+    const timestamp = new Date().toISOString().replace(/[:-]|\.\d{3}/g, "");
+    const date = timestamp.slice(0, 8);
+    const host = this.config.endpoint ? new URL(this.config.endpoint).host : `${this.config.bucket}.s3.${this.config.region}.amazonaws.com`;
+    const protocol = this.config.endpoint ? new URL(this.config.endpoint).protocol : "https:";
+    const credential = `${this.config.accessKeyId}/${date}/${this.config.region}/s3/aws4_request`;
+    const base = { "X-Amz-Algorithm": "AWS4-HMAC-SHA256", "X-Amz-Credential": credential,
+      "X-Amz-Date": timestamp, "X-Amz-Expires": String(expiresIn), "X-Amz-SignedHeaders": "host" };
+    const canonicalRequest = [method, `/${objectKey}`, this.buildQueryString(base), `host:${host}\n`, "host", "UNSIGNED-PAYLOAD"].join("\n");
+    const stringToSign = ["AWS4-HMAC-SHA256", timestamp, `${date}/${this.config.region}/s3/aws4_request`, this.sha256(canonicalRequest)].join("\n");
+    const signature = this.calculateSignature(this.config.secretAccessKey, date, this.config.region, "s3", stringToSign);
+    return `${protocol}//${host}/${objectKey}?${this.buildQueryString({ ...base, "X-Amz-Signature": signature })}`;
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────

@@ -92,10 +92,10 @@ export function useAcceptQuest() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (questDefinitionId: string) =>
+    mutationFn: ({ questDefinitionId, dialogueOptionId }: { questDefinitionId: string; dialogueOptionId?: string }) =>
       api.post<{ run: QuestRunDetail; alreadyActive: boolean }>(
         "/quests/accept",
-        { questDefinitionId },
+        { questDefinitionId, ...(dialogueOptionId ? { dialogueOptionId } : {}) },
       ),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: QUEST_QUERY_KEYS.active });

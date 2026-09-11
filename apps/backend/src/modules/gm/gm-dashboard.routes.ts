@@ -33,7 +33,9 @@ export const gmDashboardRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // ── GET /api/v1/gm/dashboard/media-inbox ────────────────────────────────────
-  fastify.get("/dashboard/media-inbox", async (request, reply) => {
+  fastify.get("/dashboard/media-inbox", { preHandler: [fastify.authenticate] }, async (request, reply) => {
+    const role = (request.user as { role?: string }).role;
+    if (role !== "GM" && role !== "ADMIN") return reply.status(403).send({ error: "GM role required" });
     const submissions = await mediaService.getPendingSubmissions();
 
     // Enrich with team names
@@ -48,6 +50,7 @@ export const gmDashboardRoutes: FastifyPluginAsync = async (fastify) => {
         return {
           ...submission,
           teamName: team?.name ?? "Unknown",
+          previewUrl: await mediaService.getPreviewUrl(submission.objectKey),
         };
       }),
     );

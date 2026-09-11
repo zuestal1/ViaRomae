@@ -54,7 +54,6 @@ import {
   useSubmitAnswer,
   useReachLocation,
   useCompleteQuest,
-  useDefeatEnemy,
 } from "../../hooks/use-quests.js";
 import { QuestHUD } from "../quest/quest-hud.js";
 import { QuestBottomSheet } from "../quest/quest-bottom-sheet.js";
@@ -163,7 +162,6 @@ export function GameMap({ onBack }: GameMapProps) {
   const submitAnswerMutation = useSubmitAnswer();
   const reachLocationMutation = useReachLocation();
   const completeQuestMutation = useCompleteQuest();
-  const defeatEnemyMutation = useDefeatEnemy();
   const { data: economy } = useEconomySummary(token);
 
   const [inventoryOpen, setInventoryOpen] = useState(false);
@@ -227,8 +225,8 @@ export function GameMap({ onBack }: GameMapProps) {
 
   // ── Quest mutation callbacks ───────────────────────────────────────────────
 
-  async function handleAcceptQuest(questDefinitionId: string) {
-    await acceptQuestMutation.mutateAsync(questDefinitionId);
+  async function handleAcceptQuest(questDefinitionId: string, dialogueOptionId?: string) {
+    await acceptQuestMutation.mutateAsync({ questDefinitionId, ...(dialogueOptionId ? { dialogueOptionId } : {}) });
   }
 
   async function handleSubmitAnswer(
@@ -254,9 +252,6 @@ export function GameMap({ onBack }: GameMapProps) {
     return completeQuestMutation.mutateAsync(questRunId);
   }
 
-  async function handleDefeatEnemy(questRunId: string, stepId: string) {
-    return defeatEnemyMutation.mutateAsync({ questRunId, stepId });
-  }
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -397,6 +392,13 @@ export function GameMap({ onBack }: GameMapProps) {
           </button>
         </div>
       )}
+      {!isSheetOpen && !dialogueQuest && availableQuests.length > 0 && (
+        <div className="absolute top-14 left-0 right-0 z-10 flex justify-center px-4">
+          <button onClick={() => setSelectedAvailableQuest(availableQuests[0]!)} className="rounded-full border border-[#cd7f32]/60 bg-black/75 px-4 py-2 text-xs font-bold text-[#f4e4c1] shadow-lg">
+            🗺 {availableQuests.length} Quest{availableQuests.length === 1 ? "" : "s"} entdeckt – näher kommen
+          </button>
+        </div>
+      )}
 
       {/* Nearby objects counter */}
       {worldObjects.length > 0 && (
@@ -453,7 +455,6 @@ export function GameMap({ onBack }: GameMapProps) {
           onSubmitAnswer={handleSubmitAnswer}
           onConfirmReach={handleReachLocation}
           onComplete={handleCompleteQuest}
-          onDefeatEnemy={handleDefeatEnemy}
           onClose={handleCloseSheet}
         />
       )}

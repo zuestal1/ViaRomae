@@ -67,6 +67,12 @@ import { decideQuestAcceptance } from "./quest-repeatability.js";
 
 const MAX_ACTIVE_QUESTS = 3;
 const CLASS_PRESENCE_MAX_AGE_MS = 2 * 60 * 1000;
+const PROXIMITY_MAX_AGE_MS = 2 * 60 * 1000;
+
+type AuthoredDialogue = { sequenceId: string; nodeId: string; phase: string; order: number; speaker: string; mood?: string | null; text: string; options: Array<{ id: string; text: string; response: string; effect: Record<string, unknown> }>; defaultNext?: string | null };
+type AuthoredTimer = { id: string; stepId: string; title: string; durationSec: number; startsWhen: string; warnings: number[]; onExpire: string; retryPolicy: string; uiComponent: string; safety: string };
+type AuthoredQuest = { description?: string; questGiver?: string; slotRule?: string; reward?: { glory?: number; denarii?: number; itemRule?: string }; dialogues?: AuthoredDialogue[]; timers?: AuthoredTimer[] };
+const authoredQuest = (value: unknown): AuthoredQuest => (value && typeof value === "object" ? value as AuthoredQuest : {});
 
 function httpError(message: string, statusCode: number): Error & { statusCode: number } {
   return Object.assign(new Error(message), { statusCode });
@@ -292,14 +298,21 @@ async function buildQuestRunDetail(
     questDay: string | null;
   },
 ): Promise<QuestRunDetail> {
-  // Load all OBJECTIVE-phase steps ordered by sequence
+  await expireTimers(run);
+  const [freshRun] = await db.select().from(questRuns).where(eq(questRuns.id, run.id));
+  if (freshRun) run.runtimeState = freshRun.runtimeState;
+  const [definition] = await db.select({ authoredContent: questDefinitions.authoredContent })
+    .from(questDefinitions).where(eq(questDefinitions.id, run.questDefinitionId));
+  const authored = authoredQuest(definition?.authoredContent);
+  // Every authored objective counts, including COMPLETE_DIALOGUE outside the
+  // literal OBJECTIVE flow phase.
   const steps = await db
     .select()
     .from(questSteps)
     .where(
       and(
         eq(questSteps.questDefinitionId, run.questDefinitionId),
-        eq(questSteps.flowPhase, "OBJECTIVE"),
+        eq(questSteps.stepCategory, "OBJECTIVE"),
       ),
     )
     .orderBy(questSteps.sequence);
@@ -325,6 +338,7 @@ async function buildQuestRunDetail(
       gddObjectiveType: step.gddObjectiveType,
       targetRef: step.targetRef,
       required: step.required,
+      ...(step.authoredContent as Record<string, unknown>),
       progress: prog
         ? {
             objectiveId: prog.objectiveId,
@@ -359,18 +373,19 @@ async function buildQuestRunDetail(
 
   const toIso = (v: unknown): string =>
     v instanceof Date ? v.toISOString() : String(v);
+  const dialogues = await Promise.all((authored.dialogues ?? []).map(async (dialogue) => ({
+    ...dialogue,
+    options: (await Promise.all(dialogue.options.map(async (option) => {
+      const requiredClass = option.effect["classCheck"];
+      if (typeof requiredClass !== "string") return option;
+      const step = steps.find((item) => item.targetRef === dialogue.sequenceId);
+      const locationId = (step?.authoredContent as { locationId?: string } | undefined)?.locationId;
+      const target = locationId ? await lookupWorldObjectByTargetRef(locationId) : null;
+      return target && await hasPresentLivingClassMember({ teamId: run.teamId, requiredClass, worldObjectId: target.id }) ? option : null;
+    }))).filter((option) => option !== null),
+  })));
 
-  const enrichedCurrentStep = currentStep ? await enrichWithTarget({
-    id: currentStep.id,
-    stepId: currentStep.stepId,
-    sequence: currentStep.sequence,
-    flowPhase: currentStep.flowPhase,
-    stepActionType: currentStep.stepActionType,
-    stepCategory: currentStep.stepCategory,
-    gddObjectiveType: currentStep.gddObjectiveType,
-    targetRef: currentStep.targetRef,
-    required: currentStep.required,
-  }) : null;
+  const enrichedCurrentStep = currentStep ? await enrichWithTarget(currentStep) : null;
 
   return {
     id: run.id,
@@ -384,7 +399,105 @@ async function buildQuestRunDetail(
     questDay: run.questDay,
     currentStep: enrichedCurrentStep,
     objectives,
+    runtimeState: run.runtimeState ?? {},
+    reward: {
+      glory: Number(authored.reward?.glory ?? 0),
+      denarii: Number(authored.reward?.denarii ?? 0),
+      itemRule: authored.reward?.itemRule ?? "",
+    },
+    slotRule: authored.slotRule ?? "",
+    dialogues,
+    timers: authored.timers ?? [],
   };
+}
+
+type TimerRuntime = { state: "RUNNING" | "COMPLETED" | "EXPIRED"; startedAt: string; deadlineAt: string; expiredAt?: string; resolvedBy?: string; consequence?: string };
+const questTimerHandles = new Map<string, ReturnType<typeof setTimeout>>();
+function armQuestTimer(run: typeof questRuns.$inferSelect, timerId: string, deadlineAt: string) {
+  const key = `${run.id}:${timerId}`;
+  const old = questTimerHandles.get(key); if (old) clearTimeout(old);
+  const handle = setTimeout(() => void expireTimers(run).finally(() => questTimerHandles.delete(key)), Math.max(0, new Date(deadlineAt).getTime() - Date.now()) + 25);
+  questTimerHandles.set(key, handle);
+}
+
+export async function recoverQuestTimers(): Promise<void> {
+  const runs = await db.select().from(questRuns).where(eq(questRuns.state, "ACTIVE"));
+  for (const run of runs) {
+    await expireTimers(run);
+    const timers = (run.runtimeState as { timers?: Record<string, TimerRuntime> }).timers ?? {};
+    for (const [timerId, timer] of Object.entries(timers)) if (timer.state === "RUNNING") armQuestTimer(run, timerId, timer.deadlineAt);
+  }
+}
+async function expireTimers(run: typeof questRuns.$inferSelect): Promise<void> {
+  const state = { ...(run.runtimeState ?? {}) } as { timers?: Record<string, TimerRuntime>; [key: string]: unknown };
+  if (!state.timers) return;
+  let changed = false;
+  const [definition] = await db.select({ authoredContent: questDefinitions.authoredContent }).from(questDefinitions).where(eq(questDefinitions.id, run.questDefinitionId));
+  const definitions = authoredQuest(definition?.authoredContent).timers ?? [];
+  for (const [timerId, timer] of Object.entries(state.timers)) {
+    if (timer.state === "RUNNING" && new Date(timer.deadlineAt).getTime() <= Date.now()) {
+      timer.state = "EXPIRED"; timer.expiredAt = new Date().toISOString(); timer.resolvedBy = "SERVER_DEADLINE"; changed = true;
+      const authoredTimer = definitions.find((item) => item.id === timerId);
+      state.timerEffects = { ...(state.timerEffects as Record<string, string> | undefined), [timerId]: authoredTimer?.onExpire ?? "" };
+      if (authoredTimer?.onExpire.includes("AUTO_SELECT=")) {
+        await db.insert(objectiveProgress).values({ questRunId: run.id, objectiveId: authoredTimer.stepId, status: "COMPLETED", progressCount: 1 })
+          .onConflictDoUpdate({ target: [objectiveProgress.questRunId, objectiveProgress.objectiveId], set: { status: "COMPLETED", progressCount: 1 } });
+        state.autoDecision = authoredTimer.onExpire.match(/AUTO_SELECT=([^;]+)/)?.[1] ?? "FALLBACK";
+      }
+    }
+  }
+  if (changed) await db.update(questRuns).set({ runtimeState: state }).where(eq(questRuns.id, run.id));
+}
+
+export async function startQuestTimer(opts: { accountId: string; questRunId: string; timerId: string }): Promise<QuestRunDetail> {
+  const player = await resolvePlayer(opts.accountId);
+  const [run] = await db.select().from(questRuns).where(and(eq(questRuns.id, opts.questRunId), eq(questRuns.teamId, player.teamId), eq(questRuns.state, "ACTIVE")));
+  if (!run) throw httpError("QuestRun not found or not active.", 404);
+  const [definition] = await db.select().from(questDefinitions).where(eq(questDefinitions.id, run.questDefinitionId));
+  const timer = authoredQuest(definition?.authoredContent).timers?.find((item) => item.id === opts.timerId);
+  if (!timer) throw httpError("Timer is not defined for this quest.", 404);
+  await requireCurrentObjective(run, timer.stepId);
+  const now = new Date(); const state = { ...(run.runtimeState ?? {}) } as { timers?: Record<string, TimerRuntime>; [key: string]: unknown };
+  state.timers = { ...(state.timers ?? {}) };
+  const prior = state.timers[timer.id];
+  if (prior?.state === "RUNNING") return (await getSingleRun(run.id, player.teamId))!;
+  if (prior && timer.retryPolicy.toUpperCase().includes("NO_")) throw httpError("This timer cannot be restarted.", 409);
+  state.timers[timer.id] = { state: "RUNNING", startedAt: now.toISOString(), deadlineAt: new Date(now.getTime() + timer.durationSec * 1000).toISOString(), consequence: timer.onExpire };
+  await db.update(questRuns).set({ runtimeState: state }).where(eq(questRuns.id, run.id));
+  armQuestTimer({ ...run, runtimeState: state }, timer.id, state.timers[timer.id]!.deadlineAt);
+  return (await getSingleRun(run.id, player.teamId))!;
+}
+
+export async function performQuestAction(opts: { accountId: string; questRunId: string; stepId: string; optionId?: string; wsHub?: WsHub }): Promise<StepResult> {
+  const player = await resolvePlayer(opts.accountId);
+  const [run] = await db.select().from(questRuns).where(and(eq(questRuns.id, opts.questRunId), eq(questRuns.teamId, player.teamId), eq(questRuns.state, "ACTIVE")));
+  if (!run) throw httpError("QuestRun not found or not active.", 404);
+  await requireCurrentObjective(run, opts.stepId);
+  const [step] = await db.select().from(questSteps).where(and(eq(questSteps.questDefinitionId, run.questDefinitionId), eq(questSteps.stepId, opts.stepId)));
+  if (!step || !["TALK_TO_NPC", "TEAM_DECISION", "CLASS_ACTION", "USE_ITEM"].includes(step.stepActionType)) throw httpError("Step does not support a direct quest action.", 400);
+  const [definition] = await db.select().from(questDefinitions).where(eq(questDefinitions.id, run.questDefinitionId));
+  const dialogue = authoredQuest(definition?.authoredContent).dialogues?.find((item) => item.sequenceId === step.targetRef);
+  const option = dialogue?.options.find((item) => item.id === opts.optionId);
+  if (dialogue && !option) throw httpError("Choose a valid dialogue option.", 400);
+  const classCheck = option?.effect["classCheck"];
+  if (typeof classCheck === "string") {
+    const locationId = (step.authoredContent as { locationId?: string }).locationId;
+    const target = locationId ? await lookupWorldObjectByTargetRef(locationId) : null;
+    if (!target || !await hasPresentLivingClassMember({ teamId: player.teamId, requiredClass: classCheck, worldObjectId: target.id })) throw httpError("The required living class member is not present.", 403);
+  }
+  const oldRuntime = run.runtimeState as { chosenEffects?: Record<string, unknown>[] };
+  const runtime = { ...(run.runtimeState ?? {}),
+    chosenEffects: option ? [...(oldRuntime.chosenEffects ?? []), option.effect] : (oldRuntime.chosenEffects ?? []),
+    lastDialogue: dialogue ? { sequenceId: dialogue.sequenceId, nodeId: dialogue.nodeId, optionId: opts.optionId, response: option?.response } : undefined };
+  if (step.stepActionType === "USE_ITEM") {
+    await db.transaction(async (tx) => {
+      const consumed = await tx.execute(sql`DELETE FROM item_instance WHERE id=(SELECT id FROM item_instance WHERE owner_type='TEAM' AND owner_id=${player.teamId}::uuid AND definition_id=${step.targetRef} LIMIT 1 FOR UPDATE SKIP LOCKED) RETURNING id`);
+      if (consumed.rows.length === 0) throw httpError(`Required team quest item is missing: ${step.targetRef}`, 409);
+    });
+  }
+  await db.update(questRuns).set({ runtimeState: runtime }).where(eq(questRuns.id, run.id));
+  const result = await completeObjectiveStep({ questRunId: run.id, stepId: step.stepId, stepActionType: step.stepActionType, run, playerName: player.playerName, ...(opts.wsHub ? { wsHub: opts.wsHub } : {}) });
+  return { stepId: step.stepId, status: "COMPLETED", message: option?.response ?? "Schritt abgeschlossen. ✓", questCompleted: result.allRequiredDone };
 }
 
 // ── Internal: mark one objective step as COMPLETED ────────────────────────────
@@ -416,6 +529,18 @@ async function completeObjectiveStep(opts: {
       },
     });
 
+  const [timerDefinition] = await db.select({ authoredContent: questDefinitions.authoredContent })
+    .from(questDefinitions).where(eq(questDefinitions.id, run.questDefinitionId));
+  const timer = authoredQuest(timerDefinition?.authoredContent).timers?.find((item) => item.stepId === stepId);
+  if (timer) {
+    const runtime = { ...(run.runtimeState ?? {}) } as { timers?: Record<string, TimerRuntime>; [key: string]: unknown };
+    const active = runtime.timers?.[timer.id];
+    if (active?.state === "RUNNING") {
+      runtime.timers = { ...runtime.timers, [timer.id]: { ...active, state: "COMPLETED", resolvedBy: "OBJECTIVE_COMPLETED" } };
+      await db.update(questRuns).set({ runtimeState: runtime }).where(eq(questRuns.id, run.id));
+    }
+  }
+
   // Load quest definition for title
   const [questDef] = await db
     .select({ title: questDefinitions.title })
@@ -436,10 +561,10 @@ async function completeObjectiveStep(opts: {
     .where(
       and(
         eq(questSteps.questDefinitionId, run.questDefinitionId),
-        eq(questSteps.flowPhase, "OBJECTIVE"),
+        eq(questSteps.stepCategory, "OBJECTIVE"),
         eq(questSteps.required, true),
       ),
-    );
+    ).orderBy(questSteps.sequence);
 
   const allRequiredDone = allSteps.every(
     (s) => s.progress?.status === "COMPLETED",
@@ -486,6 +611,20 @@ async function completeObjectiveStep(opts: {
   return { allRequiredDone };
 }
 
+async function requireCurrentObjective(run: typeof questRuns.$inferSelect, stepId: string) {
+  await expireTimers(run);
+  const rows = await db.select({ step: questSteps, progress: objectiveProgress })
+    .from(questSteps).leftJoin(objectiveProgress, and(
+      eq(objectiveProgress.questRunId, run.id), eq(objectiveProgress.objectiveId, questSteps.stepId),
+    )).where(and(eq(questSteps.questDefinitionId, run.questDefinitionId),
+      eq(questSteps.stepCategory, "OBJECTIVE"), eq(questSteps.required, true)))
+    .orderBy(questSteps.sequence);
+  const current = rows.find(({ progress }) => progress?.status !== "COMPLETED");
+  if (!current || current.step.stepId !== stepId) {
+    throw httpError(`Step ${stepId} is not the current quest objective.`, 409);
+  }
+}
+
 // ── Public: getActiveRuns ─────────────────────────────────────────────────────
 
 /**
@@ -499,6 +638,7 @@ export async function getActiveRuns(teamId: string): Promise<QuestRunDetail[]> {
     state: string;
     started_at: Date;
     completed_at: Date | null;
+    runtime_state: Record<string, unknown>;
     quest_title: string;
     quest_type: string;
     quest_day: string | null;
@@ -509,6 +649,7 @@ export async function getActiveRuns(teamId: string): Promise<QuestRunDetail[]> {
            qr.state,
            qr.started_at,
            qr.completed_at,
+           qr.runtime_state,
            qd.title  AS quest_title,
            qd.type   AS quest_type,
            qd.day    AS quest_day
@@ -529,6 +670,7 @@ export async function getActiveRuns(teamId: string): Promise<QuestRunDetail[]> {
       state: string;
       started_at: Date;
       completed_at: Date | null;
+      runtime_state: Record<string, unknown>;
       quest_title: string;
       quest_type: string;
       quest_day: string | null;
@@ -543,6 +685,7 @@ export async function getActiveRuns(teamId: string): Promise<QuestRunDetail[]> {
         startedAt: r.started_at,
         acceptedAt: null, // ✅ FIX: Column doesn't exist in DB yet
         completedAt: r.completed_at,
+        runtimeState: r.runtime_state ?? {},
         questTitle: r.quest_title,
         questType: r.quest_type,
         questDay: r.quest_day,
@@ -608,10 +751,11 @@ export async function getAvailableQuests(
   const nearbyObjectIds = [...worldObjectZoneMap.keys()];
 
   // Step 3: QuestDefinitions linked via QuestStation to these WorldObjects
-  const stationRows = await db
+  let stationRows = await db
     .select({
       questDefinitionId: questStations.questDefinitionId,
       worldObjectId: questStations.worldObjectId,
+      sequence: questStations.sequence,
     })
     .from(questStations)
     .where(inArray(questStations.worldObjectId, nearbyObjectIds));
@@ -619,6 +763,13 @@ export async function getAvailableQuests(
   if (stationRows.length === 0) {
     return [];
   }
+  const candidateIds = [...new Set(stationRows.map((row) => row.questDefinitionId))];
+  const allStations = await db.select({ questDefinitionId: questStations.questDefinitionId, sequence: questStations.sequence })
+    .from(questStations).where(inArray(questStations.questDefinitionId, candidateIds));
+  const firstSequence = new Map<string, number>();
+  for (const station of allStations) firstSequence.set(station.questDefinitionId, Math.min(firstSequence.get(station.questDefinitionId) ?? Infinity, station.sequence));
+  stationRows = stationRows.filter((station) => station.sequence === firstSequence.get(station.questDefinitionId));
+  if (stationRows.length === 0) return [];
 
   const questDefIds = [...new Set(stationRows.map((r) => r.questDefinitionId))];
 
@@ -651,10 +802,17 @@ export async function getAvailableQuests(
   const worldObjectNameMap = new Map(worldObjectRows.map((r) => [r.id, r.name]));
 
   // Build result
-  const result = availableDefs.map((qd): QuestAvailable => {
+  const result = await Promise.all(availableDefs.map(async (qd): Promise<QuestAvailable> => {
     const trigger = stationRows.find((s) => s.questDefinitionId === qd.id)!;
     const zone = worldObjectZoneMap.get(trigger.worldObjectId) ?? "DISCOVERED";
 
+    const authored = authoredQuest(qd.authoredContent);
+    const offer = authored.dialogues?.find((item) => item.phase === "OFFER") ?? null;
+    const offerOptions = offer ? (await Promise.all(offer.options.map(async (option) => {
+      const requiredClass = option.effect["classCheck"];
+      if (typeof requiredClass !== "string") return option;
+      return await hasPresentLivingClassMember({ teamId, requiredClass, worldObjectId: trigger.worldObjectId }) ? option : null;
+    }))).filter((option) => option !== null) : [];
     return {
       questDefinitionId: qd.id,
       externalId: qd.externalId,
@@ -664,8 +822,16 @@ export async function getAvailableQuests(
       discoveryPhase: zone === "INTERACTING" ? "DIALOGUE" : "DISCOVER",
       triggerObjectId: trigger.worldObjectId,
       triggerObjectName: worldObjectNameMap.get(trigger.worldObjectId) ?? "?",
+      description: authored.description ?? "",
+      questGiver: authored.questGiver ?? null,
+      offerDialogue: offer ? {
+        sequenceId: offer.sequenceId, nodeId: offer.nodeId, speaker: offer.speaker,
+        mood: offer.mood ?? null, text: offer.text, options: offerOptions,
+      } : null,
+      reward: { glory: Number(authored.reward?.glory ?? 0), denarii: Number(authored.reward?.denarii ?? 0), itemRule: authored.reward?.itemRule ?? "" },
+      slotRule: authored.slotRule ?? "",
     };
-  });
+  }));
 
   return result;
 }
@@ -684,8 +850,9 @@ export async function acceptQuest(opts: {
   accountId: string;
   questDefinitionId: string;
   wsHub?: WsHub;
+  dialogueOptionId?: string;
 }): Promise<{ run: QuestRunDetail; alreadyActive: boolean }> {
-  const { accountId, questDefinitionId, wsHub } = opts;
+  const { accountId, questDefinitionId, wsHub, dialogueOptionId } = opts;
 
   const { teamId, playerName } = await resolvePlayer(accountId);
 
@@ -697,6 +864,21 @@ export async function acceptQuest(opts: {
     const [questDef] = await tx.select().from(questDefinitions)
       .where(eq(questDefinitions.id, questDefinitionId));
     if (!questDef) throw httpError("Quest definition not found.", 404);
+
+    const authored = authoredQuest(questDef.authoredContent);
+    const offer = authored.dialogues?.find((item) => item.phase === "OFFER");
+    if (offer && !offer.options.some((option) => option.id === dialogueOptionId)) {
+      throw httpError("A valid quest-offer dialogue option is required.", 400);
+    }
+    const stations = await tx.select({ worldObjectId: questStations.worldObjectId, sequence: questStations.sequence })
+      .from(questStations).where(eq(questStations.questDefinitionId, questDefinitionId)).orderBy(questStations.sequence);
+    const startObjectIds = stations.length ? stations.filter((station) => station.sequence === stations[0]!.sequence).map((station) => station.worldObjectId) : [];
+    const proximity = stations.length ? await tx.select({ id: playerProximityStates.playerId })
+      .from(playerProximityStates).innerJoin(players, eq(players.id, playerProximityStates.playerId))
+      .where(and(eq(players.accountId, accountId), inArray(playerProximityStates.worldObjectId, startObjectIds),
+        eq(playerProximityStates.zone, "INTERACTING"),
+        sql`${playerProximityStates.updatedAt} >= ${new Date(Date.now() - PROXIMITY_MAX_AGE_MS)}`)).limit(1) : [];
+    if (stations.length && proximity.length === 0) throw httpError("Quest acceptance requires a current position inside the 15 m interaction radius.", 403);
 
     const priorRuns = await tx.select().from(questRuns).where(and(
       eq(questRuns.teamId, teamId), eq(questRuns.questDefinitionId, questDefinitionId),
@@ -711,8 +893,9 @@ export async function acceptQuest(opts: {
     }
 
     const activeCountResult = await tx.select({ count: count() }).from(questRuns)
-      .where(and(eq(questRuns.teamId, teamId), eq(questRuns.state, "ACTIVE")));
-    if (Number(activeCountResult[0]?.count ?? 0) >= MAX_ACTIVE_QUESTS) {
+      .innerJoin(questDefinitions, eq(questDefinitions.id, questRuns.questDefinitionId))
+      .where(and(eq(questRuns.teamId, teamId), inArray(questRuns.state, ["ACTIVE", "PENDING_REVIEW"]), eq(questDefinitions.type, questDef.type)));
+    if (questDef.type !== "HIDDEN" && Number(activeCountResult[0]?.count ?? 0) >= MAX_ACTIVE_QUESTS) {
       throw httpError(`Maximum ${MAX_ACTIVE_QUESTS} active quests per team. Finish one first.`, 409);
     }
 
@@ -721,11 +904,13 @@ export async function acceptQuest(opts: {
     if (!newRun) throw new Error("Failed to create QuestRun.");
 
     const objectiveSteps = await tx.select().from(questSteps).where(and(
-      eq(questSteps.questDefinitionId, questDefinitionId), eq(questSteps.flowPhase, "OBJECTIVE"),
+      eq(questSteps.questDefinitionId, questDefinitionId), eq(questSteps.stepCategory, "OBJECTIVE"),
     )).orderBy(questSteps.sequence);
     if (objectiveSteps.length > 0) {
       await tx.insert(objectiveProgress).values(objectiveSteps.map((step) => ({
-        questRunId: newRun.id, objectiveId: step.stepId, status: "PENDING", progressCount: 0,
+        questRunId: newRun.id, objectiveId: step.stepId,
+        status: step.flowPhase === "DIALOGUE" && step.sequence < (objectiveSteps.find((s) => s.flowPhase === "OBJECTIVE")?.sequence ?? Infinity) ? "COMPLETED" : "PENDING",
+        progressCount: step.flowPhase === "DIALOGUE" ? 1 : 0,
       })));
     }
     return { run: newRun, questDef, alreadyActive: false };
@@ -774,7 +959,7 @@ export async function validateReachLocation(opts: {
 }): Promise<StepResult> {
   const { accountId, questRunId, stepId, lat, lng, accuracy, wsHub } = opts;
 
-  const { teamId, playerName } = await resolvePlayer(accountId);
+  const { teamId, playerName, playerId } = await resolvePlayer(accountId);
 
   // Load QuestRun
   const [run] = await db
@@ -795,6 +980,7 @@ export async function validateReachLocation(opts: {
     err.statusCode = 404;
     throw err;
   }
+  await requireCurrentObjective(run, stepId);
 
   // Load the target step
   const [step] = await db
@@ -804,7 +990,7 @@ export async function validateReachLocation(opts: {
       and(
         eq(questSteps.questDefinitionId, run.questDefinitionId),
         eq(questSteps.stepId, stepId),
-        eq(questSteps.flowPhase, "OBJECTIVE"),
+        eq(questSteps.stepCategory, "OBJECTIVE"),
         eq(questSteps.stepActionType, "REACH_LOCATION"),
       ),
     );
@@ -846,6 +1032,13 @@ export async function validateReachLocation(opts: {
     err.statusCode = 404;
     throw err;
   }
+  const [storedPosition] = await db.select({ lat: players.lastLat, lng: players.lastLng,
+    accuracy: players.lastAccuracy, updatedAt: players.lastLocationUpdate }).from(players).where(eq(players.id, playerId));
+  if (!storedPosition?.updatedAt || Date.now() - storedPosition.updatedAt.getTime() > PROXIMITY_MAX_AGE_MS ||
+      storedPosition.lat == null || storedPosition.lng == null || storedPosition.accuracy == null ||
+      Math.abs(storedPosition.lat - lat) > 0.0002 || Math.abs(storedPosition.lng - lng) > 0.0002) {
+    throw httpError("A fresh server-confirmed GPS position is required.", 403);
+  }
 
   // PostGIS distance check
   const distCheck = await checkEffectiveDistance({
@@ -866,6 +1059,17 @@ export async function validateReachLocation(opts: {
       status: "FAILED",
       message: `Noch ${remaining} m entfernt. Kommt näher!`,
     };
+  }
+
+  const requiredMembers = Number((step.authoredContent as { successCondition?: string }).successCondition?.match(/teamMembersInRadius\s*>=\s*(\d+)/)?.[1] ?? 1);
+  if (requiredMembers > 1) {
+    const present = await db.select({ id: players.id }).from(players)
+      .innerJoin(playerProximityStates, eq(playerProximityStates.playerId, players.id))
+      .where(and(eq(players.teamId, teamId), eq(players.status, "ACTIVE"), sql`${players.hpCurrent} > 0`,
+        eq(playerProximityStates.worldObjectId, targetObj.id),
+        inArray(playerProximityStates.zone, ["INTERACTING", "AGGRO", "BOSS_JOIN"]),
+        sql`${playerProximityStates.updatedAt} >= ${new Date(Date.now() - PROXIMITY_MAX_AGE_MS)}`));
+    if (present.length < requiredMembers) return { stepId, status: "FAILED", message: `${requiredMembers} lebende Teammitglieder müssen gemeinsam im Interaktionsradius sein (${present.length}/${requiredMembers}).` };
   }
 
   // Mark completed & broadcast
@@ -929,6 +1133,7 @@ export async function submitAnswer(opts: {
     err.statusCode = 404;
     throw err;
   }
+  await requireCurrentObjective(run, stepId);
 
   // Load the target step
   const [step] = await db
@@ -938,7 +1143,7 @@ export async function submitAnswer(opts: {
       and(
         eq(questSteps.questDefinitionId, run.questDefinitionId),
         eq(questSteps.stepId, stepId),
-        eq(questSteps.flowPhase, "OBJECTIVE"),
+        eq(questSteps.stepCategory, "OBJECTIVE"),
         inArray(questSteps.stepActionType, ["ANSWER_QUESTION", "SOLVE_PUZZLE"]),
       ),
     );
@@ -1033,7 +1238,10 @@ export async function submitAnswer(opts: {
     throw err;
   }
 
-  if (!station?.expectedAnswer) {
+  const puzzle = (step.authoredContent as { puzzle?: { expectedAnswer?: string; acceptedVariants?: string[] } }).puzzle;
+  const acceptedAnswers = [puzzle?.expectedAnswer, ...(puzzle?.acceptedVariants ?? []), station?.expectedAnswer]
+    .filter((value): value is string => Boolean(value));
+  if (acceptedAnswers.length === 0) {
     const err = new Error(
       "No expected answer configured for this station.",
     ) as Error & { statusCode: number };
@@ -1042,8 +1250,9 @@ export async function submitAnswer(opts: {
   }
 
   // Case-insensitive, trimmed comparison
-  const normalised = (s: string) => s.trim().toLowerCase();
-  if (normalised(answer) !== normalised(station.expectedAnswer)) {
+  const normalised = (s: string) => s.normalize("NFKD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]+/g, " ").trim().toLowerCase();
+  if (!acceptedAnswers.some((candidate) => normalised(answer) === normalised(candidate))) {
     return {
       stepId,
       status: "FAILED",
@@ -1060,6 +1269,13 @@ export async function submitAnswer(opts: {
     playerName,
     ...(wsHub ? { wsHub } : {}),
   });
+
+  const [definitionForItem] = await db.select({ authoredContent: questDefinitions.authoredContent }).from(questDefinitions).where(eq(questDefinitions.id, run.questDefinitionId));
+  const itemKey = authoredQuest(definitionForItem?.authoredContent).reward?.itemRule?.match(/QUEST_ITEM:([a-z0-9_]+)/i)?.[1];
+  if (itemKey && step.stepActionType === "SOLVE_PUZZLE") {
+    await grantRewards({ seed: `quest-item:${questRunId}:${itemKey}`, teamId, playerId: (await resolvePlayer(accountId)).playerId,
+      profile: { fame: 0, denarii: 0, playerItems: [], teamItems: [{ defKey: itemKey, quantity: 1 }] }, source: "QUEST" });
+  }
 
   return {
     stepId,
@@ -1100,7 +1316,6 @@ export async function completeQuest(opts: {
       and(
         eq(questRuns.id, questRunId),
         eq(questRuns.teamId, teamId),
-        eq(questRuns.state, "ACTIVE"),
       ),
     );
 
@@ -1111,6 +1326,12 @@ export async function completeQuest(opts: {
     err.statusCode = 404;
     throw err;
   }
+  if (run.state === "COMPLETED") {
+    const previous = (run.runtimeState as { rewardResult?: { glory: number; denarii: number; items: { defKey: string; quantity: number; owner: "PLAYER" | "TEAM" }[]; itemsSkipped: boolean } }).rewardResult;
+    if (previous) return previous;
+    throw httpError("Completed quest has no recoverable reward snapshot.", 409);
+  }
+  if (run.state !== "ACTIVE") throw httpError("Quest is awaiting review or failed.", 409);
 
   // Guard: all required objectives must be done
   const allSteps = await db
@@ -1126,7 +1347,7 @@ export async function completeQuest(opts: {
     .where(
       and(
         eq(questSteps.questDefinitionId, run.questDefinitionId),
-        eq(questSteps.flowPhase, "OBJECTIVE"),
+        eq(questSteps.stepCategory, "OBJECTIVE"),
         eq(questSteps.required, true),
       ),
     );
@@ -1144,7 +1365,7 @@ export async function completeQuest(opts: {
   }
 
   const [questDef] = await db
-    .select({ title: questDefinitions.title, type: questDefinitions.type, contentJson: questDefinitions.contentJson })
+    .select({ title: questDefinitions.title, type: questDefinitions.type, contentJson: questDefinitions.contentJson, authoredContent: questDefinitions.authoredContent })
     .from(questDefinitions)
     .where(eq(questDefinitions.id, run.questDefinitionId));
 
@@ -1163,13 +1384,17 @@ export async function completeQuest(opts: {
   const otherDenarii = Number(authoredBonuses.bonus_denarii_percent ?? authoredBonuses.bonusDenariiPercent ?? 0);
   const classGlory = chosenBonuses.reduce((sum, row) => sum + row.glory, 0);
   const classDenarii = chosenBonuses.reduce((sum, row) => sum + row.denarii, 0);
+  const runtimeEffects = ((run.runtimeState as { chosenEffects?: Record<string, unknown>[] }).chosenEffects ?? []);
+  const authoredClassDenarii = runtimeEffects.some((effect) => effect["bonusDenarii"] === true) ? 15 : 0;
   // Runtime defence for legacy/imported rows: regular quest totals can never exceed 15%.
   const gloryPercent = questDef?.type === "REGULAR" ? Math.min(15, otherGlory + classGlory) : classGlory;
-  const denariiPercent = questDef?.type === "REGULAR" ? Math.min(15, otherDenarii + classDenarii) : classDenarii;
+  const denariiPercent = questDef?.type === "REGULAR" ? Math.min(15, otherDenarii + classDenarii + authoredClassDenarii) : classDenarii + authoredClassDenarii;
+  const authoredReward = authoredQuest(questDef?.authoredContent).reward;
   const rewardProfile = {
-    ...QUEST_REWARD_PROFILE,
-    fame: Math.round(QUEST_REWARD_PROFILE.fame * (1 + gloryPercent / 100)),
-    denarii: Math.round(QUEST_REWARD_PROFILE.denarii * (1 + denariiPercent / 100)),
+    fame: Math.round(Number(authoredReward?.glory ?? QUEST_REWARD_PROFILE.fame) * (1 + gloryPercent / 100)),
+    denarii: Math.round(Number(authoredReward?.denarii ?? QUEST_REWARD_PROFILE.denarii) * (1 + denariiPercent / 100)),
+    playerItems: [],
+    teamItems: [],
   };
 
   const granted = await grantRewards({
@@ -1182,7 +1407,7 @@ export async function completeQuest(opts: {
 
   await db
     .update(questRuns)
-    .set({ state: "COMPLETED", completedAt: new Date() })
+    .set({ state: "COMPLETED", completedAt: new Date(), runtimeState: { ...(run.runtimeState ?? {}), rewardResult: granted } })
     .where(eq(questRuns.id, questRunId));
 
   // Broadcast quest.completed to all team members
@@ -1218,6 +1443,7 @@ export async function getSingleRun(
     state: string;
     started_at: Date;
     completed_at: Date | null;
+    runtime_state: Record<string, unknown>;
     quest_title: string;
     quest_type: string;
     quest_day: string | null;
@@ -1228,6 +1454,7 @@ export async function getSingleRun(
            qr.state,
            qr.started_at,
            qr.completed_at,
+           qr.runtime_state,
            qd.title  AS quest_title,
            qd.type   AS quest_type,
            qd.day    AS quest_day
@@ -1244,6 +1471,7 @@ export async function getSingleRun(
     state: string;
     started_at: Date;
     completed_at: Date | null;
+    runtime_state: Record<string, unknown>;
     quest_title: string;
     quest_type: string;
     quest_day: string | null;
@@ -1259,6 +1487,7 @@ export async function getSingleRun(
     startedAt: row.started_at,
     acceptedAt: null, // ✅ FIX: Column doesn't exist in DB yet
     completedAt: row.completed_at,
+    runtimeState: row.runtime_state ?? {},
     questTitle: row.quest_title,
     questType: row.quest_type,
     questDay: row.quest_day,

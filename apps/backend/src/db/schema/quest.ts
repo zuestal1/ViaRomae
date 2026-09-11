@@ -10,6 +10,7 @@ import {
   unique,
   uniqueIndex,
   check,
+  jsonb,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { players, teams } from "./player.js";
@@ -110,6 +111,8 @@ export const questDefinitions = pgTable("quest_definition", {
   repeatable: boolean("repeatable").notNull().default(false),
   /** Minimum time after completion before a repeatable quest can be accepted. */
   repeatCooldownSeconds: integer("repeat_cooldown_seconds"),
+  /** Canonical GDD/Quest-Master metadata, including exact rewards and slots. */
+  authoredContent: jsonb("authored_content").$type<Record<string, unknown>>().notNull().default({}),
 }, (table) => [
   check("quest_definition_repeat_cooldown_nonnegative", sql`${table.repeatCooldownSeconds} IS NULL OR ${table.repeatCooldownSeconds} >= 0`),
 ]);
@@ -132,6 +135,8 @@ export const questRuns = pgTable("quest_run", {
   acceptedAt: timestamp("accepted_at", { withTimezone: true }),
   /** Set when state transitions to COMPLETED or FAILED. */
   completedAt: timestamp("completed_at", { withTimezone: true }),
+  /** Persisted dialogue/timer/branch state; survives reconnects and restarts. */
+  runtimeState: jsonb("runtime_state").$type<Record<string, unknown>>().notNull().default({}),
 }, (table) => [
   /** Last line of defence in addition to acceptQuest's transactional team lock. */
   uniqueIndex("quest_run_team_definition_open_unique")
@@ -216,6 +221,8 @@ export const questSteps = pgTable("quest_step", {
 
   /** Whether completing this step is mandatory for quest completion. */
   required: boolean("required").notNull().default(true),
+  /** Player copy, validation data and UI metadata from Questablauf/Rätsel. */
+  authoredContent: jsonb("authored_content").$type<Record<string, unknown>>().notNull().default({}),
 });
 
 // ── QuestStation ──────────────────────────────────────────────────────────────

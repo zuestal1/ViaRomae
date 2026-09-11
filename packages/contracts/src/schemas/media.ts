@@ -15,6 +15,9 @@ export const MediaSubmissionSchema = z.object({
   questRunId: z.string().uuid(),
   stepId: z.string(),
   objectKey: z.string(),
+  mimeType: z.string(),
+  fileSizeBytes: z.number().int().nonnegative(),
+  previewUrl: z.string().url().optional(),
   status: MediaStatusSchema,
   submittedAt: z.string().datetime(),
   /** Latest GM feedback. Present after a review decision. */
@@ -46,7 +49,16 @@ export type RequestUploadUrlBody = z.infer<typeof RequestUploadUrlBodySchema>;
 
 export const SubmitReviewBodySchema = z.object({
   score: z.number().int().min(0).max(10),
+  criteria: z.object({
+    taskLocation: z.number().int().min(0).max(2),
+    storyRoles: z.number().int().min(0).max(3),
+    creativity: z.number().int().min(0).max(3),
+    execution: z.number().int().min(0).max(2),
+  }),
   reason: z.string().optional(),
+}).superRefine((value, ctx) => {
+  const total = value.criteria.taskLocation + value.criteria.storyRoles + value.criteria.creativity + value.criteria.execution;
+  if (total !== value.score) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["score"], message: "Score must equal the GDD rubric total." });
 });
 export type SubmitReviewBody = z.infer<typeof SubmitReviewBodySchema>;
 
@@ -55,6 +67,7 @@ export const ReviewDecisionSchema = z.object({
   submissionId: z.string().uuid(),
   reviewerId: z.string().uuid(),
   score: z.number(),
+  criteria: z.object({ taskLocation: z.number(), storyRoles: z.number(), creativity: z.number(), execution: z.number() }).nullable().optional(),
   reason: z.string().optional(),
   decidedAt: z.string().datetime(),
 });
