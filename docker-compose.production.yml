@@ -49,6 +49,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
       minio:
         condition: service_healthy
     healthcheck:
@@ -65,6 +67,20 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  migrate:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    restart: "no"
+    command: ["pnpm", "run", "db:migrate"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - jlw_network
+
   # ── Frontend ────────────────────────────────────────────────────────────────
   frontend:
     build:
@@ -73,6 +89,7 @@ services:
       args:
         VITE_API_BASE_URL: ${VITE_API_BASE_URL}
         VITE_MAPTILER_API_KEY: ${VITE_MAPTILER_API_KEY}
+        VITE_GM_CLIENT_URL: ${VITE_GM_CLIENT_URL}
     restart: unless-stopped
     ports:
       - "0.0.0.0:5173:80"  # Von überall erreichbar

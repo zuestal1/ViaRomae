@@ -6,13 +6,13 @@
 import { useQuery } from "@tanstack/react-query";
 import type { TeamStatus } from "@jlw/contracts";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+import { API_ROOT } from "../lib/api";
 
 export function TeamStatusPanel() {
   const { data: teams, isLoading } = useQuery<TeamStatus[]>({
     queryKey: ["gm", "team-status"],
     queryFn: async () => {
-      const res = await fetch(`${API_BASE}/api/v1/gm/dashboard/team-status`, {
+      const res = await fetch(`${API_ROOT}/gm/dashboard/team-status`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("gm_token")}`,
         },

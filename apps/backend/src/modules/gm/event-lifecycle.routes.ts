@@ -8,6 +8,7 @@ import { EventLifecycleService } from "./event-lifecycle.service.js";
 import { ToggleLeaderboardFreezeBodySchema } from "@jlw/contracts";
 
 export const eventLifecycleRoutes: FastifyPluginAsync = async (fastify) => {
+  fastify.addHook("onRequest", fastify.authorizeGM);
   const service = new EventLifecycleService(fastify.log);
 
   // ── GET /api/v1/gm/event/state ──────────────────────────────────────────────

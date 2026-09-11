@@ -4,6 +4,7 @@
  */
 
 import { z } from "zod";
+import { RoleSchema } from "./auth.js";
 
 // ── GM Commands ────────────────────────────────────────────────────────────────
 
@@ -42,6 +43,27 @@ export const CorrectCurrencyBodySchema = z.object({
   reason: z.string().min(1),
 });
 export type CorrectCurrencyBody = z.infer<typeof CorrectCurrencyBodySchema>;
+
+export const CreatePlayerAccountBodySchema = z.object({
+  username: z.string().trim().min(2).max(64),
+  accessCode: z.string().min(4).max(64),
+  teamId: z.string().uuid().optional(),
+  newTeamName: z.string().trim().min(2).max(64).optional(),
+  playerName: z.string().trim().min(2).max(64).optional(),
+}).refine((value) => Boolean(value.teamId) !== Boolean(value.newTeamName), {
+  message: "Genau ein bestehendes Team oder ein neuer Teamname ist erforderlich.",
+});
+export type CreatePlayerAccountBody = z.infer<typeof CreatePlayerAccountBodySchema>;
+
+export const CreatedPlayerAccountSchema = z.object({
+  account: z.object({ id: z.string().uuid(), username: z.string(), role: RoleSchema }),
+  player: z.object({ id: z.string().uuid(), teamId: z.string().uuid(), playerName: z.string() }),
+  team: z.object({ id: z.string().uuid(), name: z.string() }),
+});
+export type CreatedPlayerAccount = z.infer<typeof CreatedPlayerAccountSchema>;
+
+export const GMTeamOptionSchema = z.object({ id: z.string().uuid(), name: z.string() });
+export type GMTeamOption = z.infer<typeof GMTeamOptionSchema>;
 
 export const AuditLogEntrySchema = z.object({
   id: z.string().uuid(),

@@ -187,13 +187,19 @@ export function LobbyPage({ onEnterMap }: LobbyPageProps) {
 
       {/* Actions */}
       <div className="mt-8 flex w-full max-w-sm flex-col gap-3">
-        <button
+        {isGM ? <button
+          onClick={() => {
+            const configured = import.meta.env.VITE_GM_CLIENT_URL;
+            window.location.href = configured || `${window.location.protocol}//${window.location.hostname}:5174`;
+          }}
+          className="w-full rounded-lg bg-[#cd7f32] py-3 font-bold text-[#0d0d1a]"
+        >🛡️ &nbsp;GM-Dashboard öffnen</button> : <button
           onClick={onEnterMap}
           className="w-full rounded-lg bg-[#cd7f32] py-3 font-bold tracking-wide
                      text-[#0d0d1a] transition hover:bg-[#e8943f] active:scale-95"
         >
           🏛️ &nbsp;Klasse &amp; Preflight
-        </button>
+        </button>}
 
         <button
           onClick={logout}

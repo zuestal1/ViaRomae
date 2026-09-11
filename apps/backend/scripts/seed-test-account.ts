@@ -72,6 +72,9 @@ async function upsertFixture(opts: (typeof FIXTURES)[number]) {
     accountId: account!.id,
     teamId: team!.id,
     class: opts.class,
+    classConfirmed: true,
+    classSelectedAt: new Date(),
+    classConfirmedAt: new Date(),
     hpCurrent: CLASSES[opts.class].baseStats.maxHP,
     status: "ACTIVE",
   });
