@@ -76,6 +76,7 @@ export const ItemInstanceSchema = z.object({
   slot: ItemSlotSchema.nullable(),
   isEquipped: z.boolean(),
   isBound: z.boolean(),
+  isQuestLocked: z.boolean().optional().default(false),
   stats: z.record(z.number()).optional(),
   effectiveStats: ItemStatsSchema.optional(),
   rarity: ItemRaritySchema,
@@ -101,6 +102,52 @@ export const EconomySummarySchema = z.object({
   teamLimit: z.number().int(),
 });
 export type EconomySummary = z.infer<typeof EconomySummarySchema>;
+
+export const StoreCatalogItemSchema = z.object({
+  definitionId: z.string(),
+  name: z.string(),
+  category: ItemCategorySchema,
+  price: z.number().int().positive(),
+  sellPrice: z.number().int().nonnegative(),
+  stackable: z.boolean(),
+});
+export type StoreCatalogItem = z.infer<typeof StoreCatalogItemSchema>;
+
+export const StoreCatalogResponseSchema = z.object({
+  storeId: z.string().uuid(),
+  externalId: z.string(),
+  name: z.string(),
+  denarii: z.number().int(),
+  interactionAllowed: z.boolean(),
+  blockedReason: z.string().nullable(),
+  items: z.array(StoreCatalogItemSchema),
+});
+export type StoreCatalogResponse = z.infer<typeof StoreCatalogResponseSchema>;
+
+export const StorePurchaseRequestSchema = z.object({
+  idempotencyKey: z.string().uuid(),
+  definitionId: z.string().min(1),
+  quantity: z.number().int().min(1).max(40),
+});
+export type StorePurchaseRequest = z.infer<typeof StorePurchaseRequestSchema>;
+
+export const StoreSaleRequestSchema = z.object({
+  idempotencyKey: z.string().uuid(),
+  itemInstanceId: z.string().uuid(),
+  quantity: z.number().int().min(1).max(40),
+});
+export type StoreSaleRequest = z.infer<typeof StoreSaleRequestSchema>;
+
+export const StoreTransactionResponseSchema = z.object({
+  transactionId: z.string().uuid(),
+  alreadyProcessed: z.boolean(),
+  kind: z.enum(["BUY", "SELL"]),
+  definitionId: z.string(),
+  quantity: z.number().int().positive(),
+  amount: z.number().int(),
+  denarii: z.number().int(),
+});
+export type StoreTransactionResponse = z.infer<typeof StoreTransactionResponseSchema>;
 
 export const TeamListEntrySchema = z.object({
   id: z.string().uuid(),

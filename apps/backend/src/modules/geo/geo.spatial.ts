@@ -16,7 +16,7 @@
  *   zone oscillation at the border.
  *
  * effectiveDistance formula (gives player GPS benefit of doubt):
- *   effectiveDistance = max(0, ST_DistanceSphere(player, target) − accuracy)
+ *   effectiveDistance = max(0, ST_DistanceSphere(player, target) − min(accuracy, 10 m))
  */
 
 // ── Types ─────────────────────────────────────────────────────────────────────

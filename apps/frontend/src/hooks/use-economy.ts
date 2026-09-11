@@ -9,6 +9,8 @@ import type {
   ItemInstance,
   TeamListEntry,
   TradeOfferList,
+  StoreCatalogResponse,
+  StoreTransactionResponse,
 } from "@jlw/contracts";
 import { api } from "../lib/api.js";
 
@@ -19,6 +21,34 @@ export const ECONOMY_KEYS = {
   teams: ["economy", "teams"] as const,
   offers: ["economy", "trade-offers"] as const,
 };
+
+export function useStoreCatalog(token: string | null, storeId: string | null) {
+  return useQuery({
+    queryKey: ["store", storeId],
+    queryFn: () => api.get<StoreCatalogResponse>(`/stores/${storeId}`),
+    enabled: !!token && !!storeId,
+    staleTime: 5_000,
+    refetchInterval: 10_000,
+  });
+}
+
+export function useBuyStoreItem(storeId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { definitionId: string; quantity: number; idempotencyKey: string }) =>
+      api.post<StoreTransactionResponse>(`/stores/${storeId}/buy`, input),
+    onSuccess: () => { invalidateEconomy(queryClient); void queryClient.invalidateQueries({queryKey:["store",storeId]}); },
+  });
+}
+
+export function useSellStoreItem(storeId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { itemInstanceId: string; quantity: number; idempotencyKey: string }) =>
+      api.post<StoreTransactionResponse>(`/stores/${storeId}/sell`, input),
+    onSuccess: () => { invalidateEconomy(queryClient); void queryClient.invalidateQueries({queryKey:["store",storeId]}); },
+  });
+}
 
 export function useEconomySummary(token: string | null) {
   return useQuery({
