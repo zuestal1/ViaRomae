@@ -61,6 +61,7 @@ import {
   QUEST_REWARD_PROFILE,
   COMBAT_REWARD_PROFILE,
 } from "../economy/rewards.service.js";
+import { decideQuestAcceptance } from "./quest-repeatability.js";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -556,8 +557,8 @@ export async function getActiveRuns(teamId: string): Promise<QuestRunDetail[]> {
 
 /**
  * Return QuestDefinitions that at least one team member can currently discover
- * (proximity zone DISCOVERED or INTERACTING) but that the team hasn't
- * accepted yet (no active QuestRun).
+ * (proximity zone DISCOVERED or INTERACTING) and that the complete run history
+ * allows under the QuestDefinition's repeatability policy.
  *
  * HIDDEN quests are included once the trigger WorldObject is in range
  * (they are filtered by type only in the active quest list UI, not here).
@@ -621,30 +622,25 @@ export async function getAvailableQuests(
 
   const questDefIds = [...new Set(stationRows.map((r) => r.questDefinitionId))];
 
-  // Step 4: Exclude already-active QuestRuns
-  const activeRuns = await db
-    .select({ questDefinitionId: questRuns.questDefinitionId })
+  // Step 4: Load definitions and every prior run; repeatability is definition data.
+  const questDefs = await db.select().from(questDefinitions)
+    .where(inArray(questDefinitions.id, questDefIds));
+  const priorRuns = await db
+    .select({ questDefinitionId: questRuns.questDefinitionId, state: questRuns.state,
+      startedAt: questRuns.startedAt, completedAt: questRuns.completedAt })
     .from(questRuns)
     .where(
       and(
         eq(questRuns.teamId, teamId),
-        eq(questRuns.state, "ACTIVE"),
         inArray(questRuns.questDefinitionId, questDefIds),
       ),
     );
+  const now = new Date();
+  const availableDefs = questDefs.filter((definition) => decideQuestAcceptance(
+    priorRuns.filter((run) => run.questDefinitionId === definition.id), definition, now,
+  ).allowed);
 
-  const activeDefIds = new Set(activeRuns.map((r) => r.questDefinitionId));
-  const availableIds = questDefIds.filter((id) => !activeDefIds.has(id));
-
-  if (availableIds.length === 0) {
-    return [];
-  }
-
-  // Step 5: Load QuestDefinition rows
-  const questDefs = await db
-    .select()
-    .from(questDefinitions)
-    .where(inArray(questDefinitions.id, availableIds));
+  if (availableDefs.length === 0) return [];
 
   // Step 6: Load WorldObject names for trigger objects
   const worldObjectRows = await db
@@ -655,7 +651,7 @@ export async function getAvailableQuests(
   const worldObjectNameMap = new Map(worldObjectRows.map((r) => [r.id, r.name]));
 
   // Build result
-  const result = questDefs.map((qd): QuestAvailable => {
+  const result = availableDefs.map((qd): QuestAvailable => {
     const trigger = stationRows.find((s) => s.questDefinitionId === qd.id)!;
     const zone = worldObjectZoneMap.get(trigger.worldObjectId) ?? "DISCOVERED";
 
@@ -693,91 +689,51 @@ export async function acceptQuest(opts: {
 
   const { teamId, playerName } = await resolvePlayer(accountId);
 
-  // Load quest definition
-  const [questDef] = await db
-    .select()
-    .from(questDefinitions)
-    .where(eq(questDefinitions.id, questDefinitionId));
+  // Serialize all acceptances for a team. This makes both the 3-slot check and
+  // the complete history/repeatability decision atomic across server instances.
+  const accepted = await db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${teamId}, 0))`);
 
-  if (!questDef) {
-    const err = new Error("Quest definition not found.") as Error & {
-      statusCode: number;
-    };
-    err.statusCode = 404;
-    throw err;
-  }
+    const [questDef] = await tx.select().from(questDefinitions)
+      .where(eq(questDefinitions.id, questDefinitionId));
+    if (!questDef) throw httpError("Quest definition not found.", 404);
 
-  // Idempotency: return existing active run
-  const [existingRun] = await db
-    .select()
-    .from(questRuns)
-    .where(
-      and(
-        eq(questRuns.teamId, teamId),
-        eq(questRuns.questDefinitionId, questDefinitionId),
-        eq(questRuns.state, "ACTIVE"),
-      ),
-    );
+    const priorRuns = await tx.select().from(questRuns).where(and(
+      eq(questRuns.teamId, teamId), eq(questRuns.questDefinitionId, questDefinitionId),
+    ));
+    const decision = decideQuestAcceptance(priorRuns, questDef, new Date());
+    const existingRun = priorRuns.find((run) => run.state === "ACTIVE");
+    if (existingRun) return { run: existingRun, questDef, alreadyActive: true };
+    if (!decision.allowed) {
+      const suffix = decision.reason === "COOLDOWN" && decision.retryAt
+        ? ` Retry after ${decision.retryAt.toISOString()}.` : "";
+      throw httpError(`Quest cannot be accepted (${decision.reason}).${suffix}`, 409);
+    }
 
-  if (existingRun) {
-    const detail = await buildQuestRunDetail({
-      ...existingRun,
-      questTitle: questDef.title,
-      questType: questDef.type,
-      questDay: questDef.day,
-    });
-    return { run: detail, alreadyActive: true };
-  }
+    const activeCountResult = await tx.select({ count: count() }).from(questRuns)
+      .where(and(eq(questRuns.teamId, teamId), eq(questRuns.state, "ACTIVE")));
+    if (Number(activeCountResult[0]?.count ?? 0) >= MAX_ACTIVE_QUESTS) {
+      throw httpError(`Maximum ${MAX_ACTIVE_QUESTS} active quests per team. Finish one first.`, 409);
+    }
 
-  // Slot check: max MAX_ACTIVE_QUESTS active quests per team
-  const activeCountResult = await db
-    .select({ count: count() })
-    .from(questRuns)
-    .where(and(eq(questRuns.teamId, teamId), eq(questRuns.state, "ACTIVE")));
+    const [newRun] = await tx.insert(questRuns)
+      .values({ teamId, questDefinitionId, state: "ACTIVE" }).returning();
+    if (!newRun) throw new Error("Failed to create QuestRun.");
 
-  const activeCount = Number(activeCountResult[0]?.count ?? 0);
-
-  if (activeCount >= MAX_ACTIVE_QUESTS) {
-    const err = new Error(
-      `Maximum ${MAX_ACTIVE_QUESTS} active quests per team. Finish one first.`,
-    ) as Error & { statusCode: number };
-    err.statusCode = 409;
-    throw err;
-  }
-
-  // Create the QuestRun
-  const [newRun] = await db
-    .insert(questRuns)
-    .values({ teamId, questDefinitionId, state: "ACTIVE" })
-    .returning();
-
-  if (!newRun) throw new Error("Failed to create QuestRun.");
-
-  // Initialise ObjectiveProgress for every OBJECTIVE step
-  const objectiveSteps = await db
-    .select()
-    .from(questSteps)
-    .where(
-      and(
-        eq(questSteps.questDefinitionId, questDefinitionId),
-        eq(questSteps.flowPhase, "OBJECTIVE"),
-      ),
-    )
-    .orderBy(questSteps.sequence);
-
-  if (objectiveSteps.length > 0) {
-    await db.insert(objectiveProgress).values(
-      objectiveSteps.map((step) => ({
-        questRunId: newRun.id,
-        objectiveId: step.stepId,
-        status: "PENDING",
-        progressCount: 0,
-      })),
-    );
-  }
+    const objectiveSteps = await tx.select().from(questSteps).where(and(
+      eq(questSteps.questDefinitionId, questDefinitionId), eq(questSteps.flowPhase, "OBJECTIVE"),
+    )).orderBy(questSteps.sequence);
+    if (objectiveSteps.length > 0) {
+      await tx.insert(objectiveProgress).values(objectiveSteps.map((step) => ({
+        questRunId: newRun.id, objectiveId: step.stepId, status: "PENDING", progressCount: 0,
+      })));
+    }
+    return { run: newRun, questDef, alreadyActive: false };
+  });
+  const { run: newRun, questDef, alreadyActive } = accepted;
 
   // Broadcast quest.accepted
-  if (wsHub) {
+  if (wsHub && !alreadyActive) {
     const event: QuestAcceptedEvent = {
       event: "quest.accepted",
       teamId,
@@ -796,7 +752,7 @@ export async function acceptQuest(opts: {
     questDay: questDef.day,
   });
 
-  return { run: detail, alreadyActive: false };
+  return { run: detail, alreadyActive };
 }
 
 // ── Public: validateReachLocation ────────────────────────────────────────────
