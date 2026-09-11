@@ -9,7 +9,7 @@
 
 import crypto from "node:crypto";
 import { promisify } from "node:util";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { db } from "../../db/client.js";
 import { accounts, sessions } from "../../db/schema/account.js";
 import { players, teams } from "../../db/schema/player.js";
@@ -169,11 +169,10 @@ export async function getMe(accountId: string): Promise<MeResponse> {
   const accountNames = new Map(teamAccounts.map((entry) => [entry.id, entry.username]));
   const equipped = await db.select({ slot: itemInstances.slot, name: itemDefs.name })
     .from(itemInstances).leftJoin(itemDefs, eq(itemInstances.definitionId, itemDefs.key))
-    .where(eq(itemInstances.ownerId, player.id));
-  if (!player.class) throw Object.assign(new Error("Klasse noch nicht bestätigt."), { statusCode: 409 });
-  const stats = await getPlayerStats(player);
-  const abilities = abilitiesForClass(player.class);
-  const passive = abilities.find((ability) => ability.passive)!;
+    .where(and(eq(itemInstances.ownerId, player.id), eq(itemInstances.isEquipped, true)));
+  const stats = player.class ? await getPlayerStats(player) : { hpMax: 100, atk: 0, def: 0, initiative: 0 };
+  const abilities = player.class ? abilitiesForClass(player.class) : [];
+  const passive = abilities.find((ability) => ability.passive);
 
   return {
     account: { id: account.id, username: account.username, role: account.role },
@@ -202,10 +201,12 @@ export async function getMe(accountId: string): Promise<MeResponse> {
             inventoryCapacity: team.inventoryCapacity,
             fame: await getTeamBalance(team.id, "FAME"),
             denarii: await getTeamBalance(team.id, "DENARII"),
-            members: teamPlayers.filter((member) => member.class !== null).map((member) => ({
+            members: teamPlayers.map((member) => ({
               id: member.id,
               name: member.playerName ?? accountNames.get(member.accountId) ?? "Unbekannt",
-              class: member.class!,
+              class: member.class,
+              classConfirmed: member.classConfirmed,
+              preflightCompleted: member.preflightCompletedAt !== null,
               hpCurrent: member.hpCurrent,
               hpMax: member.class ? CLASSES[member.class].baseStats.maxHP : 100,
             })),

@@ -15,6 +15,7 @@ import {
   BossJoinRequestBodySchema,
   BossGlobalActionBodySchema,
 } from "@jlw/contracts";
+import { requireActiveEvent } from "../gm/event-runtime.service.js";
 
 export async function bossRoutes(server: FastifyInstance): Promise<void> {
   /**
@@ -51,12 +52,12 @@ export async function bossRoutes(server: FastifyInstance): Promise<void> {
       preHandler: [server.authenticate],
     },
     async (request, reply) => {
+      await requireActiveEvent();
       const body = BossJoinRequestBodySchema.parse(request.body);
-      const teamId = (request.user as { teamId: string }).teamId;
-
-      if (!teamId) {
-        return reply.status(400).send({ error: "User has no team" });
-      }
+      const { sub: accountId } = request.user as { sub: string };
+      const [player] = await db.select({ teamId: players.teamId }).from(players).where(eq(players.accountId, accountId));
+      if (!player) return reply.status(404).send({ error: "Player not found" });
+      const teamId = player.teamId;
 
       try {
         // Get or create boss combat
@@ -93,6 +94,7 @@ export async function bossRoutes(server: FastifyInstance): Promise<void> {
       preHandler: [server.authenticate],
     },
     async (request, reply) => {
+      await requireActiveEvent();
       const body = BossGlobalActionBodySchema.parse(request.body);
       const { sub: accountId } = request.user as { sub: string };
       const [player] = await db.select({ id: players.id, teamId: players.teamId }).from(players).where(eq(players.accountId, accountId));

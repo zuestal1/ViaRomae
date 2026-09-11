@@ -4,6 +4,18 @@ import {
   RequestUploadUrlBodySchema,
   SubmitReviewBodySchema,
 } from "@jlw/contracts";
+import { db } from "../../db/client.js";
+import { players } from "../../db/schema/player.js";
+import { eq } from "drizzle-orm";
+
+async function teamForRequest(request: FastifyRequest): Promise<string> {
+  const { sub } = request.user as { sub?: string };
+  if (!sub) throw Object.assign(new Error("Ungültige Sitzung."), { statusCode: 401 });
+  const [player] = await db.select({ teamId: players.teamId }).from(players)
+    .where(eq(players.accountId, sub)).limit(1);
+  if (!player) throw Object.assign(new Error("Kein Spielerprofil für dieses Konto gefunden."), { statusCode: 404 });
+  return player.teamId;
+}
 
 export async function mediaRoutes(server: FastifyInstance): Promise<void> {
   const mediaService = new MediaService(server.log);
@@ -26,13 +38,8 @@ export async function mediaRoutes(server: FastifyInstance): Promise<void> {
     },
     async (request, reply) => {
       const body = RequestUploadUrlBodySchema.parse(request.body);
-      const teamId = (request.user as { teamId: string }).teamId;
-
-      if (!teamId) {
-        return reply.status(400).send({ error: "User has no team" });
-      }
-
       try {
+        const teamId = await teamForRequest(request);
         const result = await mediaService.requestUploadUrl(
           teamId,
           body.questRunId,
@@ -64,7 +71,7 @@ export async function mediaRoutes(server: FastifyInstance): Promise<void> {
       try {
         const submission = await mediaService.confirmUploadComplete(
           decodeURIComponent(request.params.objectKey),
-          (request.user as { teamId: string }).teamId,
+          await teamForRequest(request),
         );
 
         // Emit WebSocket event to team
@@ -172,7 +179,7 @@ export async function mediaRoutes(server: FastifyInstance): Promise<void> {
     async (request, reply) => {
       const submissions = await mediaService.getSubmissionsByQuestRun(
         request.params.questRunId,
-        (request.user as { teamId: string }).teamId,
+        await teamForRequest(request),
       );
       return reply.status(200).send({ submissions });
     },

@@ -9,11 +9,13 @@ import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../contexts/auth.context.js";
 import { api } from "../lib/api.js";
-import type { MeResponse, PlayerClass } from "@jlw/contracts";
+import type { MeResponse, PlayerLeaderboardEntry, RuntimeEventState } from "@jlw/contracts";
 
 interface LobbyPageProps {
   /** Called when the player presses "Zur Karte". */
   onEnterMap: () => void;
+  onGameReleased: (preflightCompleted: boolean) => void;
+  autoRelease: boolean;
 }
 
 // Class display names (German)
@@ -25,9 +27,9 @@ const CLASS_LABELS: Record<string, string> = {
 };
 const SLOT_LABELS: Record<string, string> = { WEAPON: "Waffe", CLOTHING: "Kleidung", DEFENSE: "Verteidigung", ARTIFACT: "Artefakt" };
 
-export function LobbyPage({ onEnterMap }: LobbyPageProps) {
+export function LobbyPage({ onEnterMap, onGameReleased, autoRelease }: LobbyPageProps) {
   const { account, setProfile, logout } = useAuth();
-  const [tab, setTab] = useState<"CHARACTER" | "TEAM">("CHARACTER");
+  const [tab, setTab] = useState<"CHARACTER" | "TEAM" | "RANKING">("CHARACTER");
 
   // Fetch full profile; the token is attached automatically by api.ts
   const { data, isLoading, isError, error } = useQuery({
@@ -35,11 +37,27 @@ export function LobbyPage({ onEnterMap }: LobbyPageProps) {
     queryFn: () => api.get<MeResponse>("/auth/me"),
     staleTime: 15_000,
   });
+  const { data: event } = useQuery({
+    queryKey: ["event-state"],
+    queryFn: () => api.get<RuntimeEventState>("/event/state"),
+    refetchInterval: 3_000,
+  });
+  const { data: leaderboard = [] } = useQuery({
+    queryKey: ["leaderboard"],
+    queryFn: () => api.get<PlayerLeaderboardEntry[]>("/event/leaderboard"),
+    refetchInterval: event?.leaderboardFrozen ? false : 15_000,
+  });
 
   // Enrich AuthContext with the full profile once loaded
   useEffect(() => {
     if (data) setProfile(data);
   }, [data, setProfile]);
+
+  useEffect(() => {
+    if (autoRelease && event?.state === "ACTIVE" && data?.player?.classConfirmed) {
+      onGameReleased(data.player.preflightCompleted);
+    }
+  }, [autoRelease, data, event?.state, onGameReleased]);
 
   if (isLoading) {
     return (
@@ -99,9 +117,10 @@ export function LobbyPage({ onEnterMap }: LobbyPageProps) {
 
         <hr className="my-5 border-[#cd7f32]/20" />
 
-        <div className="mb-5 grid grid-cols-2 rounded-lg bg-[#1a1a2e] p-1" role="tablist" aria-label="Profilansicht">
+        <div className="mb-5 grid grid-cols-3 rounded-lg bg-[#1a1a2e] p-1" role="tablist" aria-label="Profilansicht">
           <button role="tab" aria-selected={tab === "CHARACTER"} onClick={() => setTab("CHARACTER")} className={`rounded-md py-2 text-sm font-bold ${tab === "CHARACTER" ? "bg-[#cd7f32] text-[#0d0d1a]" : "text-[#aaa]"}`}>Charakter</button>
           <button role="tab" aria-selected={tab === "TEAM"} onClick={() => setTab("TEAM")} className={`rounded-md py-2 text-sm font-bold ${tab === "TEAM" ? "bg-[#cd7f32] text-[#0d0d1a]" : "text-[#aaa]"}`}>Team</button>
+          <button role="tab" aria-selected={tab === "RANKING"} onClick={() => setTab("RANKING")} className={`rounded-md py-2 text-sm font-bold ${tab === "RANKING" ? "bg-[#cd7f32] text-[#0d0d1a]" : "text-[#aaa]"}`}>Rangliste</button>
         </div>
 
         {me.player ? (
@@ -134,7 +153,7 @@ export function LobbyPage({ onEnterMap }: LobbyPageProps) {
             <section><h2 className="mb-2 text-xs uppercase tracking-widest text-[#cd7f32]">Fähigkeiten</h2><div className="space-y-2">{me.player.abilities.map((ability) => <div key={ability.id} className="rounded bg-[#1a1a2e] p-3"><div className="font-bold text-[#f4e4c1]">⚔️ {ability.displayName} <span className="text-xs font-normal text-[#888]">{ability.passive ? "Passiv" : ability.cooldownRounds ? `Cooldown: ${ability.cooldownRounds}` : "Basisangriff"}</span></div><p className="text-xs text-[#aaa]">{ability.description}</p></div>)}</div></section>
             <section className="rounded border border-[#cd7f32]/20 p-3"><h2 className="font-bold text-[#f4e4c1]">{me.player.passive.icon} Passiv: {me.player.passive.name}</h2><p className="text-xs text-[#aaa]">{me.player.passive.description}</p></section>
             <section><h2 className="mb-2 text-xs uppercase tracking-widest text-[#cd7f32]">Aktive Statuseffekte</h2>{me.player.statusEffects.length ? me.player.statusEffects.map((effect) => <div key={effect.id} className="text-sm text-[#f4e4c1]">{effect.icon} {effect.name}: {effect.description} ({effect.remainingRounds} Runden)</div>) : <p className="text-xs text-[#888]">Keine aktiven Effekte</p>}</section>
-            </> : <>
+            </> : tab === "TEAM" ? <>
 
             {/* Status */}
             <div className="flex items-center justify-between">
@@ -173,10 +192,10 @@ export function LobbyPage({ onEnterMap }: LobbyPageProps) {
                     {me.player.team.denarii}
                   </span>
                 </div>
-                <div className="mt-3 space-y-2">{me.player.team.members.map((member) => <div key={member.id} className="rounded bg-[#0d0d1a] p-3"><div className="flex justify-between text-sm"><span className="font-semibold text-[#f4e4c1]">{member.name}</span><span className="text-[#cd7f32]">{CLASS_LABELS[member.class]}</span></div><div className="mt-1 text-xs text-green-400">HP {member.hpCurrent} / {member.hpMax}</div><div className="mt-1 h-1.5 overflow-hidden rounded bg-[#333]"><div className="h-full bg-green-500" style={{ width: `${Math.max(0, Math.min(100, member.hpCurrent / member.hpMax * 100))}%` }} /></div></div>)}</div>
+                <div className="mt-3 space-y-2">{me.player.team.members.map((member) => <div key={member.id} className="rounded bg-[#0d0d1a] p-3"><div className="flex justify-between text-sm"><span className="font-semibold text-[#f4e4c1]">{member.name}</span><span className="text-[#cd7f32]">{member.class ? CLASS_LABELS[member.class] : "Klasse offen"}</span></div><div className="mt-1 text-xs text-[#aaa]">{member.classConfirmed ? "✓ Klasse bestätigt" : "○ Klassenwahl ausstehend"} · {member.preflightCompleted ? "✓ Preflight" : "○ Preflight offen"}</div>{member.class && <><div className="mt-1 text-xs text-green-400">HP {member.hpCurrent} / {member.hpMax}</div><div className="mt-1 h-1.5 overflow-hidden rounded bg-[#333]"><div className="h-full bg-green-500" style={{ width: `${Math.max(0, Math.min(100, member.hpCurrent / member.hpMax * 100))}%` }} /></div></>}</div>)}</div>
               </div>
             )}
-            </>}
+            </> : <Leaderboard entries={leaderboard} ownTeamName={me.player.team?.name ?? null} frozen={event?.leaderboardFrozen ?? false} />}
           </div>
         ) : (
           <p className="text-center text-sm text-[#888]">
@@ -194,12 +213,15 @@ export function LobbyPage({ onEnterMap }: LobbyPageProps) {
           }}
           className="w-full rounded-lg bg-[#cd7f32] py-3 font-bold text-[#0d0d1a]"
         >🛡️ &nbsp;GM-Dashboard öffnen</button> : <button
-          onClick={onEnterMap}
+          onClick={() => me.player?.classConfirmed ? onGameReleased(me.player.preflightCompleted) : onEnterMap()}
+          disabled={Boolean(me.player?.classConfirmed && me.player.preflightCompleted && event?.state !== "ACTIVE")}
           className="w-full rounded-lg bg-[#cd7f32] py-3 font-bold tracking-wide
                      text-[#0d0d1a] transition hover:bg-[#e8943f] active:scale-95"
         >
-          🏛️ &nbsp;Klasse &amp; Preflight
+          🏛️ &nbsp;{!me.player?.classConfirmed ? "Klasse wählen" : !me.player.preflightCompleted ? "Preflight abschliessen" : event?.state === "ACTIVE" ? "Spiel betreten" : "Warte auf Spielstart…"}
         </button>}
+
+        {!isGM && <p className="text-center text-xs text-[#888]">{event?.state === "ACTIVE" ? `Tag ${event.currentDay} ist freigegeben.` : event?.state === "PAUSED" ? "Das Spiel ist vorübergehend pausiert." : event?.state === "ENDED" ? "Der Spieltag ist beendet." : "Die Spielleitung hat das Spiel noch nicht gestartet."}</p>}
 
         <button
           onClick={logout}
@@ -211,4 +233,8 @@ export function LobbyPage({ onEnterMap }: LobbyPageProps) {
       </div>
     </div>
   );
+}
+
+function Leaderboard({ entries, ownTeamName, frozen }: { entries: PlayerLeaderboardEntry[]; ownTeamName: string | null; frozen: boolean }) {
+  return <section><div className="mb-3 flex items-center justify-between"><h2 className="text-xs uppercase tracking-widest text-[#cd7f32]">Team-Ruhm</h2>{frozen && <span className="rounded bg-blue-900/40 px-2 py-1 text-[10px] text-blue-300">Stand eingefroren</span>}</div>{entries.length === 0 ? <p className="text-sm text-[#888]">Noch keine Ranglistendaten.</p> : <div className="space-y-2">{entries.map((entry) => <div key={entry.teamName} className={`grid grid-cols-[2rem_1fr_auto] items-center gap-2 rounded-lg p-3 ${entry.teamName === ownTeamName ? "border border-[#cd7f32] bg-[#cd7f32]/10" : "bg-[#1a1a2e]"}`}><strong className="text-xl text-[#cd7f32]">{entry.rank}.</strong><div><p className="font-bold text-[#f4e4c1]">{entry.teamName}</p><p className="text-xs text-[#888]">{entry.questsCompleted} Quests</p></div><strong className="text-[#f4e4c1]">{entry.totalFame} Ruhm</strong></div>)}</div>}</section>;
 }

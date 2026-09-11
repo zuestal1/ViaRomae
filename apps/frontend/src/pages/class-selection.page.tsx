@@ -11,7 +11,7 @@ const CLASS_INFO = {
   condottiere: { name: "Condottiere", role: "Verursacht hohen Schaden", hp: 100, attack: 14, defense: 8, initiative: 12, Icon: Swords },
 } satisfies Record<SelectablePlayerClass, object>;
 
-export function ClassSelectionPage({ onConfirmed }: { onConfirmed: () => void }) {
+export function ClassSelectionPage({ onConfirmed, onBack }: { onConfirmed: () => void; onBack: () => void }) {
   const client = useQueryClient();
   const { data, isLoading, error } = useQuery({ queryKey: ["class-selection"], queryFn: () => api.get<ClassSelectionState>("/class-selection/") });
   const [selected, setSelected] = useState<SelectablePlayerClass | null>(null);
@@ -27,6 +27,7 @@ export function ClassSelectionPage({ onConfirmed }: { onConfirmed: () => void })
   return (
     <main className="min-h-screen bg-[#1a1a2e] px-4 py-8 text-[#f4e4c1]">
       <div className="mx-auto max-w-2xl">
+        <button onClick={onBack} className="mb-5 rounded-lg border border-[#cd7f32]/40 px-4 py-2 text-sm text-[#cd7f32]">← Zurück zur Lobby</button>
         <p className="text-center text-xs tracking-[.3em] text-[#cd7f32]">KLASSENWAHL</p>
         <h1 className="mt-2 text-center font-serif text-3xl font-bold">Wähle deine Rolle</h1>
         <p className="mx-auto mt-3 max-w-lg text-center text-sm text-[#aaa]">Jede Klasse kann pro Team nur einmal bestätigt werden. Danach bleibt sie für das gesamte Spiel gebunden.</p>

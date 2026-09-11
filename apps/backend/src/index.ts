@@ -24,6 +24,7 @@ import { gmDashboardRoutes } from "./modules/gm/gm-dashboard.routes.js";
 import { seedControlRoutes } from "./modules/gm/seed-control.routes.js";
 import { classRoutes } from "./modules/classes/class.routes.js";
 import { classSelectionRoutes } from "./modules/player/class-selection.routes.js";
+import { playerEventRoutes } from "./modules/gm/player-event.routes.js";
 import { recoverCombatTimers } from "./modules/combat/combat.service.js";
 import { errorHandler } from "./plugins/error-handler.js";
 import { WsHub } from "./modules/ws/ws.hub.js";
@@ -127,6 +128,7 @@ await server.register(inventoryRoutes, { prefix: "/api/v1/inventory" });
 await server.register(mediaRoutes, { prefix: "/api/v1/media" });
 await server.register(wsRoutes, { prefix: "/api/v1/ws" });
 await server.register(classSelectionRoutes, { prefix: "/api/v1/class-selection" });
+await server.register(playerEventRoutes, { prefix: "/api/v1/event" });
 
 // GM Routes (Epic 9)
 await server.register(gmCommandsRoutes, { prefix: "/api/v1/gm" });

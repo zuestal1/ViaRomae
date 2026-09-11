@@ -131,6 +131,13 @@ if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
 fi
 log_info "Backend is up!"
 
+# Fail closed if content, teams or participant accounts are incomplete.
+log_info "Running release preflight (content + event roster)..."
+docker compose -f $DOCKER_COMPOSE_FILE run --rm \
+    -e EXPECTED_PLAYER_COUNT="${EXPECTED_PLAYER_COUNT:-13}" \
+    -e EXPECTED_TEAM_COUNT="${EXPECTED_TEAM_COUNT:-4}" \
+    backend pnpm run release:preflight
+
 # ─── Health Checks ───────────────────────────────────────────────────────────
 log_info "Running health checks..."
 

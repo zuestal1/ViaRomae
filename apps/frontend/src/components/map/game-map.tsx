@@ -23,7 +23,7 @@
  *   useAvailableQuests (TanStack Query + WS invalidation).
  */
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Map, {
   type MapRef,
   Marker,
@@ -44,7 +44,7 @@ import { useStateRecovery } from "../../hooks/use-state-recovery.js";
 import { useAuth } from "../../contexts/auth.context.js";
 import { api } from "../../lib/api.js";
 import { WorldObjectMarker } from "./world-object-marker.js";
-import type { PlayAreasResponse, QuestAvailable } from "@jlw/contracts";
+import type { PlayAreasResponse, QuestAvailable, RuntimeEventState } from "@jlw/contracts";
 
 // ── Quest imports (Epic 4) ─────────────────────────────────────────────────────
 import {
@@ -116,6 +116,14 @@ export function GameMap({ onBack }: GameMapProps) {
     token ?? undefined,
   );
   const combatInventory = usePlayerInventory(token);
+  const { data: eventState } = useQuery({
+    queryKey: ["event-state"],
+    queryFn: () => api.get<RuntimeEventState>("/event/state"),
+    refetchInterval: 3_000,
+  });
+  useEffect(() => {
+    if (eventState && eventState.state !== "ACTIVE") onBack?.();
+  }, [eventState, onBack]);
   const { position, error: geoError, isReady } = useGeolocation();
   
   // ── State Recovery (Epic 7) ───────────────────────────────────────────────

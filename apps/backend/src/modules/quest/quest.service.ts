@@ -60,7 +60,9 @@ import {
   grantRewards,
   QUEST_REWARD_PROFILE,
   COMBAT_REWARD_PROFILE,
+  profileFromEncounterLabel,
 } from "../economy/rewards.service.js";
+import { getRuntimeEventState, questBelongsToDay, requireActiveEvent } from "../gm/event-runtime.service.js";
 import { decideQuestAcceptance } from "./quest-repeatability.js";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -71,7 +73,7 @@ const PROXIMITY_MAX_AGE_MS = 2 * 60 * 1000;
 
 type AuthoredDialogue = { sequenceId: string; nodeId: string; phase: string; order: number; speaker: string; mood?: string | null; text: string; options: Array<{ id: string; text: string; response: string; effect: Record<string, unknown> }>; defaultNext?: string | null };
 type AuthoredTimer = { id: string; stepId: string; title: string; durationSec: number; startsWhen: string; warnings: number[]; onExpire: string; retryPolicy: string; uiComponent: string; safety: string };
-type AuthoredQuest = { description?: string; questGiver?: string; slotRule?: string; reward?: { glory?: number; denarii?: number; itemRule?: string }; dialogues?: AuthoredDialogue[]; timers?: AuthoredTimer[] };
+type AuthoredQuest = { description?: string; questGiver?: string; slotRule?: string; reward?: { glory?: number; denarii?: number; itemRule?: string; profile?: string }; dialogues?: AuthoredDialogue[]; timers?: AuthoredTimer[] };
 const authoredQuest = (value: unknown): AuthoredQuest => (value && typeof value === "object" ? value as AuthoredQuest : {});
 
 function httpError(message: string, statusCode: number): Error & { statusCode: number } {
@@ -733,6 +735,8 @@ export async function getActiveRuns(teamId: string): Promise<QuestRunDetail[]> {
 export async function getAvailableQuests(
   teamId: string,
 ): Promise<QuestAvailable[]> {
+  const runtime = await getRuntimeEventState();
+  if (runtime.state !== "ACTIVE") return [];
   // Step 1: Player IDs for this team
   const teamPlayers = await db
     .select({ id: players.id })
@@ -811,9 +815,9 @@ export async function getAvailableQuests(
       ),
     );
   const now = new Date();
-  const availableDefs = questDefs.filter((definition) => decideQuestAcceptance(
-    priorRuns.filter((run) => run.questDefinitionId === definition.id), definition, now,
-  ).allowed);
+  const availableDefs = questDefs.filter((definition) =>
+    questBelongsToDay(definition.day, runtime.currentDay, definition.type) &&
+    decideQuestAcceptance(priorRuns.filter((run) => run.questDefinitionId === definition.id), definition, now).allowed);
 
   if (availableDefs.length === 0) return [];
 
@@ -883,11 +887,15 @@ export async function acceptQuest(opts: {
   // Serialize all acceptances for a team. This makes both the 3-slot check and
   // the complete history/repeatability decision atomic across server instances.
   const accepted = await db.transaction(async (tx) => {
+    const runtime = await requireActiveEvent(tx);
     await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${teamId}, 0))`);
 
     const [questDef] = await tx.select().from(questDefinitions)
       .where(eq(questDefinitions.id, questDefinitionId));
     if (!questDef) throw httpError("Quest definition not found.", 404);
+    if (!questBelongsToDay(questDef.day, runtime.currentDay, questDef.type)) {
+      throw httpError(`Diese Quest ist an Tag ${runtime.currentDay} nicht freigeschaltet.`, 403);
+    }
 
     const authored = authoredQuest(questDef.authoredContent);
     const offer = authored.dialogues?.find((item) => item.phase === "OFFER");
@@ -1414,11 +1422,18 @@ export async function completeQuest(opts: {
   const gloryPercent = questDef?.type === "REGULAR" ? Math.min(15, otherGlory + classGlory) : classGlory;
   const denariiPercent = questDef?.type === "REGULAR" ? Math.min(15, otherDenarii + classDenarii + authoredClassDenarii) : classDenarii + authoredClassDenarii;
   const authoredReward = authoredQuest(questDef?.authoredContent).reward;
+  const itemRule = authoredReward?.itemRule ?? "";
+  const standardLoot = itemRule.startsWith("LOOT_ROLL:QUEST_STANDARD")
+    ? profileFromEncounterLabel(authoredReward?.profile)
+    : null;
   const rewardProfile = {
     fame: Math.round(Number(authoredReward?.glory ?? QUEST_REWARD_PROFILE.fame) * (1 + gloryPercent / 100)),
     denarii: Math.round(Number(authoredReward?.denarii ?? QUEST_REWARD_PROFILE.denarii) * (1 + denariiPercent / 100)),
+    // GDD 9.6/9.8: normal quest loot lands in the shared team inventory.
+    // QUEST_ITEM rules are intermediate locked objective items and are granted
+    // by submitAnswer, not duplicated as completion loot.
     playerItems: [],
-    teamItems: [],
+    teamItems: standardLoot ? [...standardLoot.playerItems, ...standardLoot.teamItems] : [],
   };
 
   const granted = await grantRewards({
