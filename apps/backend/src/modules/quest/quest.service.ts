@@ -1319,7 +1319,13 @@ export async function submitAnswer(opts: {
     }
   }
 
-  if (!station) {
+  const puzzle = (step.authoredContent as { puzzle?: { expectedAnswer?: string; acceptedVariants?: string[] } }).puzzle;
+  const acceptedAnswers = [puzzle?.expectedAnswer, ...(puzzle?.acceptedVariants ?? []), station?.expectedAnswer]
+    .filter((value): value is string => Boolean(value));
+
+  // Only throw 404 if there's truly no answer source at all (neither station nor authored_content).
+  // Hidden quests and virtual steps may have no station but carry answers in authored_content.
+  if (!station && acceptedAnswers.length === 0) {
     const err = new Error("Target location not found.") as Error & {
       statusCode: number;
     };
@@ -1327,9 +1333,6 @@ export async function submitAnswer(opts: {
     throw err;
   }
 
-  const puzzle = (step.authoredContent as { puzzle?: { expectedAnswer?: string; acceptedVariants?: string[] } }).puzzle;
-  const acceptedAnswers = [puzzle?.expectedAnswer, ...(puzzle?.acceptedVariants ?? []), station?.expectedAnswer]
-    .filter((value): value is string => Boolean(value));
   if (acceptedAnswers.length === 0) {
     const err = new Error(
       "No expected answer configured for this station.",
