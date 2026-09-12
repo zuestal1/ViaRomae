@@ -20,6 +20,7 @@ import { z } from "zod";
 import {
   getActiveRuns,
   getAvailableQuests,
+  getQuestMapLocations,
   acceptQuest,
   validateReachLocation,
   submitAnswer,
@@ -107,6 +108,20 @@ export async function questRoutes(server: FastifyInstance): Promise<void> {
       request.log.info({ questCount: quests.length, quests }, 'GET /available - quests from service');
       
       return reply.send({ quests });
+    },
+  );
+
+  // ── GET /api/v1/quests/map-locations ──────────────────────────────────────
+  // Returns all quest start locations (with lat/lng) for the map view when
+  // the team has no active quests.
+  server.get(
+    "/map-locations",
+    { onRequest: [server.authenticate] },
+    async (request, reply) => {
+      const { sub: accountId } = request.user as { sub: string };
+      const teamId = await resolveTeamId(accountId);
+      const locations = await getQuestMapLocations(teamId);
+      return reply.send({ locations });
     },
   );
 

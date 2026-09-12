@@ -295,6 +295,33 @@ export const StepResultSchema = z.object({
 });
 export type StepResult = z.infer<typeof StepResultSchema>;
 
+// ── Quest Map Locations (no-active-quest map view) ───────────────────────────
+
+/**
+ * A single quest start point shown on the map when the player has no active quests.
+ * Contains the coordinates of the quest's first station WorldObject so the
+ * player can navigate to it and begin the quest.
+ */
+export const QuestMapLocationSchema = z.object({
+  questDefinitionId: z.string().uuid(),
+  externalId: z.string(),
+  title: z.string(),
+  type: QuestTypeSchema,
+  day: z.string().nullable(),
+  triggerObjectId: z.string().uuid(),
+  triggerObjectName: z.string(),
+  /** Latitude of the first-station WorldObject (null when geometry is missing). */
+  lat: z.number().nullable(),
+  /** Longitude of the first-station WorldObject (null when geometry is missing). */
+  lng: z.number().nullable(),
+});
+export type QuestMapLocation = z.infer<typeof QuestMapLocationSchema>;
+
+export const QuestMapLocationsResponseSchema = z.object({
+  locations: z.array(QuestMapLocationSchema),
+});
+export type QuestMapLocationsResponse = z.infer<typeof QuestMapLocationsResponseSchema>;
+
 export const CompleteQuestResponseSchema = z.object({
   questRunId: z.string().uuid(),
   glory: z.number().int(),

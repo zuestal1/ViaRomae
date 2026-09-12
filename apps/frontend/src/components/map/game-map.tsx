@@ -54,9 +54,11 @@ import {
   useSubmitAnswer,
   useReachLocation,
   useCompleteQuest,
+  useQuestMapLocations,
 } from "../../hooks/use-quests.js";
 import { QuestHUD } from "../quest/quest-hud.js";
 import { QuestBottomSheet } from "../quest/quest-bottom-sheet.js";
+import { QuestStartMarker } from "./quest-start-marker.js";
 import { EconomySheet } from "../inventory/economy-sheet.js";
 import { useEconomySummary, usePlayerInventory } from "../../hooks/use-economy.js";
 import { StoreSheet } from "../store/store-sheet.js";
@@ -164,6 +166,10 @@ export function GameMap({ onBack }: GameMapProps) {
   // ── Quest data (Epic 4) ────────────────────────────────────────────────────
   const { runs: activeRuns } = useActiveQuests(token);
   const { quests: availableQuests } = useAvailableQuests(token);
+
+  // Quest start locations (shown on the map when no active quests)
+  const hasNoActiveQuests = activeRuns.length === 0;
+  const { locations: questMapLocations } = useQuestMapLocations(token, hasNoActiveQuests);
 
   // Quest mutations
   const acceptQuestMutation = useAcceptQuest();
@@ -302,6 +308,12 @@ export function GameMap({ onBack }: GameMapProps) {
           <WorldObjectMarker key={obj.id} object={obj} onStoreInteract={setSelectedStore} />
         ))}
 
+        {/* ── Quest start markers (no active quest) ─────────────────────── */}
+        {hasNoActiveQuests &&
+          questMapLocations.map((loc) => (
+            <QuestStartMarker key={loc.questDefinitionId} location={loc} />
+          ))}
+
         {/* ── Quest waypoint markers (REACH_LOCATION targets) ───────────── */}
         {activeRuns
           .filter(
@@ -405,6 +417,18 @@ export function GameMap({ onBack }: GameMapProps) {
           <button onClick={() => setSelectedAvailableQuest(availableQuests[0]!)} className="rounded-full border border-[#cd7f32]/60 bg-black/75 px-4 py-2 text-xs font-bold text-[#f4e4c1] shadow-lg">
             🗺 {availableQuests.length} Quest{availableQuests.length === 1 ? "" : "s"} entdeckt – näher kommen
           </button>
+        </div>
+      )}
+
+      {/* Quest map overview badge (no active quests) */}
+      {hasNoActiveQuests && questMapLocations.length > 0 && !isSheetOpen && availableQuests.length === 0 && !dialogueQuest && (
+        <div className="absolute top-14 left-0 right-0 z-10 flex justify-center px-4 pointer-events-none">
+          <div className="flex items-center gap-2 rounded-full bg-[#1a1a2e]/80 border border-[#cd7f32]/50 px-4 py-2 text-xs text-[#f4e4c1] shadow-lg backdrop-blur-sm">
+            <span className="text-[#cd7f32] font-bold">📜</span>
+            <span>
+              {questMapLocations.length} Quest{questMapLocations.length !== 1 ? "s" : ""} auf der Karte verfügbar
+            </span>
+          </div>
         </div>
       )}
 

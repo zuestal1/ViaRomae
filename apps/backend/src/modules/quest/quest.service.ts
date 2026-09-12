@@ -888,6 +888,113 @@ export async function getAvailableQuests(
   return result;
 }
 
+// ── Public: getQuestMapLocations ──────────────────────────────────────────────
+
+/**
+ * Returns all quest start locations (first-station WorldObject coordinates)
+ * for quests available to the team on the current game day that have not yet
+ * been accepted or completed.
+ *
+ * Used by the frontend to show "where can I go to start a quest?" markers on
+ * the map when the team has no active quest runs.
+ */
+export async function getQuestMapLocations(
+  teamId: string,
+): Promise<import("@jlw/contracts").QuestMapLocation[]> {
+  const runtime = await getRuntimeEventState();
+  if (runtime.state !== "ACTIVE") return [];
+
+  // Step 1: All quest definitions that belong to the current game day
+  const allDefs = await db.select().from(questDefinitions);
+  const now = new Date();
+
+  // Step 2: Prior runs for this team (needed for repeatability check)
+  const allPriorRuns = await db
+    .select({
+      questDefinitionId: questRuns.questDefinitionId,
+      state: questRuns.state,
+      startedAt: questRuns.startedAt,
+      completedAt: questRuns.completedAt,
+    })
+    .from(questRuns)
+    .where(eq(questRuns.teamId, teamId));
+
+  const eligibleDefs = allDefs.filter(
+    (def) =>
+      questBelongsToDay(def.day, runtime.currentDay, def.type) &&
+      decideQuestAcceptance(
+        allPriorRuns.filter((r) => r.questDefinitionId === def.id),
+        def,
+        now,
+      ).allowed,
+  );
+
+  if (eligibleDefs.length === 0) return [];
+
+  const eligibleIds = eligibleDefs.map((d) => d.id);
+
+  // Step 3: First station (min sequence) per quest definition
+  const allStations = await db
+    .select({
+      questDefinitionId: questStations.questDefinitionId,
+      worldObjectId: questStations.worldObjectId,
+      sequence: questStations.sequence,
+    })
+    .from(questStations)
+    .where(inArray(questStations.questDefinitionId, eligibleIds));
+
+  // Map: questDefinitionId → station with lowest sequence
+  const firstStationMap = new Map<string, { worldObjectId: string; sequence: number }>();
+  for (const station of allStations) {
+    const existing = firstStationMap.get(station.questDefinitionId);
+    if (!existing || station.sequence < existing.sequence) {
+      firstStationMap.set(station.questDefinitionId, {
+        worldObjectId: station.worldObjectId,
+        sequence: station.sequence,
+      });
+    }
+  }
+
+  if (firstStationMap.size === 0) return [];
+
+  // Step 4: Load WorldObject coordinates for all trigger objects
+  const triggerObjectIds = [...new Set([...firstStationMap.values()].map((s) => s.worldObjectId))];
+  const worldObjectRows = await db
+    .select({
+      id: worldObjects.id,
+      name: worldObjects.name,
+      lat: worldObjects.lat,
+      lng: worldObjects.lng,
+    })
+    .from(worldObjects)
+    .where(inArray(worldObjects.id, triggerObjectIds));
+
+  const worldObjectMap = new Map(worldObjectRows.map((r) => [r.id, r]));
+
+  // Step 5: Build result
+  const result: import("@jlw/contracts").QuestMapLocation[] = [];
+  for (const def of eligibleDefs) {
+    const station = firstStationMap.get(def.id);
+    if (!station) continue;
+    const wo = worldObjectMap.get(station.worldObjectId);
+    if (!wo) continue;
+
+    result.push({
+      questDefinitionId: def.id,
+      externalId: def.externalId,
+      title: def.title,
+      type: def.type as import("@jlw/contracts").QuestMapLocation["type"],
+      day: def.day,
+      triggerObjectId: wo.id,
+      triggerObjectName: wo.name,
+      lat: wo.lat ?? null,
+      lng: wo.lng ?? null,
+    });
+  }
+
+  return result;
+}
+
 // ── Public: acceptQuest ───────────────────────────────────────────────────────
 
 /**
@@ -1047,7 +1154,7 @@ export async function validateReachLocation(opts: {
         eq(questSteps.questDefinitionId, run.questDefinitionId),
         eq(questSteps.stepId, stepId),
         eq(questSteps.stepCategory, "OBJECTIVE"),
-        inArray(questSteps.stepActionType, ["REACH_LOCATION", "NAVIGATION_CHALLENGE", "VISIT_MULTIPLE_LOCATIONS"]),
+        inArray(questSteps.stepActionType, ["REACH_LOCATION", "NAVIGATION_CHALLENGE", "VISIT_MULTIPLE_LOCATIONS", "DEFEAT_ENEMY"]),
       ),
     );
 

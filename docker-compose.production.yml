@@ -77,7 +77,7 @@ services:
       context: .
       dockerfile: docker/Dockerfile.backend
     restart: "no"
-    command: ["sh", "-c", "echo 'Migrations already applied, skipping.' && exit 0"]
+    command: ["pnpm", "run", "db:migrate"]
     environment:
       DATABASE_URL: ${DATABASE_URL}
     depends_on:

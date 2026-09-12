@@ -25,6 +25,7 @@ import type {
   AvailableQuestsResponse,
   CompleteQuestResponse,
   QuestEvent,
+  QuestMapLocationsResponse,
   QuestRunDetail,
   StepResult,
 } from "@jlw/contracts";
@@ -35,6 +36,7 @@ import { api } from "../lib/api.js";
 export const QUEST_QUERY_KEYS = {
   active: ["quests", "active"] as const,
   available: ["quests", "available"] as const,
+  mapLocations: ["quests", "map-locations"] as const,
   run: (runId: string) => ["quests", "run", runId] as const,
 };
 
@@ -82,6 +84,38 @@ export function useAvailableQuests(
 
   return {
     quests: data?.quests ?? [],
+    isLoading,
+  };
+}
+
+// ── Quest map locations (for map overview when no active quest) ───────────────
+
+export interface UseQuestMapLocationsResult {
+  locations: QuestMapLocationsResponse["locations"];
+  isLoading: boolean;
+}
+
+/**
+ * Returns all quest start locations with coordinates.
+ * Used to render "go here to start a quest" markers on the map
+ * when the team has no active quest runs.
+ *
+ * Only fetched when `enabled` is true (i.e. activeRuns.length === 0).
+ */
+export function useQuestMapLocations(
+  token: string | null,
+  enabled = true,
+): UseQuestMapLocationsResult {
+  const { data, isLoading } = useQuery({
+    queryKey: QUEST_QUERY_KEYS.mapLocations,
+    queryFn: () => api.get<QuestMapLocationsResponse>("/quests/map-locations"),
+    enabled: !!token && enabled,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  });
+
+  return {
+    locations: data?.locations ?? [],
     isLoading,
   };
 }
