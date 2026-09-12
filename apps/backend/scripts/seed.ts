@@ -762,6 +762,18 @@ async function main(): Promise<void> {
     await upsertWorldObject(feature, defaults, report);
   }
 
+  // ── 3b. Populate PostGIS geom from lat/lng ────────────────────────────────
+  // The Drizzle schema does not declare the geom column (PostGIS type not
+  // supported by drizzle-kit), so we update it via raw SQL after each upsert.
+  console.log("🗺️  Pass 1c: Populating PostGIS geom column from lat/lng …");
+  const geomResult = await db.execute(sql`
+    UPDATE world_object
+    SET geom = ST_SetSRID(ST_MakePoint(lng, lat), 4326)
+    WHERE lat IS NOT NULL AND lng IS NOT NULL
+      AND (geom IS NULL OR NOT ST_Equals(geom, ST_SetSRID(ST_MakePoint(lng, lat), 4326)))
+  `);
+  console.log(`   geom updated for ${(geomResult as { rowCount?: number }).rowCount ?? "?"} world objects`);
+
   // ── 4. Pass 2 – Upsert QuestDefinitions ──────────────────────────────────
   console.log("🔄 Pass 2: Upserting QuestDefinitions …");
   for (const feature of validQuestDefinitions) {
