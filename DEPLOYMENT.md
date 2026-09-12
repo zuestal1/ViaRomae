@@ -90,8 +90,10 @@ dadurch unerwartete zusätzliche Spieler oder Teams auf.
 1. Vor jedem Update ein geprüftes Datenbankbackup erstellen. Die bestehende
    Rosterdatei und Prüfsumme bleiben unverändert, sofern kein Rosterwechsel
    freigegeben wurde.
-2. Neue Images bauen. Die vier One-shot-Services explizit neu erzeugen; alle
-   Schritte sind wiederholbar, der Rosterimport löscht keine Eventdaten.
+2. Neue Images bauen. Das Deploy-Skript erzeugt die vier One-shot-Services mit
+   `--force-recreate` neu; alle Schritte sind wiederholbar, der Rosterimport
+   löscht keine Eventdaten. Bereits erfolgreich beendete Prüfcontainer werden
+   dadurch nicht versehentlich wiederverwendet.
 3. Erst nach erfolgreichem Preflight die langlebigen Services aktualisieren.
 
 ```bash
@@ -116,6 +118,12 @@ Neustart des Backends.
 - **Disk**: Mindestens 20GB freier Speicher
 - **SSH**: Root- oder sudo-Zugriff
 - **Domain**: Optional, für SSL/TLS (z.B. `jlw2026.example.com`)
+
+Die Anwendungsports `3000`, `5173` und `5174` sowie PostgreSQL `5432` sind im
+Produktions-Compose ausschließlich an `127.0.0.1` gebunden. Bei einem
+Deployment auf einen separaten Reverse-Proxy-Host muss stattdessen ein
+abgesichertes privates Netz konfiguriert werden; die Ports sollten nicht direkt
+ins Internet veröffentlicht werden.
 
 ### Software auf dem Server
 - Docker (25.0+)
@@ -205,6 +213,12 @@ S3_ENDPOINT=https://s3.eu-central-1.amazonaws.com
 S3_ACCESS_KEY_ID=<AWS-ACCESS-KEY-ID>
 S3_SECRET_ACCESS_KEY=<AWS-SECRET-ACCESS-KEY>
 ```
+
+Das Datenbankpasswort steht technisch zweimal in der Konfiguration: direkt in
+`POSTGRES_PASSWORD` und als Bestandteil von `DATABASE_URL`. Beide Werte müssen
+dieselbe Zeichenfolge ergeben. URL-reservierte Zeichen im Passwort (zum
+Beispiel `@`, `:`, `/`, `?` oder `#`) müssen in `DATABASE_URL` percent-codiert
+werden; `POSTGRES_PASSWORD` enthält weiterhin das unveränderte Passwort.
 
 Für **AWS S3** gilt:
 
@@ -301,8 +315,9 @@ chmod +x deploy.sh
 
 Das Skript bricht mit einer deutschsprachigen Fehlermeldung ab, bevor Container
 gestartet werden, wenn die Storage-Auswahl ungültig oder ein Pflichtwert fehlt.
-Es zeigt anschließend den Status der vier One-shot-Release-Dienste. Nur Exit-Code
-0 für alle vier gibt das Release frei.
+Es erzwingt bei jedem Lauf eine neue Ausführung der vier One-shot-Release-Dienste
+und zeigt anschließend deren Status. Nur Exit-Code 0 für alle vier gibt das
+Release frei.
 
 Für reine Diagnosebefehle muss dieselbe Dateikombination wie beim Deployment
 verwendet werden:
@@ -318,28 +333,21 @@ $COMPOSE ps
 $COMPOSE logs -f backend
 ```
 
-### 3. Datenbank migrieren
+### 3. Release-Schritte diagnostisch erneut ausführen
 
 ```bash
-# Warten bis PostgreSQL bereit ist
+# PostgreSQL-Bereitschaft prüfen
 $COMPOSE exec postgres pg_isready
 
-# Migrationen ausführen
-$COMPOSE exec backend sh -c "cd /app/apps/backend && node_modules/.bin/drizzle-kit migrate"
-
-# ODER mit direktem Zugriff:
-$COMPOSE exec backend npm run db:migrate
+# Die komplette kontrollierte Kette erneut erzeugen und ausführen.
+# Für reguläre Deployments weiterhin ./deploy.sh production verwenden.
+$COMPOSE up -d --force-recreate migrate seed-content roster-import release-preflight
+$COMPOSE ps -a migrate seed-content roster-import release-preflight
 ```
 
-### 4. Seed-Daten importieren (Optional)
-
-```bash
-# Test-Account erstellen
-$COMPOSE exec backend npm run db:seed
-
-# GeoJSON-Daten importieren
-$COMPOSE exec backend npm run seed
-```
+Migration, Contentseed und Rosterimport sind in Produktion nicht optional.
+Einzelne manuelle Seed- oder Testaccount-Befehle umgehen die Rosterfreigabe und
+sind deshalb nicht Teil des unterstützten Produktionsablaufs.
 
 ---
 
@@ -679,9 +687,8 @@ Vor dem Go-Live:
 - [ ] S3 Bucket erstellt und CORS konfiguriert
 - [ ] DNS-Records gesetzt (A/CNAME für alle Subdomains)
 - [ ] SSL-Zertifikate installiert und funktionierend
-- [ ] Datenbank migriert (`db:migrate`)
-- [ ] GeoJSON-Daten importiert (`seed`)
-- [ ] Test-Accounts erstellt (`db:seed`)
+- [ ] Release-Kette (`migrate`, `seed-content`, `roster-import`,
+      `release-preflight`) vollständig mit Exit-Code 0 abgeschlossen
 - [ ] Health-Endpoints erreichbar
 - [ ] WebSocket-Verbindung funktioniert
 - [ ] Frontend lädt Karte korrekt (MapTiler API Key)

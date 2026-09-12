@@ -66,7 +66,14 @@ info "Validiere Produktionskonfiguration ..."
 
 info "Baue Images ..."
 "${compose[@]}" build
-info "Starte Produktionsdienste ..."
+
+# Completed one-shot containers would otherwise be reused when neither their
+# image nor their configuration changed. Force their recreation so every
+# deployment actually verifies the current database and approved roster.
+info "Führe Release-Kette erneut aus ..."
+"${compose[@]}" up -d --force-recreate migrate seed-content roster-import release-preflight
+
+info "Starte Produktionsdienste nach erfolgreichem Preflight ..."
 "${compose[@]}" up -d
 info "Status der Release-Kette:"
 "${compose[@]}" ps -a migrate seed-content roster-import release-preflight

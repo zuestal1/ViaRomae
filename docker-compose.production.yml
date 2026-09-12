@@ -1,5 +1,6 @@
 # AWS S3 production stack. Deploy through: ./deploy.sh production
-version: "3.9"
+# Keep this file compatible with the Compose Specification used by Docker
+# Compose v2. The obsolete top-level `version` key is intentionally omitted.
 
 services:
   # ── PostgreSQL + PostGIS ────────────────────────────────────────────────────
@@ -52,7 +53,7 @@ services:
       S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?S3_ACCESS_KEY_ID is required}
       S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?S3_SECRET_ACCESS_KEY is required}
     ports:
-      - "0.0.0.0:3000:3000"  # Von überall erreichbar
+      - "127.0.0.1:3000:3000"  # Nur über den lokalen Reverse Proxy
     depends_on:
       postgres:
         condition: service_healthy
@@ -85,7 +86,7 @@ services:
     restart: "no"
     command: ["pnpm", "run", "db:migrate"]
     environment:
-      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
     depends_on:
       postgres:
         condition: service_healthy
@@ -99,7 +100,7 @@ services:
     restart: "no"
     command: ["pnpm", "run", "seed"]
     environment:
-      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
       NODE_ENV: production
     depends_on:
       migrate:
@@ -115,11 +116,11 @@ services:
     restart: "no"
     command: ["pnpm", "run", "roster:import"]
     environment:
-      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
       ROSTER_FILE: /run/roster/roster.json
-      ROSTER_SHA256: ${ROSTER_SHA256}
-      EXPECTED_PLAYER_COUNT: ${EXPECTED_PLAYER_COUNT}
-      EXPECTED_TEAM_COUNT: ${EXPECTED_TEAM_COUNT}
+      ROSTER_SHA256: ${ROSTER_SHA256:?ROSTER_SHA256 is required}
+      EXPECTED_PLAYER_COUNT: ${EXPECTED_PLAYER_COUNT:?EXPECTED_PLAYER_COUNT is required}
+      EXPECTED_TEAM_COUNT: ${EXPECTED_TEAM_COUNT:?EXPECTED_TEAM_COUNT is required}
     volumes:
       - ${ROSTER_FILE:?ROSTER_FILE must point to an approved roster}:/run/roster/roster.json:ro
     depends_on:
@@ -135,6 +136,9 @@ services:
     restart: "no"
     command: ["pnpm", "run", "release:preflight"]
     environment:
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      EXPECTED_PLAYER_COUNT: ${EXPECTED_PLAYER_COUNT:?EXPECTED_PLAYER_COUNT is required}
+      EXPECTED_TEAM_COUNT: ${EXPECTED_TEAM_COUNT:?EXPECTED_TEAM_COUNT is required}
       DATABASE_URL: ${DATABASE_URL}
       EXPECTED_PLAYER_COUNT: ${EXPECTED_PLAYER_COUNT:-13}
       EXPECTED_TEAM_COUNT: ${EXPECTED_TEAM_COUNT:-4}
@@ -163,12 +167,12 @@ services:
       context: .
       dockerfile: docker/Dockerfile.frontend
       args:
-        VITE_API_BASE_URL: ${VITE_API_BASE_URL}
-        VITE_MAPTILER_API_KEY: ${VITE_MAPTILER_API_KEY}
-        VITE_GM_CLIENT_URL: ${VITE_GM_CLIENT_URL}
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:?VITE_API_BASE_URL is required}
+        VITE_MAPTILER_API_KEY: ${VITE_MAPTILER_API_KEY:?VITE_MAPTILER_API_KEY is required}
+        VITE_GM_CLIENT_URL: ${VITE_GM_CLIENT_URL:?VITE_GM_CLIENT_URL is required}
     restart: unless-stopped
     ports:
-      - "0.0.0.0:5173:80"  # Von überall erreichbar
+      - "127.0.0.1:5173:80"  # Nur über den lokalen Reverse Proxy
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
       interval: 30s
@@ -188,10 +192,10 @@ services:
       context: .
       dockerfile: docker/Dockerfile.gm-client
       args:
-        VITE_API_BASE_URL: ${VITE_API_BASE_URL}
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:?VITE_API_BASE_URL is required}
     restart: unless-stopped
     ports:
-      - "0.0.0.0:5174:80"  # Von überall erreichbar
+      - "127.0.0.1:5174:80"  # Nur über den lokalen Reverse Proxy
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
       interval: 30s
