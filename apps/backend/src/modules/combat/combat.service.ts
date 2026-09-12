@@ -102,6 +102,12 @@ export interface Combatant {
   shield: number;
   statusEffects: StatusEffect[];
   abilities?: AbilityDefinition[];
+  enemyBehavior?: {
+    type: string;
+    powerAttackEvery: number;
+    powerAttackMultiplier: number;
+    targetStrategy: "THREAT" | "HIGHEST_ATTACK" | "LOWEST_HP" | "LOWEST_DEFENSE";
+  };
 }
 
 export interface CombatAction {
@@ -320,6 +326,7 @@ export async function getCombatInstance(combatId: string): Promise<CombatInstanc
     let atk = 10;
     let def = 0;
     let initiative = 0;
+    let enemyBehavior: Combatant["enemyBehavior"];
     let playerClass: ClassId | undefined;
     let profile: { stats: CombatStats; equipmentRarityScore: number } = {
       stats: { attack: 10, defense: 0, initiative: 0 }, equipmentRarityScore: 0 };
@@ -337,6 +344,7 @@ export async function getCombatInstance(combatId: string): Promise<CombatInstanc
       const [enemy] = await db.select().from(worldObjects).where(eq(worldObjects.id, c.entityId));
       name = enemy?.name ?? "Enemy";
       const props = enemy?.rawPropertiesJson ? JSON.parse(enemy.rawPropertiesJson) : {};
+      enemyBehavior = props.behavior as Combatant["enemyBehavior"];
       const bossDefaults = combat.type === "BOSS"
         ? (enemy?.day === "DAY_2" || enemy?.day === "2" ? { hp: 3240, def: 30, initiative: 11 } : { hp: 2160, def: 24, initiative: 9 })
         : { hp: 100, def: 0, initiative: 0 };
@@ -371,6 +379,7 @@ export async function getCombatInstance(combatId: string): Promise<CombatInstanc
         }), ...(playerClass ? { class: playerClass } : {}), abilityDefinitions, abilities: abilityDefinitions,
       abilityCooldowns: Object.fromEntries(abilityCooldownData.filter((row) => row.combatantId === c.id)
         .map((row) => [row.abilityId, Math.max(0, row.availableAtRound - combat.roundNumber)])),
+      ...(enemyBehavior ? { enemyBehavior } : {}),
     };
   }));
 
@@ -566,9 +575,9 @@ export async function lockAndResolveRound(
     for (const actor of alive) {
       const targets = alive.filter((target) => areOpponents(actor, target, combat.type as CombatInstance["type"]))
         .sort((a, b) => a.id.localeCompare(b.id));
+      const snapshot = snapshotByActor.get(actor.id);
       const target = actor.entityType === "ENEMY"
-        ? selectThreatTarget(targets.map((candidate) => ({ ...candidate, threat: threatEntries.find((entry) =>
-          entry.enemyCombatantId === actor.id && entry.playerCombatantId === candidate.id)?.amount ?? 0 })))
+        ? selectEnemyAiTarget(snapshot, targets, threatEntries, snapshotByActor)
         : targets.find((candidate) => candidate.id === actor.lastTargetId) ?? targets[0];
       if (!target) continue;
       await tx.insert(combatActions).values({
@@ -806,7 +815,10 @@ async function resolveRound(combatId: string, wsHub?: WsHub): Promise<CombatLog[
       if (!targetMaybe) continue;
       
       // Calculate damage
-      let damage = await calculateActionDamage(combat, actor, targetMaybe, 1);
+      const powerEvery = actor.enemyBehavior?.powerAttackEvery ?? 0;
+      const isPowerAttack = actor.entityType === "ENEMY" && powerEvery > 0 && combat.roundNumber % powerEvery === 0;
+      const attackMultiplier = isPowerAttack ? actor.enemyBehavior?.powerAttackMultiplier ?? 1.35 : 1;
+      let damage = await calculateActionDamage(combat, actor, targetMaybe, attackMultiplier);
       const whetstone=(await db.select().from(combatEffects).where(and(eq(combatEffects.combatInstanceId,combat.id),
         eq(combatEffects.sourceCombatantId,actor.id),eq(combatEffects.abilityId,"item.wetzstein_legionaer"))))[0];
       if(whetstone){damage=Math.round(damage*1.5);await db.delete(combatEffects).where(eq(combatEffects.id,whetstone.id));}
@@ -819,7 +831,9 @@ async function resolveRound(combatId: string, wsHub?: WsHub): Promise<CombatLog[
 
       logs.push({
         timestamp: new Date(),
-        message: `${actor.name} attacks ${targetMaybe.name} for ${dealt} damage!`,
+        message: isPowerAttack
+          ? `${actor.name} setzt ${actor.enemyBehavior?.type ?? "Spezialangriff"} gegen ${targetMaybe.name} ein: ${dealt} Schaden!`
+          : `${actor.name} attacks ${targetMaybe.name} for ${dealt} damage!`,
         type: "DAMAGE",
       });
 
@@ -838,6 +852,32 @@ async function resolveRound(combatId: string, wsHub?: WsHub): Promise<CombatLog[
   }
 
   return logs;
+}
+
+function selectEnemyAiTarget(
+  actor: Combatant | undefined,
+  candidates: Array<typeof combatants.$inferSelect>,
+  threatEntries: Array<typeof combatThreat.$inferSelect>,
+  snapshots: Map<string, Combatant>,
+): typeof combatants.$inferSelect | undefined {
+  if (!actor) return candidates[0];
+  const strategy = actor.enemyBehavior?.targetStrategy ?? "THREAT";
+  const enriched = candidates.map((candidate) => ({
+    candidate,
+    snapshot: snapshots.get(candidate.id),
+    threat: threatEntries.find((entry) => entry.enemyCombatantId === actor.id &&
+      entry.playerCombatantId === candidate.id)?.amount ?? 0,
+  }));
+  if (strategy === "LOWEST_HP") {
+    return enriched.sort((a, b) => a.candidate.hpCurrent - b.candidate.hpCurrent ||
+      a.candidate.id.localeCompare(b.candidate.id))[0]?.candidate;
+  }
+  if (strategy === "HIGHEST_ATTACK" || strategy === "LOWEST_DEFENSE") {
+    return enriched.sort((a, b) => strategy === "HIGHEST_ATTACK"
+      ? (b.snapshot?.atk ?? 0) - (a.snapshot?.atk ?? 0) || a.candidate.id.localeCompare(b.candidate.id)
+      : (a.snapshot?.def ?? 0) - (b.snapshot?.def ?? 0) || a.candidate.id.localeCompare(b.candidate.id))[0]?.candidate;
+  }
+  return selectThreatTarget(enriched.map(({ candidate, threat }) => ({ ...candidate, threat })));
 }
 
 function defaultEnemyTarget(combat: CombatInstance, actor: Combatant): Combatant | undefined {
