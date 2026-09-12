@@ -49,7 +49,15 @@ export function CombatScreen({ combat, playerId, logs, onSubmitAction, onOpenIte
     if (player?.isDowned) return "Du bist kampfunfähig.";
     const cooldown = player?.abilityCooldowns?.[ability.id] ?? 0;
     if (cooldown > 0) return `Noch ${cooldown} Runde${cooldown === 1 ? "" : "n"} Cooldown.`;
-    if (!ability.allowedTargetTypes.includes("ALL_ACTIVE_ALLIES") && !candidates.some((c) => !c.isDowned)) return "Kein gültiges Ziel verfügbar.";
+    if (!ability.allowedTargetTypes.includes("ALL_ACTIVE_ALLIES")) {
+      // Compute valid targets for THIS ability (not the currently selected one)
+      let hasTarget = false;
+      if (ability.allowedTargetTypes.includes("ENEMY")) hasTarget = opponents.some((c) => !c.isDowned);
+      else if (ability.allowedTargetTypes.includes("SELF") && ability.allowedTargetTypes.includes("ALLY")) hasTarget = team.some((c) => !c.isDowned);
+      else if (ability.allowedTargetTypes.includes("SELF")) hasTarget = !player?.isDowned;
+      else if (ability.allowedTargetTypes.includes("ALLY")) hasTarget = team.some((c) => c.id !== player?.id && !c.isDowned);
+      if (!hasTarget) return "Kein gültiges Ziel verfügbar.";
+    }
     return null;
   };
   const chooseAbility = (ability: AbilityDefinition) => {
