@@ -4,6 +4,9 @@ services:
     depends_on:
       minio:
         condition: service_healthy
+
+  release-preflight:
+    depends_on:
       minio-init:
         condition: service_completed_successfully
 
