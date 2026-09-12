@@ -761,11 +761,29 @@ async function applyPendingRevives(combatId: string, roundNumber: number): Promi
 
 /** Re-arms persisted round deadlines after a process restart. */
 export async function recoverCombatTimers(wsHub?: WsHub): Promise<void> {
-  const active = await db.select().from(combatInstances).where(eq(combatInstances.state, "AWAITING_ACTIONS"));
-  for (const combat of active) {
+  // Re-schedule AWAITING_ACTIONS combats (deadline may be in the past or future)
+  const awaiting = await db.select().from(combatInstances).where(eq(combatInstances.state, "AWAITING_ACTIONS"));
+  for (const combat of awaiting) {
     const delay = Math.max(0, (combat.actionDeadline?.getTime() ?? Date.now()) - Date.now());
     scheduleRoundLock(combat.id, delay, wsHub);
+    console.log(`[combat] Recovered AWAITING_ACTIONS combat ${combat.id}, resolving in ${delay}ms`);
   }
+
+  // Force-resolve combats stuck in LOCKED or RESOLVING (e.g. server crashed mid-resolution)
+  const stuck = await db.select().from(combatInstances).where(
+    sql`${combatInstances.state} IN ('LOCKED', 'RESOLVING') AND ${combatInstances.completedAt} IS NULL`
+  );
+  for (const combat of stuck) {
+    console.log(`[combat] Force-resolving stuck combat ${combat.id} (state=${combat.state})`);
+    setTimeout(async () => {
+      try {
+        await lockAndResolveRound(combat.id, wsHub);
+      } catch (err) {
+        console.error(`[combat] Recovery resolution failed for ${combat.id}:`, err);
+      }
+    }, 2_000); // small delay for WS clients to reconnect first
+  }
+
   const warnings = await db.select().from(pvpChallenges).where(eq(pvpChallenges.state, "WARNING"));
   for (const warning of warnings) schedulePvPEscalation(warning.id,
     Math.max(0, warning.expiresAt.getTime() - Date.now()), wsHub);
