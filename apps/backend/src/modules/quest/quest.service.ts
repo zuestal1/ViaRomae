@@ -468,6 +468,17 @@ async function buildQuestRunDetail(
 
 type TimerRuntime = { state: "RUNNING" | "COMPLETED" | "EXPIRED"; startedAt: string; deadlineAt: string; expiredAt?: string; resolvedBy?: string; consequence?: string };
 const questTimerHandles = new Map<string, ReturnType<typeof setTimeout>>();
+export function cancelQuestStepTimers(questRunId: string, timerIds: string[]): void {
+  for (const timerId of timerIds) {
+    const key = `${questRunId}:${timerId}`;
+    const handle = questTimerHandles.get(key);
+    if (handle) clearTimeout(handle);
+    questTimerHandles.delete(key);
+  }
+}
+
+export const isTerminalObjectiveStatus = (status: string | null | undefined): boolean =>
+  status === "COMPLETED" || status === "SKIPPED";
 function armQuestTimer(run: typeof questRuns.$inferSelect, timerId: string, deadlineAt: string) {
   const key = `${run.id}:${timerId}`;
   const old = questTimerHandles.get(key); if (old) clearTimeout(old);
@@ -616,14 +627,12 @@ async function completeObjectiveStep(opts: {
       ),
     ).orderBy(questSteps.sequence);
 
-  const allRequiredDone = allSteps.every(
-    (s) => s.progress?.status === "COMPLETED",
-  );
+  const allRequiredDone = allSteps.every((s) => isTerminalObjectiveStatus(s.progress?.status));
 
   // Find the next pending step for the WS event payload
   const nextPendingRow = !allRequiredDone
     ? allSteps.find(
-        (s) => !s.progress || s.progress.status === "PENDING",
+        (s) => !isTerminalObjectiveStatus(s.progress?.status),
       ) ?? null
     : null;
 
@@ -669,7 +678,7 @@ async function requireCurrentObjective(run: typeof questRuns.$inferSelect, stepI
     )).where(and(eq(questSteps.questDefinitionId, run.questDefinitionId),
       eq(questSteps.stepCategory, "OBJECTIVE"), eq(questSteps.required, true)))
     .orderBy(questSteps.sequence);
-  const current = rows.find(({ progress }) => progress?.status !== "COMPLETED");
+  const current = rows.find(({ progress }) => !isTerminalObjectiveStatus(progress?.status));
   if (!current || current.step.stepId !== stepId) {
     throw httpError(`Step ${stepId} is not the current quest objective.`, 409);
   }
@@ -1560,9 +1569,9 @@ export async function completeQuest(opts: {
       ),
     );
 
-  const incomplete = allSteps.filter(
-    (s) => !s.progress || s.progress.status !== "COMPLETED",
-  );
+  // A GM skip is a terminal objective result. Consequently a quest consisting
+  // entirely of skipped objectives follows this normal completion/reward path.
+  const incomplete = allSteps.filter((s) => !isTerminalObjectiveStatus(s.progress?.status));
 
   if (incomplete.length > 0) {
     const err = new Error(

@@ -8,7 +8,7 @@ import { db } from "../../db/client.js";
 import { players, teams } from "../../db/schema/player.js";
 import { worldObjects } from "../../db/schema/world.js";
 import { ledgerEntries } from "../../db/schema/economy_v2.js";
-import { questRuns } from "../../db/schema/quest.js";
+import { objectiveProgress, questDefinitions, questRuns, questSteps } from "../../db/schema/quest.js";
 import { accounts } from "../../db/schema/account.js";
 import { eq, and, sql } from "drizzle-orm";
 import type {
@@ -109,18 +109,28 @@ export class GMDashboardService {
           ),
         );
 
-      // Get active quest count
-      const activeQuestResult = await db
-        .select({
-          count: sql<number>`COUNT(*)`,
-        })
+      const activeRuns = await db.select({ run: questRuns, definition: questDefinitions })
         .from(questRuns)
+        .innerJoin(questDefinitions, eq(questDefinitions.id, questRuns.questDefinitionId))
         .where(
           and(
             eq(questRuns.teamId, team.id),
             eq(questRuns.state, "ACTIVE"),
           ),
         );
+      const activeQuests = [];
+      for (const { run, definition } of activeRuns) {
+        const rows = await db.select({ step: questSteps, progress: objectiveProgress })
+          .from(questSteps).leftJoin(objectiveProgress, and(eq(objectiveProgress.questRunId, run.id), eq(objectiveProgress.objectiveId, questSteps.stepId)))
+          .where(and(eq(questSteps.questDefinitionId, run.questDefinitionId), eq(questSteps.stepCategory, "OBJECTIVE"), eq(questSteps.required, true)))
+          .orderBy(questSteps.sequence);
+        const current = rows.find(({ progress }) => !progress || !["COMPLETED", "SKIPPED"].includes(progress.status));
+        if (current) {
+          const content = current.step.authoredContent as { description?: string; text?: string };
+          activeQuests.push({ questRunId: run.id, questTitle: definition.title, stepId: current.step.stepId,
+            sequence: current.step.sequence, description: content.description ?? content.text ?? current.step.targetRef });
+        }
+      }
 
       result.push({
         teamId: team.id,
@@ -128,7 +138,8 @@ export class GMDashboardService {
         hp: team.hp,
         fame: Number(fameResult[0]?.total ?? 0),
         denarii: Number(denariiResult[0]?.total ?? 0),
-        activeQuestCount: Number(activeQuestResult[0]?.count ?? 0),
+        activeQuestCount: activeQuests.length,
+        activeQuests,
         isActive: team.isActive === 1,
       });
     }

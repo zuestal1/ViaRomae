@@ -11,6 +11,7 @@ import {
   OverrideHPBodySchema,
   OverrideLocationBodySchema,
   CorrectCurrencyBodySchema,
+  SkipQuestStepBodySchema,
 } from "@jlw/contracts";
 import { accounts } from "../../db/schema/account.js";
 import { players, teams } from "../../db/schema/player.js";
@@ -20,7 +21,7 @@ import { asc, eq } from "drizzle-orm";
 
 export const gmCommandsRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.addHook("onRequest", fastify.authorizeGM);
-  const service = new GMCommandService(fastify.log);
+  const service = new GMCommandService(fastify.log, fastify.wsHub);
 
   fastify.get("/accounts/teams", async () => db.select({ id: teams.id, name: teams.name }).from(teams).orderBy(asc(teams.name)));
 
@@ -52,6 +53,12 @@ export const gmCommandsRoutes: FastifyPluginAsync = async (fastify) => {
 
     const result = await service.resetQuest(actorId, questRunId);
     return reply.send(result);
+  });
+
+  fastify.post("/commands/quest-step-skip", async (request, reply) => {
+    const actorId = request.user.accountId!;
+    const { questRunId, stepId } = SkipQuestStepBodySchema.parse(request.body);
+    return reply.send(await service.skipCurrentQuestStep(actorId, questRunId, stepId));
   });
 
   // ── POST /api/v1/gm/commands/hp-override ────────────────────────────────────

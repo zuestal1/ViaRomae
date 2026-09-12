@@ -61,6 +61,7 @@ export const reviewDecisions = pgTable("review_decision", {
 
 export const gmCommandTypeEnum = pgEnum("gm_command_type", [
   "QUEST_RESET",
+  "QUEST_STEP_SKIP",
   "HP_OVERRIDE",
   "LOCATION_OVERRIDE",
   "CURRENCY_CORRECTION",

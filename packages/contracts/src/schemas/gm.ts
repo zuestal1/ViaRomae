@@ -10,6 +10,7 @@ import { RoleSchema } from "./auth.js";
 
 export const GMCommandTypeSchema = z.enum([
   "QUEST_RESET",
+  "QUEST_STEP_SKIP",
   "HP_OVERRIDE",
   "LOCATION_OVERRIDE",
   "CURRENCY_CORRECTION",
@@ -22,6 +23,21 @@ export const ResetQuestBodySchema = z.object({
   questRunId: z.string().uuid(),
 });
 export type ResetQuestBody = z.infer<typeof ResetQuestBodySchema>;
+
+export const SkipQuestStepBodySchema = z.object({
+  questRunId: z.string().uuid(),
+  stepId: z.string().min(1).max(64),
+});
+export type SkipQuestStepBody = z.infer<typeof SkipQuestStepBodySchema>;
+
+export const SkipQuestStepResponseSchema = z.object({
+  success: z.literal(true),
+  questRunId: z.string().uuid(),
+  skippedStepId: z.string(),
+  nextStep: z.object({ stepId: z.string(), sequence: z.number().int(), description: z.string() }).nullable(),
+  questCompleted: z.boolean(),
+});
+export type SkipQuestStepResponse = z.infer<typeof SkipQuestStepResponseSchema>;
 
 export const OverrideHPBodySchema = z.object({
   teamId: z.string().uuid(),
@@ -163,6 +179,15 @@ export const PlayerPositionSchema = z.object({
 });
 export type PlayerPosition = z.infer<typeof PlayerPositionSchema>;
 
+export const ActiveGMQuestInfoSchema = z.object({
+  questRunId: z.string().uuid(),
+  questTitle: z.string(),
+  stepId: z.string(),
+  sequence: z.number().int(),
+  description: z.string(),
+});
+export type ActiveGMQuestInfo = z.infer<typeof ActiveGMQuestInfoSchema>;
+
 export const TeamStatusSchema = z.object({
   teamId: z.string().uuid(),
   teamName: z.string(),
@@ -170,6 +195,7 @@ export const TeamStatusSchema = z.object({
   fame: z.number(),
   denarii: z.number(),
   activeQuestCount: z.number(),
+  activeQuests: z.array(ActiveGMQuestInfoSchema),
   isActive: z.boolean(),
 });
 export type TeamStatus = z.infer<typeof TeamStatusSchema>;
