@@ -33,7 +33,8 @@ import {
 } from "./quest.service.js";
 import { db } from "../../db/client.js";
 import { players } from "../../db/schema/player.js";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
+import { questRuns } from "../../db/schema/quest.js";
 import { requireActiveEvent } from "../gm/event-runtime.service.js";
 
 // ── Zod request schemas ───────────────────────────────────────────────────────
@@ -311,6 +312,37 @@ export async function questRoutes(server: FastifyInstance): Promise<void> {
         items: granted.items,
         itemsSkipped: granted.itemsSkipped,
       });
+    },
+  );
+
+  // ── POST /api/v1/quests/runs/:runId/cancel ────────────────────────────────
+  server.post(
+    "/runs/:runId/cancel",
+    { onRequest: [server.authenticate] },
+    async (request, reply) => {
+      const { sub: accountId } = request.user as { sub: string };
+      const { runId } = request.params as { runId: string };
+
+      const [player] = await db
+        .select({ teamId: players.teamId })
+        .from(players)
+        .where(eq(players.accountId, accountId));
+      if (!player) return reply.status(404).send({ error: "Player not found" });
+
+      const [run] = await db
+        .select()
+        .from(questRuns)
+        .where(and(eq(questRuns.id, runId), eq(questRuns.teamId, player.teamId)));
+      if (!run) return reply.status(404).send({ error: "Quest run not found" });
+      if (run.state !== "ACTIVE")
+        return reply.status(409).send({ error: "Quest run is not active" });
+
+      await db
+        .update(questRuns)
+        .set({ state: "FAILED" })
+        .where(eq(questRuns.id, runId));
+
+      return reply.send({ questRunId: runId, state: "FAILED" });
     },
   );
 }

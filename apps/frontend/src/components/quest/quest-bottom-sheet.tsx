@@ -502,6 +502,50 @@ function QuestTimerView({ timer, runtime, disabled, onStart }: {
 
 // EngageEnemyButton removed – DEFEAT_ENEMY steps are now handled as REACH_LOCATION
 
+// ── Cancel Quest Button ───────────────────────────────────────────────────────
+
+function CancelQuestButton({ runId, onCancelled }: { runId: string; onCancelled: () => void }) {
+  const [confirm, setConfirm] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  if (!confirm) {
+    return (
+      <button
+        onClick={() => setConfirm(true)}
+        className="w-full rounded-xl border border-red-900/50 py-2 text-xs text-red-400/70 hover:text-red-400 hover:border-red-700/60 transition-colors"
+      >
+        Quest abbrechen
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-2 rounded-xl border border-red-700/50 bg-red-950/30 p-3">
+      <p className="text-xs text-red-300 text-center">Quest wirklich abbrechen? Der Fortschritt geht verloren.</p>
+      <div className="flex gap-2">
+        <button
+          onClick={() => setConfirm(false)}
+          className="flex-1 rounded-xl border border-white/20 py-2 text-xs text-white/60"
+        >
+          Zurück
+        </button>
+        <button
+          disabled={loading}
+          onClick={() => {
+            setLoading(true);
+            api.post(`/quests/runs/${runId}/cancel`, {})
+              .then(() => onCancelled())
+              .catch(() => setLoading(false));
+          }}
+          className="flex-1 rounded-xl bg-red-800 py-2 text-xs font-bold text-white disabled:opacity-50"
+        >
+          {loading ? "Abbrechen…" : "Ja, abbrechen"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── Active view ───────────────────────────────────────────────────────────────
 
 function ActiveView({
@@ -874,6 +918,9 @@ function MediaUploadControls({
           </div>
         </div>
       )}
+
+      {/* Quest abbrechen */}
+      <CancelQuestButton runId={run.id} onCancelled={onClose} />
     </div>
   );
 }
