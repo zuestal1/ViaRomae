@@ -773,6 +773,9 @@ function ActiveView({
 
       {/* Objectives overview */}
       <ObjectivesList objectives={run.objectives} />
+
+      {/* Quest abbrechen */}
+      <CancelQuestButton runId={run.id} onCancelled={onClose} />
     </div>
   );
 }
@@ -918,9 +921,6 @@ function MediaUploadControls({
           </div>
         </div>
       )}
-
-      {/* Quest abbrechen */}
-      <CancelQuestButton runId={run.id} onCancelled={onClose} />
     </div>
   );
 }
