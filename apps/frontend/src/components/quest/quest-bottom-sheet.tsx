@@ -276,13 +276,13 @@ export function QuestBottomSheet({
     <>
       {/* Backdrop */}
       <div
-        className="absolute inset-0 z-30 bg-black/50 backdrop-blur-sm"
+        className="absolute inset-0 z-[1100] bg-black/50 backdrop-blur-sm"
         onClick={onClose}
       />
 
       {/* Sheet */}
       <div
-        className="absolute bottom-0 left-0 right-0 z-40
+        className="absolute bottom-0 left-0 right-0 z-[1200]
                    rounded-t-3xl bg-[#1a1a2e] border-t border-[#cd7f32]/30
                    px-5 py-6 shadow-2xl
                    animate-in slide-in-from-bottom duration-300"
