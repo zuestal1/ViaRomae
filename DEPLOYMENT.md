@@ -193,6 +193,8 @@ JWT_SECRET=<GENERIERE EINEN SICHEREN KEY MIT 32+ ZEICHEN>
 
 # ─── S3 / Object Storage ─────────────────────────────────────────────────────
 S3_ENDPOINT=https://s3.eu-central-1.amazonaws.com
+S3_PUBLIC_ENDPOINT=https://s3.eu-central-1.amazonaws.com
+S3_FORCE_PATH_STYLE=false
 S3_BUCKET=jlw2026-media-production
 S3_ACCESS_KEY=<YOUR_AWS_ACCESS_KEY>
 S3_SECRET_KEY=<YOUR_AWS_SECRET_KEY>
@@ -207,7 +209,14 @@ LOG_LEVEL=info
 # ─── Frontend URLs ───────────────────────────────────────────────────────────
 VITE_API_BASE_URL=https://api.jlw2026.example.com
 VITE_MAPTILER_API_KEY=<YOUR_MAPTILER_KEY>
+FRONTEND_ORIGIN=https://jlw2026.example.com
+GM_FRONTEND_ORIGIN=https://gm.jlw2026.example.com
 ```
+
+For MinIO, keep the Docker endpoint internal (`S3_ENDPOINT=http://minio:9000`),
+set `S3_PUBLIC_ENDPOINT=https://media.jlw2026.example.com`, and use
+`S3_FORCE_PATH_STYLE=true`. The public proxy must preserve the signed Host header
+and bucket/object path. Never replace the hostname in a URL after it was signed.
 
 **JWT Secret generieren:**
 ```bash

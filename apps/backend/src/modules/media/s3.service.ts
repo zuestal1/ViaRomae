@@ -3,12 +3,22 @@
  */
 
 import crypto from "node:crypto";
+import {
+  DeleteObjectCommand,
+  GetObjectCommand,
+  HeadObjectCommand,
+  PutObjectCommand,
+  S3Client,
+} from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import type { FastifyBaseLogger } from "fastify";
 
 interface S3Config {
   bucket: string;
   region: string;
-  endpoint: string | undefined;
+  internalEndpoint: string | undefined;
+  publicEndpoint: string | undefined;
+  forcePathStyle: boolean;
   accessKeyId: string;
   secretAccessKey: string;
 }
@@ -20,113 +30,78 @@ interface PresignedUrlResult {
 }
 
 export class S3Service {
-  private config: S3Config;
-  private logger: FastifyBaseLogger;
+  private readonly config: S3Config;
+  private readonly internalClient: S3Client;
+  private readonly publicClient: S3Client;
+  private readonly logger: FastifyBaseLogger;
 
   constructor(logger: FastifyBaseLogger) {
     this.logger = logger.child({ module: "S3Service" });
+    const internalEndpoint = process.env["S3_ENDPOINT"];
+    const publicEndpoint = process.env["S3_PUBLIC_ENDPOINT"];
     this.config = {
       bucket: process.env["S3_BUCKET"] ?? "via-romae-media",
       region: process.env["S3_REGION"] ?? "eu-central-1",
-      endpoint: process.env["S3_ENDPOINT"],
-      accessKeyId:
-        process.env["S3_ACCESS_KEY_ID"] ?? process.env["S3_ACCESS_KEY"] ?? "",
-      secretAccessKey:
-        process.env["S3_SECRET_ACCESS_KEY"] ?? process.env["S3_SECRET_KEY"] ?? "",
+      internalEndpoint,
+      publicEndpoint,
+      forcePathStyle: process.env["S3_FORCE_PATH_STYLE"]
+        ? process.env["S3_FORCE_PATH_STYLE"] === "true"
+        : Boolean(internalEndpoint),
+      accessKeyId: process.env["S3_ACCESS_KEY_ID"] ?? process.env["S3_ACCESS_KEY"] ?? "",
+      secretAccessKey: process.env["S3_SECRET_ACCESS_KEY"] ?? process.env["S3_SECRET_KEY"] ?? "",
     };
 
     if (!this.config.accessKeyId || !this.config.secretAccessKey) {
       this.logger.warn("S3 credentials not configured – uploads will fail");
     }
+
+    const shared = {
+      region: this.config.region,
+      forcePathStyle: this.config.forcePathStyle,
+      credentials: {
+        accessKeyId: this.config.accessKeyId,
+        secretAccessKey: this.config.secretAccessKey,
+      },
+    };
+    this.internalClient = new S3Client({
+      ...shared,
+      ...(internalEndpoint ? { endpoint: internalEndpoint } : {}),
+    });
+    // Signing against this client makes the externally reachable host and any
+    // endpoint path part of the canonical request. Never substitute hosts after signing.
+    this.publicClient = new S3Client({
+      ...shared,
+      ...(publicEndpoint ? { endpoint: publicEndpoint } : {}),
+    });
   }
 
-  /**
-   * Generate a pre-signed URL for direct client upload to S3.
-   * Uses AWS Signature Version 4 (manual implementation to avoid AWS SDK dependency).
-   */
   async generatePresignedUploadUrl(
     teamId: string,
     questRunId: string,
     fileType: string,
     fileSizeBytes: number,
   ): Promise<PresignedUrlResult> {
+    this.assertPublicEndpointConfigured();
     const timestamp = new Date().toISOString().replace(/[:-]|\.\d{3}/g, "");
-    const date = timestamp.slice(0, 8);
-    const fileExt = this.getFileExtension(fileType);
-    const uniqueId = crypto.randomBytes(16).toString("hex");
-    
-    // Object key: team/{teamId}/quest/{questRunId}/{timestamp}_{uniqueId}.{ext}
-    const objectKey = `team/${teamId}/quest/${questRunId}/${timestamp}_${uniqueId}.${fileExt}`;
-    
-    const expiresIn = 3600; // 1 hour
-    const host = this.config.endpoint
-      ? new URL(this.config.endpoint).host
-      : `${this.config.bucket}.s3.${this.config.region}.amazonaws.com`;
-    
-    const credential = `${this.config.accessKeyId}/${date}/${this.config.region}/s3/aws4_request`;
-    const algorithm = "AWS4-HMAC-SHA256";
-    
-    // Build canonical request for PUT
-    const canonicalRequest = [
-      "PUT",
-      `/${objectKey}`,
-      this.buildQueryString({
-        "X-Amz-Algorithm": algorithm,
-        "X-Amz-Credential": credential,
-        "X-Amz-Date": timestamp,
-        "X-Amz-Expires": expiresIn.toString(),
-        "X-Amz-SignedHeaders": "content-type;host",
-      }),
-      `content-type:${fileType}\nhost:${host}`,
-      "content-type;host",
-      "UNSIGNED-PAYLOAD",
-    ].join("\n");
-
-    // String to sign
-    const stringToSign = [
-      algorithm,
-      timestamp,
-      `${date}/${this.config.region}/s3/aws4_request`,
-      this.sha256(canonicalRequest),
-    ].join("\n");
-
-    // Calculate signature
-    const signature = this.calculateSignature(
-      this.config.secretAccessKey,
-      date,
-      this.config.region,
-      "s3",
-      stringToSign,
+    const objectKey = `team/${teamId}/quest/${questRunId}/${timestamp}_${crypto.randomBytes(16).toString("hex")}.${this.getFileExtension(fileType)}`;
+    const expiresIn = 3600;
+    const uploadUrl = await getSignedUrl(
+      this.publicClient,
+      new PutObjectCommand({ Bucket: this.config.bucket, Key: objectKey, ContentType: fileType }),
+      { expiresIn },
     );
 
-    // Build final URL
-    const protocol = this.config.endpoint ? new URL(this.config.endpoint).protocol : "https:";
-    const uploadUrl = `${protocol}//${host}/${objectKey}?${this.buildQueryString({
-      "X-Amz-Algorithm": algorithm,
-      "X-Amz-Credential": credential,
-      "X-Amz-Date": timestamp,
-      "X-Amz-Expires": expiresIn.toString(),
-      "X-Amz-SignedHeaders": "content-type;host",
-      "X-Amz-Signature": signature,
-    })}`;
-
-    this.logger.info(
-      { objectKey, fileType, fileSizeBytes },
-      "Generated pre-signed upload URL",
-    );
-
+    this.logger.info({ objectKey, fileType, fileSizeBytes }, "Generated pre-signed upload URL");
     return { uploadUrl, objectKey, expiresIn };
   }
 
-  /**
-   * Validate uploaded object exists (optional – for webhook verification).
-   */
   async validateObject(objectKey: string, mimeType: string, expectedSize: number): Promise<boolean> {
     try {
-      const response = await fetch(this.generatePresignedObjectUrl("HEAD", objectKey, 300), { method: "HEAD" });
-      const size = Number(response.headers.get("content-length") ?? -1);
-      const actualType = response.headers.get("content-type")?.split(";")[0];
-      return response.ok && size === expectedSize && actualType === mimeType;
+      const result = await this.internalClient.send(new HeadObjectCommand({
+        Bucket: this.config.bucket,
+        Key: objectKey,
+      }));
+      return result.ContentLength === expectedSize && result.ContentType?.split(";")[0] === mimeType;
     } catch (error) {
       this.logger.warn({ objectKey, error }, "S3 object validation failed");
       return false;
@@ -134,24 +109,22 @@ export class S3Service {
   }
 
   async generatePresignedDownloadUrl(objectKey: string): Promise<string> {
-    return this.generatePresignedObjectUrl("GET", objectKey, 900);
+    this.assertPublicEndpointConfigured();
+    return getSignedUrl(this.publicClient, new GetObjectCommand({
+      Bucket: this.config.bucket,
+      Key: objectKey,
+    }), { expiresIn: 900 });
   }
 
-  private generatePresignedObjectUrl(method: "GET" | "HEAD", objectKey: string, expiresIn: number): string {
-    const timestamp = new Date().toISOString().replace(/[:-]|\.\d{3}/g, "");
-    const date = timestamp.slice(0, 8);
-    const host = this.config.endpoint ? new URL(this.config.endpoint).host : `${this.config.bucket}.s3.${this.config.region}.amazonaws.com`;
-    const protocol = this.config.endpoint ? new URL(this.config.endpoint).protocol : "https:";
-    const credential = `${this.config.accessKeyId}/${date}/${this.config.region}/s3/aws4_request`;
-    const base = { "X-Amz-Algorithm": "AWS4-HMAC-SHA256", "X-Amz-Credential": credential,
-      "X-Amz-Date": timestamp, "X-Amz-Expires": String(expiresIn), "X-Amz-SignedHeaders": "host" };
-    const canonicalRequest = [method, `/${objectKey}`, this.buildQueryString(base), `host:${host}\n`, "host", "UNSIGNED-PAYLOAD"].join("\n");
-    const stringToSign = ["AWS4-HMAC-SHA256", timestamp, `${date}/${this.config.region}/s3/aws4_request`, this.sha256(canonicalRequest)].join("\n");
-    const signature = this.calculateSignature(this.config.secretAccessKey, date, this.config.region, "s3", stringToSign);
-    return `${protocol}//${host}/${objectKey}?${this.buildQueryString({ ...base, "X-Amz-Signature": signature })}`;
+  async deleteObject(objectKey: string): Promise<void> {
+    await this.internalClient.send(new DeleteObjectCommand({ Bucket: this.config.bucket, Key: objectKey }));
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
+  private assertPublicEndpointConfigured(): void {
+    if (this.config.internalEndpoint && !this.config.publicEndpoint) {
+      throw new Error("S3_PUBLIC_ENDPOINT is required when S3_ENDPOINT is configured; internal storage hostnames must not be exposed to clients");
+    }
+  }
 
   private getFileExtension(mimeType: string): string {
     const map: Record<string, string> = {
@@ -161,34 +134,5 @@ export class S3Service {
       "video/quicktime": "mov",
     };
     return map[mimeType] ?? "bin";
-  }
-
-  private buildQueryString(params: Record<string, string>): string {
-    return Object.keys(params)
-      .sort()
-      .map((key) => `${encodeURIComponent(key)}=${encodeURIComponent(params[key]!)}`)
-      .join("&");
-  }
-
-  private sha256(data: string): string {
-    return crypto.createHash("sha256").update(data, "utf8").digest("hex");
-  }
-
-  private hmac(key: string | Buffer, data: string): Buffer {
-    return crypto.createHmac("sha256", key).update(data, "utf8").digest();
-  }
-
-  private calculateSignature(
-    secretKey: string,
-    date: string,
-    region: string,
-    service: string,
-    stringToSign: string,
-  ): string {
-    const kDate = this.hmac(`AWS4${secretKey}`, date);
-    const kRegion = this.hmac(kDate, region);
-    const kService = this.hmac(kRegion, service);
-    const kSigning = this.hmac(kService, "aws4_request");
-    return this.hmac(kSigning, stringToSign).toString("hex");
   }
 }
