@@ -500,6 +500,33 @@ function QuestTimerView({ timer, runtime, disabled, onStart }: {
   </div>;
 }
 
+// ── Engage Enemy Button (self-contained with own state) ──────────────────────
+
+function EngageEnemyButton({ runId, stepId }: { runId: string; stepId: string }) {
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-xs text-white/50">Besiegt den markierten Gegner im Kampf, um diesen Schritt abzuschließen.</p>
+      <button
+        disabled={loading}
+        onClick={() => {
+          setLoading(true);
+          setMsg(null);
+          api.post<{ combatId: string }>(`/quests/runs/${runId}/steps/${stepId}/engage`, {})
+            .then(() => setMsg({ ok: true, text: "⚔️ Kampf gestartet! Das Kampf-Interface öffnet sich gleich." }))
+            .catch((err: unknown) => setMsg({ ok: false, text: err instanceof Error ? err.message : "Fehler beim Starten des Kampfes." }))
+            .finally(() => setLoading(false));
+        }}
+        className="w-full rounded-xl bg-red-700 py-3 text-sm font-bold text-white disabled:opacity-50"
+      >
+        {loading ? "Starte Kampf…" : "⚔️ Kampf starten"}
+      </button>
+      {msg && <p className={`text-xs ${msg.ok ? "text-emerald-300" : "text-red-300"}`}>{msg.text}</p>}
+    </div>
+  );
+}
+
 // ── Active view ───────────────────────────────────────────────────────────────
 
 function ActiveView({
@@ -697,34 +724,7 @@ function ActiveView({
 
           {/* DEFEAT_ENEMY */}
           {step.stepActionType === "DEFEAT_ENEMY" && (
-            <div className="flex flex-col gap-2">
-              <p className="text-xs text-white/50">
-                Besiegt den markierten Gegner im Kampf, um diesen Schritt abzuschließen.
-              </p>
-              <button
-                disabled={isLoading}
-                onClick={() => {
-                  if (!run) return;
-                  setIsLoading(true);
-                  setFeedback(null);
-                  api.post<{ combatId: string }>(
-                    `/quests/runs/${run.id}/steps/${step.stepId}/engage`,
-                    {},
-                  )
-                    .then(() => {
-                      setFeedback({ ok: true, text: "⚔️ Kampf gestartet! Das Kampf-Interface öffnet sich gleich." });
-                    })
-                    .catch((err: unknown) => {
-                      const msg = err instanceof Error ? err.message : "Fehler beim Starten des Kampfes.";
-                      setFeedback({ ok: false, text: msg });
-                    })
-                    .finally(() => setIsLoading(false));
-                }}
-                className="w-full rounded-xl bg-red-700 py-3 text-sm font-bold text-white disabled:opacity-50"
-              >
-                ⚔️ Kampf starten
-              </button>
-            </div>
+            <EngageEnemyButton runId={run.id} stepId={step.stepId} />
           )}
           {step.stepActionType === "USE_ITEM"&&<div className="flex flex-col gap-2">{questItems.map(item=><button key={item.id} disabled={isLoading} onClick={()=>onQuestItem(item.id)} className="w-full rounded-xl bg-[#cd7f32] py-3 text-sm font-bold text-[#1a1a2e]">{item.name??item.definitionId} abgeben</button>)}{questItems.length===0&&<p className="text-sm text-amber-300">Das benötigte Questitem ({step.targetRef}) fehlt im Teaminventar.</p>}</div>}
 
