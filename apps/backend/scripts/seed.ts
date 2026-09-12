@@ -37,6 +37,7 @@ import {
   questDefinitions,
   questSteps,
   questStations,
+  questStepWaypoints,
 } from "../src/db/schema/quest.js";
 
 import {
@@ -46,6 +47,7 @@ import {
   type LocationCandidateFeature,
   type QuestDefinitionFeature,
   type EnemyEncounterFeature,
+  type NavigationChallengeFeature,
   type GameFeatureType,
   type ImplementationDefaults,
 } from "@jlw/contracts";
@@ -161,12 +163,13 @@ function mapContentStatus(
 function mapStepActionType(raw: string): string {
   const aliases: Record<string, string> = {
     TAKE_PHOTO: "UPLOAD_MEDIA", TAKE_VIDEO: "UPLOAD_MEDIA", COLLECT_MEDIA: "UPLOAD_MEDIA",
-    SUBMIT_FOR_REVIEW: "TEAM_DECISION", VISIT_MULTIPLE_LOCATIONS: "REACH_LOCATION",
-    NAVIGATION_CHALLENGE: "REACH_LOCATION", BOSS_PARTICIPATION: "DEFEAT_ENEMY",
+    SUBMIT_FOR_REVIEW: "TEAM_DECISION", BOSS_PARTICIPATION: "DEFEAT_ENEMY",
   };
   raw = aliases[raw] ?? raw;
   const allowed = [
     "REACH_LOCATION",
+    "NAVIGATION_CHALLENGE",
+    "VISIT_MULTIPLE_LOCATIONS",
     "ANSWER_QUESTION",
     "SOLVE_PUZZLE",
     "DEFEAT_ENEMY",
@@ -460,6 +463,8 @@ async function upsertQuestSteps(
             | "COMPLETE",
           stepActionType: mapStepActionType(stepRef.step_action_type) as
             | "REACH_LOCATION"
+            | "NAVIGATION_CHALLENGE"
+            | "VISIT_MULTIPLE_LOCATIONS"
             | "ANSWER_QUESTION"
             | "SOLVE_PUZZLE"
             | "DEFEAT_ENEMY"
@@ -490,6 +495,8 @@ async function upsertQuestSteps(
               | "COMPLETE",
             stepActionType: mapStepActionType(stepRef.step_action_type) as
               | "REACH_LOCATION"
+              | "NAVIGATION_CHALLENGE"
+              | "VISIT_MULTIPLE_LOCATIONS"
               | "ANSWER_QUESTION"
               | "SOLVE_PUZZLE"
               | "DEFEAT_ENEMY"
@@ -667,6 +674,7 @@ async function main(): Promise<void> {
   const validLocationCandidates: LocationCandidateFeature[] = [];
   const validQuestDefinitions: QuestDefinitionFeature[] = [];
   const validEnemyEncounters: EnemyEncounterFeature[] = [];
+  const validNavigationChallenges: NavigationChallengeFeature[] = [];
 
   for (const rawFeature of collection.features) {
     // Step a: identify feature_type
@@ -725,8 +733,11 @@ async function main(): Promise<void> {
       case "enemy_encounter":
         validEnemyEncounters.push(parsedFeature as EnemyEncounterFeature);
         break;
+      case "navigation_challenge":
+        validNavigationChallenges.push(parsedFeature as NavigationChallengeFeature);
+        break;
       default:
-        // quest_timer and navigation_challenge: validate & count but don't persist in Epic 1.
+        // quest_timer is validated but has no separate persistence model.
         counter.skipped_filter++;
         report[featureType] = counter;
         break;
@@ -775,6 +786,23 @@ async function main(): Promise<void> {
     questDefByExternalId,
     report,
   );
+
+  console.log("🧭 Pass 4b: Upserting compound-step waypoints …");
+  const navigationTargets = new Map(validNavigationChallenges.map((feature) => [
+    feature.properties.navigation_id,
+    (feature.properties.checkpoint_candidate_ids as string[] | undefined) ?? [],
+  ]));
+  navigationTargets.set("M-D1-03", [
+    "place_day_1_piazza_navona", "place_day_1_fontana_del_nettuno", "place_day_1_fontana_del_moro",
+  ]);
+  for (const [targetRef, targets] of navigationTargets) {
+    const [step] = await db.select({ id: questSteps.id }).from(questSteps).where(eq(questSteps.targetRef, targetRef));
+    if (!step) continue;
+    for (const [index, waypoint] of targets.entries()) {
+      await db.insert(questStepWaypoints).values({ questStepId: step.id, sequence: index + 1, targetRef: waypoint })
+        .onConflictDoUpdate({ target: [questStepWaypoints.questStepId, questStepWaypoints.sequence], set: { targetRef: waypoint } });
+    }
+  }
 
   // ── 7. Pass 5 – Upsert QuestStations ─────────────────────────────────────
   console.log("🔄 Pass 5: Upserting QuestStations from quest_stations …");
