@@ -505,12 +505,14 @@ function QuestTimerView({ timer, runtime, disabled, onStart }: {
 // ── Cancel Quest Button ───────────────────────────────────────────────────────
 
 function CancelQuestButton({ runId, onCancelled }: { runId: string; onCancelled: () => void }) {
+  const queryClient = useQueryClient();
   const [confirm, setConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
 
   if (!confirm) {
     return (
       <button
+        type="button"
         onClick={() => setConfirm(true)}
         className="w-full rounded-xl border border-red-900/50 py-2 text-xs text-red-400/70 hover:text-red-400 hover:border-red-700/60 transition-colors"
       >
@@ -524,17 +526,24 @@ function CancelQuestButton({ runId, onCancelled }: { runId: string; onCancelled:
       <p className="text-xs text-red-300 text-center">Quest wirklich abbrechen? Der Fortschritt geht verloren.</p>
       <div className="flex gap-2">
         <button
+          type="button"
           onClick={() => setConfirm(false)}
           className="flex-1 rounded-xl border border-white/20 py-2 text-xs text-white/60"
         >
           Zurück
         </button>
         <button
+          type="button"
           disabled={loading}
           onClick={() => {
             setLoading(true);
             api.post(`/quests/runs/${runId}/cancel`, {})
-              .then(() => onCancelled())
+              .then(async () => {
+                await queryClient.invalidateQueries({ queryKey: QUEST_QUERY_KEYS.active });
+                await queryClient.invalidateQueries({ queryKey: QUEST_QUERY_KEYS.available });
+                await queryClient.invalidateQueries({ queryKey: QUEST_QUERY_KEYS.mapLocations });
+                onCancelled();
+              })
               .catch(() => setLoading(false));
           }}
           className="flex-1 rounded-xl bg-red-800 py-2 text-xs font-bold text-white disabled:opacity-50"
@@ -825,6 +834,8 @@ function CompleteView({
       </div>
 
       {feedback && <FeedbackBanner ok={feedback.ok} text={feedback.text} />}
+
+      <CancelQuestButton runId={run.id} onCancelled={onClose} />
 
       <div className="flex gap-3">
         <button
