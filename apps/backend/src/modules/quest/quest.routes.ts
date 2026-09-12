@@ -28,6 +28,7 @@ import {
   deliverQuestItem,
   performQuestAction,
   startQuestTimer,
+  engageEnemy,
 } from "./quest.service.js";
 import { db } from "../../db/client.js";
 import { players } from "../../db/schema/player.js";
@@ -247,6 +248,30 @@ export async function questRoutes(server: FastifyInstance): Promise<void> {
 
       // Same as /reach: always 200, use StepResult.status to distinguish outcomes.
       return reply.status(200).send(result);
+    },
+  );
+
+  // ── POST /api/v1/quests/runs/:runId/steps/:stepId/engage ─────────────────
+  // Manually start PvE combat for a DEFEAT_ENEMY step (button-based trigger).
+  server.post(
+    "/runs/:runId/steps/:stepId/engage",
+    { onRequest: [server.authenticate] },
+    async (request, reply) => {
+      const { sub: accountId } = request.user as { sub: string };
+      const { runId, stepId } = request.params as { runId: string; stepId: string };
+
+      try {
+        const result = await engageEnemy({
+          accountId,
+          questRunId: runId,
+          stepId,
+          wsHub: server.wsHub,
+        });
+        return reply.status(200).send(result);
+      } catch (err) {
+        const statusCode = (err as Error & { statusCode?: number }).statusCode ?? 500;
+        return reply.status(statusCode).send({ message: (err as Error).message });
+      }
     },
   );
 

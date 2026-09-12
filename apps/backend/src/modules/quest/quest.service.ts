@@ -28,7 +28,7 @@
  *   Pass opts.requireAllMembersOnline = true from the route handler to enforce.
  */
 
-import { and, count, eq, inArray, sql } from "drizzle-orm";
+import { and, count, eq, inArray, or, sql } from "drizzle-orm";
 import { db } from "../../db/client.js";
 import {
   objectiveProgress,
@@ -65,6 +65,7 @@ import {
   profileFromEncounterLabel,
 } from "../economy/rewards.service.js";
 import { getRuntimeEventState, questBelongsToDay, requireActiveEvent } from "../gm/event-runtime.service.js";
+import { startPvECombat } from "../combat/combat.service.js";
 import { decideQuestAcceptance } from "./quest-repeatability.js";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -1703,4 +1704,111 @@ export async function resolveDefeatEnemy(opts: {
     questCompleted: allRequiredDone,
     rewards: { glory: granted.glory, denarii: granted.denarii },
   };
+}
+
+// ── Public: engageEnemy ───────────────────────────────────────────────────────
+
+/**
+ * Manually starts a PvE combat for a DEFEAT_ENEMY quest step.
+ * Used when the player taps "Kampf starten" instead of triggering via proximity.
+ */
+export async function engageEnemy(opts: {
+  accountId: string;
+  questRunId: string;
+  stepId: string;
+  wsHub?: WsHub;
+}): Promise<{ combatId: string }> {
+  const { accountId, questRunId, stepId, wsHub } = opts;
+  const { teamId } = await resolvePlayer(accountId);
+
+  // Verify quest run belongs to team and is active
+  const [run] = await db
+    .select()
+    .from(questRuns)
+    .where(
+      and(
+        eq(questRuns.id, questRunId),
+        eq(questRuns.teamId, teamId),
+        eq(questRuns.state, "ACTIVE"),
+      ),
+    );
+
+  if (!run) {
+    const err = new Error("QuestRun not found or not active.") as Error & { statusCode: number };
+    err.statusCode = 404;
+    throw err;
+  }
+
+  // Get the DEFEAT_ENEMY step
+  const [step] = await db
+    .select()
+    .from(questSteps)
+    .where(
+      and(
+        eq(questSteps.questDefinitionId, run.questDefinitionId),
+        eq(questSteps.stepId, stepId),
+        eq(questSteps.flowPhase, "OBJECTIVE"),
+        eq(questSteps.stepActionType, "DEFEAT_ENEMY"),
+      ),
+    );
+
+  if (!step) {
+    const err = new Error("Step not found or not a DEFEAT_ENEMY step.") as Error & { statusCode: number };
+    err.statusCode = 404;
+    throw err;
+  }
+
+  if (!step.targetRef) {
+    const err = new Error("Step has no target_ref configured.") as Error & { statusCode: number };
+    err.statusCode = 500;
+    throw err;
+  }
+
+  // Check step not already completed
+  const [currentProgress] = await db
+    .select()
+    .from(objectiveProgress)
+    .where(
+      and(
+        eq(objectiveProgress.questRunId, questRunId),
+        eq(objectiveProgress.objectiveId, stepId),
+      ),
+    );
+
+  if (currentProgress?.status === "COMPLETED") {
+    const err = new Error("Dieser Schritt ist bereits abgeschlossen.") as Error & { statusCode: number };
+    err.statusCode = 409;
+    throw err;
+  }
+
+  // Find the enemy world object by target_ref (flexible: with or without "enemy:" prefix)
+  const targetRef = step.targetRef;
+  const [enemyObj] = await db
+    .select({ id: worldObjects.id })
+    .from(worldObjects)
+    .where(
+      and(
+        eq(worldObjects.type, "ENEMY"),
+        or(
+          eq(worldObjects.externalId, targetRef),
+          eq(worldObjects.externalId, `enemy:${targetRef}`),
+          eq(worldObjects.externalId, targetRef.replace(/^enemy:/, "")),
+        ),
+      ),
+    );
+
+  if (!enemyObj) {
+    const err = new Error(`Enemy world object not found for target_ref: ${targetRef}`) as Error & { statusCode: number };
+    err.statusCode = 404;
+    throw err;
+  }
+
+  // Start the PvE combat
+  const combat = await startPvECombat({
+    teamId,
+    enemyWorldObjectId: enemyObj.id,
+    ...(wsHub ? { wsHub } : {}),
+  });
+
+  return { combatId: combat.id };
 }

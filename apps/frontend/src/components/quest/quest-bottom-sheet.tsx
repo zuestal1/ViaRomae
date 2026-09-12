@@ -699,10 +699,31 @@ function ActiveView({
           {step.stepActionType === "DEFEAT_ENEMY" && (
             <div className="flex flex-col gap-2">
               <p className="text-xs text-white/50">
-                ⚔️ Besiegt den Gegner, um Beute zu erhalten und den Schritt abzuschließen.
-                (Volles Kampfsystem folgt in Epic 6.)
+                Besiegt den markierten Gegner im Kampf, um diesen Schritt abzuschließen.
               </p>
-              <p className="rounded-lg border border-red-500/30 bg-red-900/20 p-3 text-xs text-red-200">Nähert euch dem markierten Gegner. Der Kampf startet serverseitig im Aggro-Radius; nur ein bestätigter Kampfsieg schließt diesen Schritt ab.</p>
+              <button
+                disabled={isLoading}
+                onClick={() => {
+                  if (!run) return;
+                  setIsLoading(true);
+                  setFeedback(null);
+                  api.post<{ combatId: string }>(
+                    `/quests/runs/${run.id}/steps/${step.stepId}/engage`,
+                    {},
+                  )
+                    .then(() => {
+                      setFeedback({ ok: true, text: "⚔️ Kampf gestartet! Das Kampf-Interface öffnet sich gleich." });
+                    })
+                    .catch((err: unknown) => {
+                      const msg = err instanceof Error ? err.message : "Fehler beim Starten des Kampfes.";
+                      setFeedback({ ok: false, text: msg });
+                    })
+                    .finally(() => setIsLoading(false));
+                }}
+                className="w-full rounded-xl bg-red-700 py-3 text-sm font-bold text-white disabled:opacity-50"
+              >
+                ⚔️ Kampf starten
+              </button>
             </div>
           )}
           {step.stepActionType === "USE_ITEM"&&<div className="flex flex-col gap-2">{questItems.map(item=><button key={item.id} disabled={isLoading} onClick={()=>onQuestItem(item.id)} className="w-full rounded-xl bg-[#cd7f32] py-3 text-sm font-bold text-[#1a1a2e]">{item.name??item.definitionId} abgeben</button>)}{questItems.length===0&&<p className="text-sm text-amber-300">Das benötigte Questitem ({step.targetRef}) fehlt im Teaminventar.</p>}</div>}
