@@ -142,6 +142,7 @@ export async function combatRoutes(server: FastifyInstance): Promise<void> {
           abilityId: isAbility ? body.abilityId : undefined,
           targetId: body.targetId,
           idempotencyKey: body.idempotencyKey,
+          wsHub: server.wsHub,
         });
 
         return reply.send(action);

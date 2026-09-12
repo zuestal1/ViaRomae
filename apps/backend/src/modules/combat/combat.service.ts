@@ -423,8 +423,9 @@ export async function submitCombatAction(opts: {
   abilityId?: AbilityId | undefined;
   targetId?: string | undefined;
   idempotencyKey: string;
+  wsHub?: WsHub;
 }): Promise<CombatAction> {
-  const { combatId, playerId, roundNumber, actionType, abilityId, targetId, idempotencyKey } = opts;
+  const { combatId, playerId, roundNumber, actionType, abilityId, targetId, idempotencyKey, wsHub } = opts;
   const validationSnapshot = await getCombatInstance(combatId);
 
   const submitted = await db.transaction(async (tx) => {
@@ -514,7 +515,7 @@ export async function submitCombatAction(opts: {
         AND NOT EXISTS (SELECT 1 FROM combat_action a WHERE a.combat_instance_id=c.combat_instance_id
           AND a.round_number=${combat.roundNumber} AND a.actor_id=c.id)`);
     if (Number(pending.rows[0]?.missing ?? 1) === 0) {
-      setTimeout(() => void lockAndResolveRound(combatId).catch(() => undefined), 0);
+      setTimeout(() => void lockAndResolveRound(combatId, wsHub).catch(() => undefined), 0);
     }
   }
   return submitted;
@@ -775,13 +776,44 @@ export async function recoverCombatTimers(wsHub?: WsHub): Promise<void> {
   );
   for (const combat of stuck) {
     console.log(`[combat] Force-resolving stuck combat ${combat.id} (state=${combat.state})`);
+    // NOTE: these are already past the lock phase, so call resolveRound branch directly
+    // by resetting state to LOCKED first (lockAndResolveRound checks for AWAITING_ACTIONS).
     setTimeout(async () => {
       try {
-        await lockAndResolveRound(combat.id, wsHub);
+        // Reset to LOCKED so lockAndResolveRound can take over from the resolve phase
+        await db.update(combatInstances)
+          .set({ state: "LOCKED" })
+          .where(eq(combatInstances.id, combat.id));
+        // Now call the full path but it will skip the AWAITING_ACTIONS guard since
+        // resolveRound is called after the LOCKED→RESOLVING transition
+        const logs = await resolveRound(combat.id, wsHub);
+        // Complete or start next round (mirrors the post-resolve logic in lockAndResolveRound)
+        const updatedCombat = await getCombatInstance(combat.id);
+        const isComplete = checkCombatComplete(updatedCombat);
+        if (!isComplete) {
+          const roundNumber = updatedCombat.roundNumber;
+          await expireOpponentPhaseEffects(combat.id, roundNumber);
+          await applyPendingRevives(combat.id, roundNumber + 1);
+          await db.update(combatInstances).set({
+            state: "AWAITING_ACTIONS",
+            roundNumber: roundNumber + 1,
+            ...newRoundTiming(),
+          }).where(eq(combatInstances.id, combat.id));
+          scheduleRoundLock(combat.id, ROUND_TIMER_MS, wsHub);
+          if (wsHub) {
+            const teamIds = [...new Set(updatedCombat.combatants.flatMap((c) => c.teamId ? [c.teamId] : []))];
+            for (const teamId of teamIds) {
+              wsHub.sendToTeam(teamId, {
+                event: "combat:round_resolved",
+                data: { combatId: combat.id, round: roundNumber + 1, logs, combatants: (await getCombatInstance(combat.id)).combatants },
+              });
+            }
+          }
+        }
       } catch (err) {
         console.error(`[combat] Recovery resolution failed for ${combat.id}:`, err);
       }
-    }, 2_000); // small delay for WS clients to reconnect first
+    }, 2_000);
   }
 
   const warnings = await db.select().from(pvpChallenges).where(eq(pvpChallenges.state, "WARNING"));
