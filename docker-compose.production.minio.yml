@@ -37,11 +37,15 @@ services:
     command:
       - >-
         mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}" &&
-        mc mb --ignore-existing "local/$${S3_BUCKET}"
+        mc mb --ignore-existing "local/$${S3_BUCKET}" &&
+        mc admin config set local api "cors_allow_origin=$${FRONTEND_ORIGIN},$${GM_FRONTEND_ORIGIN}" &&
+        mc --json admin service restart local
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER is required for MinIO}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required for MinIO}
       S3_BUCKET: ${S3_BUCKET:?S3_BUCKET is required for MinIO}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:?FRONTEND_ORIGIN must be the player frontend origin}
+      GM_FRONTEND_ORIGIN: ${GM_FRONTEND_ORIGIN:?GM_FRONTEND_ORIGIN must be the GM frontend origin}
     networks:
       - jlw_network
 
