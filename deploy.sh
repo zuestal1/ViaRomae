@@ -74,8 +74,8 @@ BACKUP_DIR="./backups"
 mkdir -p $BACKUP_DIR
 BACKUP_FILE="${BACKUP_DIR}/backup_$(date +%Y%m%d_%H%M%S).sql"
 
-if docker compose -f $DOCKER_COMPOSE_FILE ps postgres | grep -q "Up"; then
-    docker compose -f $DOCKER_COMPOSE_FILE exec -T postgres \
+if docker compose -f $DOCKER_COMPOSE_FILE --env-file $ENV_FILE ps postgres | grep -q "Up"; then
+    docker compose -f $DOCKER_COMPOSE_FILE --env-file $ENV_FILE exec -T postgres \
         pg_dump -U ${POSTGRES_USER:-postgres} ${POSTGRES_DB:-jugendleiter2026} > "$BACKUP_FILE" 2>/dev/null || true
     
     if [ -f "$BACKUP_FILE" ]; then
@@ -92,15 +92,15 @@ fi
 
 # ─── Build Docker Images ─────────────────────────────────────────────────────
 log_info "Building Docker images..."
-docker compose -f $DOCKER_COMPOSE_FILE build --no-cache
+docker compose -f $DOCKER_COMPOSE_FILE --env-file $ENV_FILE build --no-cache
 
 # ─── Stop Old Containers ─────────────────────────────────────────────────────
 log_info "Stopping old containers..."
-docker compose -f $DOCKER_COMPOSE_FILE down
+docker compose -f $DOCKER_COMPOSE_FILE --env-file $ENV_FILE down
 
 # ─── Start New Containers ────────────────────────────────────────────────────
 log_info "Starting new containers..."
-docker compose -f $DOCKER_COMPOSE_FILE up -d
+docker compose -f $DOCKER_COMPOSE_FILE --env-file $ENV_FILE up -d
 
 # ─── Wait for Services ───────────────────────────────────────────────────────
 log_info "Waiting for services to be healthy..."
@@ -108,7 +108,7 @@ sleep 10
 
 # Check PostgreSQL
 log_info "Checking PostgreSQL..."
-until docker compose -f $DOCKER_COMPOSE_FILE exec -T postgres pg_isready -U ${POSTGRES_USER:-postgres} > /dev/null 2>&1; do
+until docker compose -f $DOCKER_COMPOSE_FILE --env-file $ENV_FILE exec -T postgres pg_isready -U ${POSTGRES_USER:-postgres} > /dev/null 2>&1; do
     log_warn "PostgreSQL is unavailable - sleeping"
     sleep 2
 done
@@ -126,16 +126,16 @@ done
 
 if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
     log_error "Backend failed to start!"
-    docker compose -f $DOCKER_COMPOSE_FILE logs backend
+    docker compose -f $DOCKER_COMPOSE_FILE --env-file $ENV_FILE logs backend
     exit 1
 fi
 log_info "Backend is up!"
 
 # Fail closed if content, teams or participant accounts are incomplete.
 log_info "Running release preflight (content + event roster)..."
-docker compose -f $DOCKER_COMPOSE_FILE run --rm \
-    -e EXPECTED_PLAYER_COUNT="${EXPECTED_PLAYER_COUNT:-13}" \
-    -e EXPECTED_TEAM_COUNT="${EXPECTED_TEAM_COUNT:-4}" \
+docker compose -f $DOCKER_COMPOSE_FILE --env-file $ENV_FILE run --rm \
+    -e EXPECTED_PLAYER_COUNT="${EXPECTED_PLAYER_COUNT:-0}" \
+    -e EXPECTED_TEAM_COUNT="${EXPECTED_TEAM_COUNT:-0}" \
     backend pnpm run release:preflight
 
 # ─── Health Checks ───────────────────────────────────────────────────────────
@@ -147,7 +147,7 @@ if [[ "$BACKEND_HEALTH" == *'"status":"ok"'* ]]; then
     log_info "✓ Backend health check passed"
 else
     log_error "✗ Backend health check failed"
-    docker compose -f $DOCKER_COMPOSE_FILE logs --tail=50 backend
+    docker compose -f $DOCKER_COMPOSE_FILE --env-file $ENV_FILE logs --tail=50 backend
     exit 1
 fi
 
@@ -185,7 +185,7 @@ log_info "  - Frontend:   http://localhost:5173"
 log_info "  - GM Client:  http://localhost:5174"
 log_info ""
 log_info "Next steps:"
-log_info "  1. Check logs: docker compose -f $DOCKER_COMPOSE_FILE logs -f"
-log_info "  2. Check status: docker compose -f $DOCKER_COMPOSE_FILE ps"
-log_info "  3. Test endpoints: curl https://api.jlw2026.example.com/health"
+log_info "  1. Check logs: docker compose -f $DOCKER_COMPOSE_FILE --env-file $ENV_FILE logs -f"
+log_info "  2. Check status: docker compose -f $DOCKER_COMPOSE_FILE --env-file $ENV_FILE ps"
+log_info "  3. Test endpoints: curl http://localhost:3000/health"
 log_info "═══════════════════════════════════════════════════════════════════"
