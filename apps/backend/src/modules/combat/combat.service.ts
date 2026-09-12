@@ -1318,11 +1318,11 @@ async function resolvePvEQuestVictory(combat: CombatInstance, teamId: string, ws
       AND (qs.target_ref=wo.external_id
         OR CONCAT('enemy:',qs.target_ref)=wo.external_id
         OR qs.target_ref=REPLACE(wo.external_id,'enemy:',''))
-      AND COALESCE(op.status,'PENDING')<>'COMPLETED'
+      AND COALESCE(op.status,'PENDING') NOT IN ('COMPLETED','SKIPPED')
       AND qs.sequence=(SELECT MIN(next.sequence) FROM quest_step next
         LEFT JOIN objective_progress next_op ON next_op.quest_run_id=qr.id AND next_op.objective_id=next.step_id
         WHERE next.quest_definition_id=qr.quest_definition_id AND next.flow_phase='OBJECTIVE'
-          AND COALESCE(next_op.status,'PENDING')<>'COMPLETED')
+          AND COALESCE(next_op.status,'PENDING') NOT IN ('COMPLETED','SKIPPED'))
     LIMIT 1`);
   const row = context.rows[0];
   if (row) await resolveDefeatEnemy({ accountId: row.account_id, questRunId: row.quest_run_id,

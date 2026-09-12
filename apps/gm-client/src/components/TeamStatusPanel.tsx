@@ -3,23 +3,23 @@
  * Shows overview of all teams' current status.
  */
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { TeamStatus } from "@jlw/contracts";
 
-import { API_ROOT } from "../lib/api";
+import { gmFetch } from "../lib/api";
 
 export function TeamStatusPanel() {
+  const queryClient = useQueryClient();
   const { data: teams, isLoading } = useQuery<TeamStatus[]>({
     queryKey: ["gm", "team-status"],
     queryFn: async () => {
-      const res = await fetch(`${API_ROOT}/gm/dashboard/team-status`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("gm_token")}`,
-        },
-      });
-      if (!res.ok) throw new Error("Failed to fetch team status");
-      return res.json();
+      return gmFetch<TeamStatus[]>("/gm/dashboard/team-status");
     },
+  });
+  const skip = useMutation({
+    mutationFn: ({ questRunId, stepId }: { questRunId: string; stepId: string }) =>
+      gmFetch("/gm/commands/quest-step-skip", { method: "POST", body: JSON.stringify({ questRunId, stepId }) }),
+    onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ["gm", "team-status"] }); },
   });
 
   if (isLoading) {
@@ -63,6 +63,24 @@ export function TeamStatusPanel() {
                 <span className="text-slate-400">Active Quests</span>
                 <span className="font-medium">{team.activeQuestCount}</span>
               </div>
+              <div className="mt-3 space-y-2">
+                {team.activeQuests.map((quest) => (
+                  <div key={quest.questRunId} className="rounded border border-slate-700 p-2">
+                    <div className="font-semibold">{quest.questTitle}</div>
+                    <div className="text-slate-400">Schritt {quest.sequence}: {quest.description}</div>
+                    <button type="button" className="mt-2 rounded bg-amber-700 px-2 py-1 disabled:opacity-50"
+                      disabled={skip.isPending}
+                      onClick={() => {
+                        if (window.confirm(`„${quest.questTitle}“ – Schritt „${quest.description}“ wirklich überspringen?`))
+                          skip.mutate({ questRunId: quest.questRunId, stepId: quest.stepId });
+                      }}>
+                      {skip.isPending && skip.variables?.questRunId === quest.questRunId ? "Wird übersprungen…" : "Aktuellen Schritt überspringen"}
+                    </button>
+                  </div>
+                ))}
+              </div>
+              {skip.isSuccess && <div role="status" className="mt-2 text-green-400">Schritt erfolgreich übersprungen.</div>}
+              {skip.isError && <div role="alert" className="mt-2 text-red-400">Überspringen fehlgeschlagen: {skip.error.message}</div>}
             </div>
           </div>
         ))}

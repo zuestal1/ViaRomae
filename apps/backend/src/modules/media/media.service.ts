@@ -91,7 +91,7 @@ export class MediaService {
         eq(questSteps.required, true),
       ))
       .orderBy(questSteps.sequence);
-    const currentStep = orderedSteps.find(({ progress }) => progress?.status !== "COMPLETED");
+    const currentStep = orderedSteps.find(({ progress }) => !["COMPLETED", "SKIPPED"].includes(progress?.status ?? "PENDING"));
     if (currentStep?.step.stepId !== stepId) {
       throw new Error("This media step is not the quest's current objective");
     }

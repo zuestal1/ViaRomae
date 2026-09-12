@@ -7,15 +7,21 @@
 import type { FastifyBaseLogger } from "fastify";
 import { db } from "../../db/client.js";
 import { auditEvents, eventState } from "../../db/schema/media.js";
-import { questRuns, objectiveProgress } from "../../db/schema/quest.js";
+import { questDefinitions, questRuns, questSteps, questStepWaypoints, questWaypointProgress, objectiveProgress } from "../../db/schema/quest.js";
+import { mediaSubmissions } from "../../db/schema/media.js";
+import { combatInstances } from "../../db/schema/combat.js";
 import { teams, players } from "../../db/schema/player.js";
 import { ledgerEntries } from "../../db/schema/economy_v2.js";
 import { appendLedgerEntry } from "../economy/ledger.service.js";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, inArray, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
+import type { WsHub } from "../ws/ws.hub.js";
+import { cancelQuestStepTimers, completeQuest, isTerminalObjectiveStatus } from "../quest/quest.service.js";
+import type { SkipQuestStepResponse } from "@jlw/contracts";
 
 export type GMCommandType =
   | "QUEST_RESET"
+  | "QUEST_STEP_SKIP"
   | "HP_OVERRIDE"
   | "LOCATION_OVERRIDE"
   | "CURRENCY_CORRECTION"
@@ -34,8 +40,63 @@ export interface AuditLog {
 export class GMCommandService {
   private logger: FastifyBaseLogger;
 
-  constructor(logger: FastifyBaseLogger) {
+  constructor(logger: FastifyBaseLogger, private readonly wsHub?: WsHub) {
     this.logger = logger.child({ module: "GMCommandService" });
+  }
+
+  async skipCurrentQuestStep(actorId: string, questRunId: string, stepId: string): Promise<SkipQuestStepResponse> {
+    let teamId = "";
+    let definitionId = "";
+    let timerIds: string[] = [];
+    const outcome = await db.transaction(async (tx) => {
+      const locked = await tx.execute(sql`SELECT * FROM quest_run WHERE id=${questRunId}::uuid FOR UPDATE`);
+      const run = locked.rows[0] as { id: string; team_id: string; quest_definition_id: string; state: string; runtime_state: Record<string, unknown> } | undefined;
+      if (!run) throw Object.assign(new Error("Quest run not found"), { statusCode: 404 });
+      const existing = await tx.select().from(objectiveProgress).where(and(eq(objectiveProgress.questRunId, questRunId), eq(objectiveProgress.objectiveId, stepId))).limit(1);
+      if (existing[0]?.status === "SKIPPED") return { alreadySkipped: true, teamId: run.team_id, definitionId: run.quest_definition_id };
+      if (run.state !== "ACTIVE") throw Object.assign(new Error("Quest run is not active"), { statusCode: 409 });
+      const rows = await tx.select({ step: questSteps, progress: objectiveProgress }).from(questSteps)
+        .leftJoin(objectiveProgress, and(eq(objectiveProgress.questRunId, questRunId), eq(objectiveProgress.objectiveId, questSteps.stepId)))
+        .where(and(eq(questSteps.questDefinitionId, run.quest_definition_id), eq(questSteps.stepCategory, "OBJECTIVE"), eq(questSteps.required, true)))
+        .orderBy(questSteps.sequence);
+      const current = rows.find(({ progress }) => !isTerminalObjectiveStatus(progress?.status));
+      if (!current || current.step.stepId !== stepId) throw Object.assign(new Error("Step is not the current quest objective"), { statusCode: 409 });
+      const previousStatus = current.progress?.status ?? "PENDING";
+      await tx.insert(objectiveProgress).values({ questRunId, objectiveId: stepId, status: "SKIPPED", progressCount: current.progress?.progressCount ?? 0 })
+        .onConflictDoUpdate({ target: [objectiveProgress.questRunId, objectiveProgress.objectiveId], set: { status: "SKIPPED" } });
+      const [definition] = await tx.select().from(questDefinitions).where(eq(questDefinitions.id, run.quest_definition_id));
+      const authored = definition?.authoredContent as { timers?: Array<{ id: string; stepId: string }> } | undefined;
+      timerIds = authored?.timers?.filter((timer) => timer.stepId === stepId).map((timer) => timer.id) ?? [];
+      const runtime = { ...(run.runtime_state ?? {}) } as Record<string, any>;
+      if (runtime.timers) for (const id of timerIds) if (runtime.timers[id]) runtime.timers[id] = { ...runtime.timers[id], state: "COMPLETED", resolvedBy: "GM_SKIP" };
+      runtime.skippedStepIds = Array.from(new Set([...(runtime.skippedStepIds ?? []), stepId]));
+      const combatId = typeof runtime.activeCombatId === "string" ? runtime.activeCombatId : undefined;
+      delete runtime.activeCombatId;
+      await tx.update(questRuns).set({ runtimeState: runtime }).where(eq(questRuns.id, questRunId));
+      if (combatId) await tx.update(combatInstances).set({ state: "COMPLETED", completedAt: new Date(), outcome: "GM_STEP_SKIPPED" }).where(eq(combatInstances.id, combatId));
+      await tx.update(mediaSubmissions).set({ status: "REJECTED" }).where(and(eq(mediaSubmissions.questRunId, questRunId), eq(mediaSubmissions.stepId, stepId)));
+      const waypointIds = await tx.select({ id: questStepWaypoints.id }).from(questStepWaypoints).where(eq(questStepWaypoints.questStepId, current.step.id));
+      if (waypointIds.length) await tx.delete(questWaypointProgress).where(and(eq(questWaypointProgress.questRunId, questRunId), inArray(questWaypointProgress.waypointId, waypointIds.map((row) => row.id))));
+      await tx.insert(auditEvents).values({ actorId, action: "QUEST_STEP_SKIP", targetRefs: questRunId,
+        payload: { questRunId, teamId: run.team_id, stepId, previousStatus } });
+      return { alreadySkipped: false, teamId: run.team_id, definitionId: run.quest_definition_id };
+    });
+    teamId = outcome.teamId; definitionId = outcome.definitionId;
+    cancelQuestStepTimers(questRunId, timerIds);
+    const remaining = await db.select({ step: questSteps, progress: objectiveProgress }).from(questSteps)
+      .leftJoin(objectiveProgress, and(eq(objectiveProgress.questRunId, questRunId), eq(objectiveProgress.objectiveId, questSteps.stepId)))
+      .where(and(eq(questSteps.questDefinitionId, definitionId), eq(questSteps.stepCategory, "OBJECTIVE"), eq(questSteps.required, true))).orderBy(questSteps.sequence);
+    const next = remaining.find(({ progress }) => !isTerminalObjectiveStatus(progress?.status));
+    let questCompleted = !next;
+    if (questCompleted) {
+      const [player] = await db.select({ accountId: players.accountId }).from(players).where(eq(players.teamId, teamId)).limit(1);
+      if (!player) throw Object.assign(new Error("Quest team has no player for reward ownership"), { statusCode: 409 });
+      await completeQuest({ accountId: player.accountId, questRunId, ...(this.wsHub ? { wsHub: this.wsHub } : {}) });
+    }
+    const nextStep = next ? { stepId: next.step.stepId, sequence: next.step.sequence,
+      description: ((next.step.authoredContent as { description?: string; text?: string }).description ?? (next.step.authoredContent as { text?: string }).text ?? next.step.targetRef) } : null;
+    this.wsHub?.sendToTeam(teamId, { event: "quest.step_skipped", teamId, questRunId, skippedStepId: stepId, nextStep, source: "GM", timestamp: new Date().toISOString() });
+    return { success: true, questRunId, skippedStepId: stepId, nextStep, questCompleted };
   }
 
   /**
