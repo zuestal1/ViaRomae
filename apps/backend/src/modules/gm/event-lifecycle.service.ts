@@ -21,12 +21,20 @@ export type EventLifecycleState =
 export interface EventState {
   id: string;
   state: EventLifecycleState;
+  currentDay: 1 | 2;
   startedAt: string | null;
   pausedAt: string | null;
   endedAt: string | null;
   leaderboardFrozen: boolean;
   metadata: unknown;
   updatedAt: string;
+}
+
+function currentDayFromMetadata(metadata: unknown): 1 | 2 {
+  if (metadata && typeof metadata === "object") {
+    return Number((metadata as Record<string, unknown>)["currentDay"]) === 2 ? 2 : 1;
+  }
+  return 1;
 }
 
 export interface TeamLeaderboardEntry {
@@ -101,6 +109,7 @@ export class EventLifecycleService {
     return {
       id: state.id,
       state: state.state,
+      currentDay: currentDayFromMetadata(state.metadata),
       startedAt: state.startedAt?.toISOString() ?? null,
       pausedAt: state.pausedAt?.toISOString() ?? null,
       endedAt: state.endedAt?.toISOString() ?? null,
@@ -146,6 +155,7 @@ export class EventLifecycleService {
 
     return {
       ...updated!,
+      currentDay: currentDayFromMetadata(updated!.metadata),
       startedAt: updated!.startedAt!.toISOString(),
       pausedAt: updated!.pausedAt?.toISOString() ?? null,
       endedAt: updated!.endedAt?.toISOString() ?? null,
@@ -189,6 +199,7 @@ export class EventLifecycleService {
 
     return {
       ...updated!,
+      currentDay: currentDayFromMetadata(updated!.metadata),
       startedAt: updated!.startedAt!.toISOString(),
       pausedAt: updated!.pausedAt!.toISOString(),
       endedAt: updated!.endedAt?.toISOString() ?? null,
@@ -231,6 +242,7 @@ export class EventLifecycleService {
 
     return {
       ...updated!,
+      currentDay: currentDayFromMetadata(updated!.metadata),
       startedAt: updated!.startedAt!.toISOString(),
       pausedAt: updated!.pausedAt?.toISOString() ?? null,
       endedAt: updated!.endedAt?.toISOString() ?? null,
@@ -279,6 +291,7 @@ export class EventLifecycleService {
 
     return {
       ...updated!,
+      currentDay: currentDayFromMetadata(updated!.metadata),
       startedAt: updated!.startedAt!.toISOString(),
       pausedAt: updated!.pausedAt?.toISOString() ?? null,
       endedAt: updated!.endedAt!.toISOString(),
@@ -449,6 +462,7 @@ export class EventLifecycleService {
 
     return {
       ...updated!,
+      currentDay: currentDayFromMetadata(updated!.metadata),
       startedAt: updated!.startedAt?.toISOString() ?? null,
       pausedAt: updated!.pausedAt?.toISOString() ?? null,
       endedAt: updated!.endedAt?.toISOString() ?? null,

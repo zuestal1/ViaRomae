@@ -88,6 +88,7 @@ export type EventLifecycleState = z.infer<typeof EventLifecycleStateSchema>;
 export const EventStateSchema = z.object({
   id: z.string().uuid(),
   state: EventLifecycleStateSchema,
+  currentDay: z.union([z.literal(1), z.literal(2)]),
   startedAt: z.string().datetime().nullable(),
   pausedAt: z.string().datetime().nullable(),
   endedAt: z.string().datetime().nullable(),
