@@ -105,9 +105,15 @@ docs/
 S3_BUCKET=via-romae-media
 S3_REGION=eu-central-1
 S3_ENDPOINT=                        # Optional (S3-compatible services)
+S3_PUBLIC_ENDPOINT=                 # Public, browser-reachable signing endpoint
+S3_FORCE_PATH_STYLE=false           # false for AWS; true for MinIO
 S3_ACCESS_KEY_ID=your-key
 S3_SECRET_ACCESS_KEY=your-secret
 ```
+
+For MinIO in Docker, use `S3_ENDPOINT=http://minio:9000` internally and a
+separate public URL such as `S3_PUBLIC_ENDPOINT=https://media.example.com`.
+Signed URLs must not be rewritten after generation.
 
 ### GeoJSON Content
 

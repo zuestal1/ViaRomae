@@ -37,6 +37,7 @@ import {
   questDefinitions,
   questSteps,
   questStations,
+  questStepWaypoints,
 } from "../src/db/schema/quest.js";
 
 import {
@@ -46,6 +47,7 @@ import {
   type LocationCandidateFeature,
   type QuestDefinitionFeature,
   type EnemyEncounterFeature,
+  type NavigationChallengeFeature,
   type GameFeatureType,
   type ImplementationDefaults,
 } from "@jlw/contracts";
@@ -63,10 +65,13 @@ const GEOJSON_PATH = path.resolve(
   "../../../docs/Via_Romae_GameObjects_v0.8.geojson",
 );
 const QUEST_CONTENT_PATH = path.resolve(__dirname, "../content/quest-content-v0.10.json");
+const STORE_CONTENT_PATH = path.resolve(__dirname, "../content/store-content-v0.17.json");
 type AuthoredQuest = { type: string; [key: string]: unknown; steps: Array<{ stepId: string; [key: string]: unknown }> };
 const authoredQuests = (JSON.parse(fs.readFileSync(QUEST_CONTENT_PATH, "utf8")) as {
   quests: Record<string, AuthoredQuest>;
 }).quests;
+type StoreContent = { stores: Array<{ externalId: string; catalog: Array<{ definitionId: string; price: number }> }> };
+const storeContent = JSON.parse(fs.readFileSync(STORE_CONTENT_PATH, "utf8")) as StoreContent;
 
 const IS_PRODUCTION = process.env["NODE_ENV"] === "production";
 
@@ -158,12 +163,13 @@ function mapContentStatus(
 function mapStepActionType(raw: string): string {
   const aliases: Record<string, string> = {
     TAKE_PHOTO: "UPLOAD_MEDIA", TAKE_VIDEO: "UPLOAD_MEDIA", COLLECT_MEDIA: "UPLOAD_MEDIA",
-    SUBMIT_FOR_REVIEW: "TEAM_DECISION", VISIT_MULTIPLE_LOCATIONS: "REACH_LOCATION",
-    NAVIGATION_CHALLENGE: "REACH_LOCATION", BOSS_PARTICIPATION: "DEFEAT_ENEMY",
+    SUBMIT_FOR_REVIEW: "TEAM_DECISION", BOSS_PARTICIPATION: "DEFEAT_ENEMY",
   };
   raw = aliases[raw] ?? raw;
   const allowed = [
     "REACH_LOCATION",
+    "NAVIGATION_CHALLENGE",
+    "VISIT_MULTIPLE_LOCATIONS",
     "ANSWER_QUESTION",
     "SOLVE_PUZZLE",
     "DEFEAT_ENEMY",
@@ -227,6 +233,9 @@ async function upsertWorldObject(
 
   // Determine game type and radii based on feature_type
   const isEnemy = props.feature_type === "enemy_encounter";
+  const isStore = !isEnemy &&
+    ((props as LocationCandidateFeature["properties"] & { support_roles?: string[] }).support_roles ?? [])
+      .includes("STORE_LOCATION_CANDIDATE");
 
   const interactionRadiusM = isEnemy
     ? defaults.location_interaction_radius_m
@@ -265,7 +274,7 @@ async function upsertWorldObject(
     .insert(worldObjects)
     .values({
       externalId: feature.id,
-      type: isEnemy ? "ENEMY" : "LOCATION",
+      type: isEnemy ? "ENEMY" : isStore ? "STORE" : "LOCATION",
       name,
       day: day ?? null,
       cluster: cluster ?? null,
@@ -285,6 +294,7 @@ async function upsertWorldObject(
     .onConflictDoUpdate({
       target: worldObjects.externalId,
       set: {
+        type: isEnemy ? "ENEMY" : isStore ? "STORE" : "LOCATION",
         name,
         day: day ?? null,
         cluster: cluster ?? null,
@@ -303,6 +313,30 @@ async function upsertWorldObject(
 
   counter.imported++;
   report[typeKey] = counter;
+}
+
+/** Upsert only catalog entries whose canonical item_def was installed by migrations. */
+async function upsertStoreCatalogs(worldObjectByExternalId: Map<string, string>): Promise<void> {
+  for (const store of storeContent.stores) {
+    const storeId = worldObjectByExternalId.get(store.externalId);
+    if (!storeId) throw new Error(`Production store was not imported: ${store.externalId}`);
+
+    for (const item of store.catalog) {
+      if (!Number.isInteger(item.price) || item.price <= 0) {
+        throw new Error(`Invalid store price for ${store.externalId}/${item.definitionId}`);
+      }
+      const result = await db.execute(sql`
+        INSERT INTO store_catalog_item (id, store_id, definition_id, price)
+        SELECT gen_random_uuid(), ${storeId}::uuid, definition.key, ${item.price}
+        FROM item_def definition WHERE definition.key = ${item.definitionId}
+        ON CONFLICT (store_id, definition_id) DO UPDATE SET price = EXCLUDED.price
+        RETURNING id
+      `);
+      if (result.rows.length !== 1) {
+        throw new Error(`Store item is not defined by the production migrations: ${item.definitionId}`);
+      }
+    }
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -429,6 +463,8 @@ async function upsertQuestSteps(
             | "COMPLETE",
           stepActionType: mapStepActionType(stepRef.step_action_type) as
             | "REACH_LOCATION"
+            | "NAVIGATION_CHALLENGE"
+            | "VISIT_MULTIPLE_LOCATIONS"
             | "ANSWER_QUESTION"
             | "SOLVE_PUZZLE"
             | "DEFEAT_ENEMY"
@@ -459,6 +495,8 @@ async function upsertQuestSteps(
               | "COMPLETE",
             stepActionType: mapStepActionType(stepRef.step_action_type) as
               | "REACH_LOCATION"
+              | "NAVIGATION_CHALLENGE"
+              | "VISIT_MULTIPLE_LOCATIONS"
               | "ANSWER_QUESTION"
               | "SOLVE_PUZZLE"
               | "DEFEAT_ENEMY"
@@ -636,6 +674,7 @@ async function main(): Promise<void> {
   const validLocationCandidates: LocationCandidateFeature[] = [];
   const validQuestDefinitions: QuestDefinitionFeature[] = [];
   const validEnemyEncounters: EnemyEncounterFeature[] = [];
+  const validNavigationChallenges: NavigationChallengeFeature[] = [];
 
   for (const rawFeature of collection.features) {
     // Step a: identify feature_type
@@ -694,8 +733,11 @@ async function main(): Promise<void> {
       case "enemy_encounter":
         validEnemyEncounters.push(parsedFeature as EnemyEncounterFeature);
         break;
+      case "navigation_challenge":
+        validNavigationChallenges.push(parsedFeature as NavigationChallengeFeature);
+        break;
       default:
-        // quest_timer and navigation_challenge: validate & count but don't persist in Epic 1.
+        // quest_timer is validated but has no separate persistence model.
         counter.skipped_filter++;
         report[featureType] = counter;
         break;
@@ -745,6 +787,23 @@ async function main(): Promise<void> {
     report,
   );
 
+  console.log("🧭 Pass 4b: Upserting compound-step waypoints …");
+  const navigationTargets = new Map(validNavigationChallenges.map((feature) => [
+    feature.properties.navigation_id,
+    (feature.properties.checkpoint_candidate_ids as string[] | undefined) ?? [],
+  ]));
+  navigationTargets.set("M-D1-03", [
+    "place_day_1_piazza_navona", "place_day_1_fontana_del_nettuno", "place_day_1_fontana_del_moro",
+  ]);
+  for (const [targetRef, targets] of navigationTargets) {
+    const [step] = await db.select({ id: questSteps.id }).from(questSteps).where(eq(questSteps.targetRef, targetRef));
+    if (!step) continue;
+    for (const [index, waypoint] of targets.entries()) {
+      await db.insert(questStepWaypoints).values({ questStepId: step.id, sequence: index + 1, targetRef: waypoint })
+        .onConflictDoUpdate({ target: [questStepWaypoints.questStepId, questStepWaypoints.sequence], set: { targetRef: waypoint } });
+    }
+  }
+
   // ── 7. Pass 5 – Upsert QuestStations ─────────────────────────────────────
   console.log("🔄 Pass 5: Upserting QuestStations from quest_stations …");
   await upsertQuestStations(
@@ -754,7 +813,11 @@ async function main(): Promise<void> {
     report,
   );
 
-  // ── 8. Print report ───────────────────────────────────────────────────────
+  // ── 8. Upsert production store catalogues ────────────────────────────────
+  console.log("🏺 Pass 6: Upserting production store catalogues …");
+  await upsertStoreCatalogs(worldObjectByExternalId);
+
+  // ── 9. Print report ───────────────────────────────────────────────────────
   printReport(report, totalRead, Date.now() - startMs);
   console.log("✅ Seed complete.");
   process.exit(0);

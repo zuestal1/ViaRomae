@@ -19,7 +19,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { api } from "../lib/api.js";
+import { api, getApiBaseUrl } from "../lib/api.js";
 import type {
   WorldObjectNearby,
   WorldObjectsResponse,
@@ -123,14 +123,12 @@ export function useWorldObjects(
     if (!token) return;
 
     let cancelled = false;
+    const encodedToken = encodeURIComponent(token);
 
     function connect() {
       if (cancelled) return;
 
-      // Build WS URL relative to the current host so it works in both
-      // dev (vite proxy: ws: true) and production.
-      const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const url = `${proto}//${window.location.host}/api/v1/geo/ws?token=${token}`;
+      const url = `${getApiBaseUrl("websocket")}/geo/ws?token=${encodedToken}`;
 
       setWsStatus("connecting");
       const ws = new WebSocket(url);

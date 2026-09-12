@@ -613,9 +613,27 @@ function ActiveView({
             </div>
           )}
 
-          {/* REACH_LOCATION */}
-          {step.stepActionType === "REACH_LOCATION" && (
+          {/* Single and compound location objectives share server-confirmed GPS. */}
+          {["REACH_LOCATION", "NAVIGATION_CHALLENGE", "VISIT_MULTIPLE_LOCATIONS"].includes(step.stepActionType) && (
             <div className="flex flex-col gap-2">
+              {step.waypoints && (
+                <div className="rounded-lg border border-[#cd7f32]/30 bg-[#cd7f32]/10 p-3">
+                  <div className="mb-2 flex items-center justify-between text-xs">
+                    <span className="font-semibold text-[#f4e4c1]">
+                      {step.stepActionType === "NAVIGATION_CHALLENGE" ? "Navigationsroute" : "Besuchte Orte"}
+                    </span>
+                    <span className="text-[#cd7f32]">{step.waypoints.filter((item) => item.visited).length}/{step.waypoints.length}</span>
+                  </div>
+                  <div className="h-1.5 overflow-hidden rounded-full bg-black/30">
+                    <div className="h-full bg-[#cd7f32] transition-all" style={{ width: `${100 * step.waypoints.filter((item) => item.visited).length / step.waypoints.length}%` }} />
+                  </div>
+                  <ol className="mt-2 space-y-1 text-xs text-white/60">
+                    {step.waypoints.map((item) => <li key={item.id} className={item.visited ? "text-emerald-300" : ""}>
+                      {item.visited ? "✓" : "○"} {item.name}
+                    </li>)}
+                  </ol>
+                </div>
+              )}
               {/* Target location name */}
               {step.targetObjectName && (
                 <div className="flex items-center gap-2 rounded-lg bg-[#cd7f32]/10 border border-[#cd7f32]/30 px-3 py-2">
@@ -637,7 +655,7 @@ function ActiveView({
                            text-[#1a1a2e] disabled:opacity-50 transition active:scale-95
                            hover:bg-[#b8712d]"
               >
-                {isLoading ? "Prüfe Position…" : "📍 Standort bestätigen"}
+                {isLoading ? "Prüfe Position…" : step.stepActionType === "NAVIGATION_CHALLENGE" ? "🧭 Wegpunkt bestätigen" : "📍 Standort bestätigen"}
               </button>
             </div>
           )}
@@ -1024,6 +1042,8 @@ function QuestTypeBadge({ type }: { type: string }) {
 function stepEmoji(actionType: string): string {
   switch (actionType) {
     case "REACH_LOCATION":     return "📍";
+    case "NAVIGATION_CHALLENGE": return "🧭";
+    case "VISIT_MULTIPLE_LOCATIONS": return "🗺️";
     case "ANSWER_QUESTION":    return "❓";
     case "SOLVE_PUZZLE":       return "🧩";
     case "DEFEAT_ENEMY":       return "⚔️";
@@ -1037,6 +1057,8 @@ function stepEmoji(actionType: string): string {
 function stepLabel(actionType: string): string {
   switch (actionType) {
     case "REACH_LOCATION":     return "Ort erreichen";
+    case "NAVIGATION_CHALLENGE": return "Navigationsaufgabe";
+    case "VISIT_MULTIPLE_LOCATIONS": return "Mehrere Orte besuchen";
     case "ANSWER_QUESTION":    return "Frage beantworten";
     case "SOLVE_PUZZLE":       return "Rätsel lösen";
     case "DEFEAT_ENEMY":       return "Gegner besiegen";

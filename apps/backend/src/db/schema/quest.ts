@@ -57,6 +57,8 @@ export const flowPhaseEnum = pgEnum("flow_phase", [
  */
 export const stepActionTypeEnum = pgEnum("step_action_type", [
   "REACH_LOCATION",
+  "NAVIGATION_CHALLENGE",
+  "VISIT_MULTIPLE_LOCATIONS",
   "ANSWER_QUESTION",
   "SOLVE_PUZZLE",
   "DEFEAT_ENEMY",
@@ -224,6 +226,23 @@ export const questSteps = pgTable("quest_step", {
   /** Player copy, validation data and UI metadata from Questablauf/Rätsel. */
   authoredContent: jsonb("authored_content").$type<Record<string, unknown>>().notNull().default({}),
 });
+
+/** Ordered, server-authoritative locations belonging to a compound location step. */
+export const questStepWaypoints = pgTable("quest_step_waypoint", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  questStepId: uuid("quest_step_id").notNull().references(() => questSteps.id, { onDelete: "cascade" }),
+  sequence: integer("sequence").notNull(),
+  targetRef: varchar("target_ref", { length: 128 }).notNull(),
+}, (table) => [unique("uq_quest_step_waypoint_sequence").on(table.questStepId, table.sequence)]);
+
+/** Each waypoint is recorded once per run instead of collapsing a route to one counter. */
+export const questWaypointProgress = pgTable("quest_waypoint_progress", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  questRunId: uuid("quest_run_id").notNull().references(() => questRuns.id, { onDelete: "cascade" }),
+  waypointId: uuid("waypoint_id").notNull().references(() => questStepWaypoints.id, { onDelete: "cascade" }),
+  visitedAt: timestamp("visited_at", { withTimezone: true }).notNull().defaultNow(),
+  visitedByPlayerId: uuid("visited_by_player_id").notNull().references(() => players.id),
+}, (table) => [unique("uq_quest_waypoint_progress_run_waypoint").on(table.questRunId, table.waypointId)]);
 
 // ── QuestStation ──────────────────────────────────────────────────────────────
 

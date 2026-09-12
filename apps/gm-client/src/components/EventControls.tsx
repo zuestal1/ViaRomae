@@ -8,6 +8,11 @@ import type { EventState } from "@jlw/contracts";
 
 import { API_ROOT } from "../lib/api";
 
+interface StartDay2Result {
+  day: 2;
+  playersRestored: number;
+}
+
 export function EventControls() {
   const queryClient = useQueryClient();
 
@@ -42,6 +47,30 @@ export function EventControls() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["gm", "event-state"] });
+    },
+  });
+
+  const startDay2Mutation = useMutation<StartDay2Result, Error>({
+    mutationFn: async () => {
+      const res = await fetch(`${API_ROOT}/gm/event/day-2/start`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("gm_token")}`,
+        },
+      });
+      if (!res.ok) {
+        const error = await res.json().catch(() => null) as { message?: string } | null;
+        throw new Error(error?.message || "Tag 2 konnte nicht gestartet werden");
+      }
+      return res.json();
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["gm", "event-state"] }),
+        queryClient.invalidateQueries({ queryKey: ["gm", "team-status"] }),
+        queryClient.invalidateQueries({ queryKey: ["gm", "quests"] }),
+        queryClient.invalidateQueries({ queryKey: ["gm", "world-objects"] }),
+      ]);
     },
   });
 
@@ -90,6 +119,10 @@ export function EventControls() {
         )}`}
       >
         {getStateBadge(eventState.state)}
+      </div>
+
+      <div className="px-3 py-1 rounded-lg bg-slate-700 text-slate-200 text-sm font-medium">
+        Spieltag {eventState.currentDay}
       </div>
 
       {/* Control buttons */}
@@ -157,12 +190,42 @@ export function EventControls() {
             </button>
           </>
         )}
+
+        {(eventState.state === "ACTIVE" || eventState.state === "PAUSED") &&
+          eventState.currentDay === 1 && (
+            <button
+              onClick={() => {
+                if (
+                  confirm(
+                    "Tag 2 wirklich starten? Alle Spieler werden wiederhergestellt.",
+                  )
+                ) {
+                  startDay2Mutation.reset();
+                  startDay2Mutation.mutate();
+                }
+              }}
+              disabled={startDay2Mutation.isPending}
+              className="px-4 py-1 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 rounded-lg text-sm font-medium transition-colors"
+            >
+              {startDay2Mutation.isPending ? "Tag 2 wird gestartet…" : "Tag 2 starten"}
+            </button>
+          )}
       </div>
 
       {/* Error display */}
       {controlMutation.isError && (
         <div className="text-sm text-red-400">
           {(controlMutation.error as Error).message}
+        </div>
+      )}
+      {startDay2Mutation.isSuccess && (
+        <div className="text-sm text-green-400" role="status">
+          Tag 2 gestartet: {startDay2Mutation.data.playersRestored} Spieler wiederhergestellt.
+        </div>
+      )}
+      {startDay2Mutation.isError && (
+        <div className="text-sm text-red-400" role="alert">
+          {startDay2Mutation.error.message}
         </div>
       )}
     </div>
