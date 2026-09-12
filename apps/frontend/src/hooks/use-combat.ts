@@ -5,7 +5,7 @@
  * Epic 7 enhancements:
  *   - Real-time WebSocket integration for combat events
  *   - Automatic state sync when combat events are received
- *   - No polling – events are pushed from server
+ *   - Short REST fallback polling while idle in case a start event is missed
  */
 
 import { useState, useEffect, useCallback } from "react";
@@ -23,6 +23,8 @@ import type {
 } from "@jlw/contracts";
 
 export type ActivePvPChallenge = PvPChallengeStartedEvent["data"];
+
+const ACTIVE_COMBAT_POLL_INTERVAL_MS = 5_000;
 
 export function useCombat(playerId: string, token?: string) {
   const [activeCombat, setActiveCombat] = useState<CombatInstance | null>(null);
@@ -155,12 +157,18 @@ export function useCombat(playerId: string, token?: string) {
     }, 3000);
   }, [fetchActiveCombat]));
 
-  // Initial fetch on mount
+  // Fetch immediately, then briefly poll while no combat is known. This keeps
+  // WebSocket events as the primary mechanism but recovers a missed start event.
   useEffect(() => {
-    if (token) {
+    if (!playerId || !token || activeCombat) return;
+
+    void fetchActiveCombat();
+    const pollTimer = window.setInterval(() => {
       void fetchActiveCombat();
-    }
-  }, [token, fetchActiveCombat]);
+    }, ACTIVE_COMBAT_POLL_INTERVAL_MS);
+
+    return () => window.clearInterval(pollTimer);
+  }, [playerId, token, activeCombat, fetchActiveCombat]);
 
 
   return {
