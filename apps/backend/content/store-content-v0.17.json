@@ -1,0 +1,29 @@
+{
+  "stores": [
+    { "externalId": "location:place_day_1_campo_de_fiori", "catalog": [
+      { "definitionId": "panis_viatoris", "price": 15 }, { "definitionId": "aqua_vitae", "price": 30 },
+      { "definitionId": "unguentum_medicum", "price": 35 }, { "definitionId": "universal_dagger", "price": 70 },
+      { "definitionId": "universal_cloak", "price": 60 }
+    ] },
+    { "externalId": "location:place_day_1_castel_sant_angelo", "catalog": [
+      { "definitionId": "aqua_vitae", "price": 30 }, { "definitionId": "rauchkugel", "price": 45 },
+      { "definitionId": "balm_returning", "price": 120 }, { "definitionId": "guard_cuirass", "price": 100 },
+      { "definitionId": "universal_shield", "price": 70 }
+    ] },
+    { "externalId": "location:place_day_1_piazza_navona", "catalog": [
+      { "definitionId": "panis_viatoris", "price": 15 }, { "definitionId": "aqua_vitae_magna", "price": 60 },
+      { "definitionId": "pilgerproviant", "price": 55 }, { "definitionId": "cleric_prayerbook", "price": 80 },
+      { "definitionId": "universal_fortune_coin", "price": 75 }
+    ] },
+    { "externalId": "location:place_day_2_colosseo", "catalog": [
+      { "definitionId": "wetzstein_legionaer", "price": 30 }, { "definitionId": "rauchkugel", "price": 45 },
+      { "definitionId": "adlerstandarte", "price": 70 }, { "definitionId": "starter_side_sword", "price": 100 },
+      { "definitionId": "condottiere_buckler", "price": 90 }
+    ] },
+    { "externalId": "location:place_day_2_piazza_vittorio_emanuele_secondo", "catalog": [
+      { "definitionId": "aqua_vitae_magna", "price": 60 }, { "definitionId": "geweihter_weihrauch", "price": 50 },
+      { "definitionId": "notfallreliquie", "price": 150 }, { "definitionId": "starter_chisel_hammer", "price": 80 },
+      { "definitionId": "sculptor_apron", "price": 70 }
+    ] }
+  ]
+}

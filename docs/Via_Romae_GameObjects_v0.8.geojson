@@ -10,7 +10,7 @@
   "metadata": {
     "schema": "via-romae/game-geojson/v0.8",
     "source_workbook": "Via_Romae_Questgruppierung_v0.10 (1).xlsx",
-    "generated_at_utc": "2026-09-04T07:06:59.808Z",
+    "generated_at_utc": "2026-09-12T00:00:00Z",
     "coordinate_reference_system": "WGS84 / EPSG:4326",
     "coordinate_order": "longitude, latitude",
     "feature_counts": {
@@ -177,7 +177,7 @@
             "step_action_type": "DEFEAT_ENEMY",
             "step_category": "OBJECTIVE",
             "gdd_objective_type": "COMPLETE_ENCOUNTER",
-            "target_ref": "CP-QE-RATTO",
+            "target_ref": "enemy:quest:H-D1-02-S05",
             "required": true
           },
           {
@@ -284,7 +284,7 @@
             "step_action_type": "DEFEAT_ENEMY",
             "step_category": "OBJECTIVE",
             "gdd_objective_type": "COMPLETE_ENCOUNTER",
-            "target_ref": "CP-QE-ANTINOO",
+            "target_ref": "enemy:quest:D1-Q04-S11",
             "required": true
           },
           {
@@ -920,7 +920,7 @@
             "step_action_type": "DEFEAT_ENEMY",
             "step_category": "OBJECTIVE",
             "gdd_objective_type": "COMPLETE_ENCOUNTER",
-            "target_ref": "CP-QE-PASSETTO",
+            "target_ref": "enemy:quest:D1-Q01-S13",
             "required": false
           },
           {
@@ -1420,7 +1420,7 @@
             "step_action_type": "DEFEAT_ENEMY",
             "step_category": "OBJECTIVE",
             "gdd_objective_type": "COMPLETE_ENCOUNTER",
-            "target_ref": "CP-QE-SATIRELLI",
+            "target_ref": "enemy:quest:H-D1-03-S05",
             "required": true
           },
           {
@@ -1813,7 +1813,7 @@
             "step_action_type": "DEFEAT_ENEMY",
             "step_category": "OBJECTIVE",
             "gdd_objective_type": "COMPLETE_ENCOUNTER",
-            "target_ref": "CP-QE-RATTO",
+            "target_ref": "enemy:quest:D1-Q09-S11",
             "required": true
           },
           {
@@ -2214,7 +2214,7 @@
             "step_action_type": "DEFEAT_ENEMY",
             "step_category": "OBJECTIVE",
             "gdd_objective_type": "COMPLETE_ENCOUNTER",
-            "target_ref": "CP-QE-TARTARUGHE",
+            "target_ref": "enemy:quest:H-D1-01-S05",
             "required": true
           },
           {
@@ -2915,7 +2915,7 @@
             "step_action_type": "DEFEAT_ENEMY",
             "step_category": "OBJECTIVE",
             "gdd_objective_type": "COMPLETE_ENCOUNTER",
-            "target_ref": "CP-QE-GARIBALDINO",
+            "target_ref": "enemy:quest:D1-Q16-S15",
             "required": true
           },
           {
@@ -3688,7 +3688,7 @@
             "step_action_type": "DEFEAT_ENEMY",
             "step_category": "OBJECTIVE",
             "gdd_objective_type": "COMPLETE_ENCOUNTER",
-            "target_ref": "CP-QE-MUMMIA",
+            "target_ref": "enemy:quest:D1-Q07-S09",
             "required": false
           }
         ],
@@ -3777,7 +3777,7 @@
             "step_action_type": "DEFEAT_ENEMY",
             "step_category": "OBJECTIVE",
             "gdd_objective_type": "COMPLETE_ENCOUNTER",
-            "target_ref": "CP-QE-CORAZZIERE",
+            "target_ref": "enemy:quest:D1-Q10-S11",
             "required": false
           },
           {
@@ -5772,7 +5772,7 @@
             "step_action_type": "DEFEAT_ENEMY",
             "step_category": "OBJECTIVE",
             "gdd_objective_type": "COMPLETE_ENCOUNTER",
-            "target_ref": "CP-QE-CAVALLEGGERO",
+            "target_ref": "enemy:quest:D1-Q02-S11",
             "required": true
           },
           {
@@ -5986,7 +5986,7 @@
             "step_action_type": "DEFEAT_ENEMY",
             "step_category": "OBJECTIVE",
             "gdd_objective_type": "COMPLETE_ENCOUNTER",
-            "target_ref": "CP-QE-TARTARUGHE",
+            "target_ref": "enemy:quest:D1-Q13-S10",
             "required": false
           },
           {
@@ -6703,7 +6703,7 @@
             "step_action_type": "DEFEAT_ENEMY",
             "step_category": "OBJECTIVE",
             "gdd_objective_type": "COMPLETE_ENCOUNTER",
-            "target_ref": "CP-QE-GIANO",
+            "target_ref": "enemy:quest:D2-Q04-S12",
             "required": false
           },
           {
@@ -8009,7 +8009,7 @@
             "step_action_type": "DEFEAT_ENEMY",
             "step_category": "OBJECTIVE",
             "gdd_objective_type": "COMPLETE_ENCOUNTER",
-            "target_ref": "CP-QE-MASCHERONE",
+            "target_ref": "enemy:quest:D2-Q05-S10",
             "required": false
           },
           {
@@ -8437,7 +8437,7 @@
             "step_action_type": "DEFEAT_ENEMY",
             "step_category": "OBJECTIVE",
             "gdd_objective_type": "COMPLETE_ENCOUNTER",
-            "target_ref": "CP-QE-LUDUS",
+            "target_ref": "enemy:quest:D2-Q03-S10",
             "required": true
           },
           {
@@ -9012,7 +9012,7 @@
             "step_action_type": "DEFEAT_ENEMY",
             "step_category": "OBJECTIVE",
             "gdd_objective_type": "COMPLETE_ENCOUNTER",
-            "target_ref": "CP-QE-INFERNO",
+            "target_ref": "enemy:quest:H-D2-02-S05",
             "required": true
           },
           {
@@ -9569,7 +9569,7 @@
             "step_action_type": "DEFEAT_ENEMY",
             "step_category": "OBJECTIVE",
             "gdd_objective_type": "COMPLETE_ENCOUNTER",
-            "target_ref": "CP-QE-IDRA",
+            "target_ref": "enemy:quest:D2-Q10-S07",
             "required": true
           },
           {
@@ -9709,7 +9709,7 @@
             "step_action_type": "DEFEAT_ENEMY",
             "step_category": "OBJECTIVE",
             "gdd_objective_type": "COMPLETE_ENCOUNTER",
-            "target_ref": "CP-QE-SCORPIONE",
+            "target_ref": "enemy:quest:D2-Q08-S09",
             "required": false
           }
         ],
@@ -9998,7 +9998,7 @@
             "step_action_type": "DEFEAT_ENEMY",
             "step_category": "OBJECTIVE",
             "gdd_objective_type": "COMPLETE_ENCOUNTER",
-            "target_ref": "CP-QE-VAPORE",
+            "target_ref": "enemy:quest:D2-Q09-S10",
             "required": false
           },
           {
@@ -12001,7 +12001,30 @@
         "image_generation_prompt": "Mobile-RPG-Gegnerkonzept, vollständige Figur, gut lesbare Kampfsilhouette, Rom-Fantasy, Lebendig gewordener Brückenengel aus hellem Marmor, große gefiederte Flügel, verwittertes Passionsinstrument, goldene Risse, entschlossener trauriger Blick, Tibernebel, Ganzkörper. Dramatisches aber nicht fotorealistisches Licht, neutraler transparenzgeeigneter Hintergrund, keine Schrift, kein Logo, keine Gore.",
         "publishable": true,
         "aggro_radius_m": 20,
-        "respawn_scope": "GLOBAL_PERSISTENT_BY_ENCOUNTER"
+        "respawn_scope": "GLOBAL_PERSISTENT_BY_ENCOUNTER",
+        "hp": 240,
+        "atk": 24,
+        "def": 17,
+        "initiative": 12,
+        "statusChance": 0.25,
+        "combat_profile_id": "CP-UE-D1-01",
+        "behavior": {
+          "type": "CONTROL_COUNTER",
+          "powerAttackEvery": 3,
+          "powerAttackMultiplier": 1.35,
+          "targetStrategy": "THREAT"
+        },
+        "abilities": [
+          "Gewicht der Passion: markiert einen Spieler; Schutz oder Heilung durch ein anderes Mitglied löst die Marke sicher.",
+          "Ortsreaktion: Zehn große Engelsfiguren auf den Balustraden; Petrus und Paulus stehen getrennt an den Brückenköpfen."
+        ],
+        "reward": {
+          "fame": 50,
+          "denarii": 30,
+          "lootRarity": "SR",
+          "rewardId": "UNIQUE_WORLD_ENEMY_REWARD_SR"
+        },
+        "unique": true
       }
     },
     {
@@ -12043,7 +12066,30 @@
         "image_generation_prompt": "Mobile-RPG-Gegnerkonzept, vollständige Figur, gut lesbare Kampfsilhouette, Rom-Fantasy, Monumentaler ägyptisierender Löwe aus warmem Stein, Brunnenwasser tropft aus der Mähne, bronzene Augen, Hieroglyphensockel-Fragmente, kraftvolle niedrige Haltung. Dramatisches aber nicht fotorealistisches Licht, neutraler transparenzgeeigneter Hintergrund, keine Schrift, kein Logo, keine Gore.",
         "publishable": true,
         "aggro_radius_m": 20,
-        "respawn_scope": "GLOBAL_PERSISTENT_BY_ENCOUNTER"
+        "respawn_scope": "GLOBAL_PERSISTENT_BY_ENCOUNTER",
+        "hp": 170,
+        "atk": 20,
+        "def": 12,
+        "initiative": 14,
+        "statusChance": 0.18,
+        "combat_profile_id": "CP-UE-D1-02",
+        "behavior": {
+          "type": "FAST_BRUISER",
+          "powerAttackEvery": 3,
+          "powerAttackMultiplier": 1.35,
+          "targetStrategy": "THREAT"
+        },
+        "abilities": [
+          "Löwensprung: trifft Frontlinie; verfehlt teilweise, wenn ein Verteidiger die Linie abfängt.",
+          "Ortsreaktion: Vier monumentale Löwenbrunnen unmittelbar um den Obelisksockel."
+        ],
+        "reward": {
+          "fame": 35,
+          "denarii": 20,
+          "lootRarity": "R",
+          "rewardId": "UNIQUE_WORLD_ENEMY_REWARD_R"
+        },
+        "unique": true
       }
     },
     {
@@ -12086,7 +12132,30 @@
         "image_generation_prompt": "Mobile-RPG-Gegnerkonzept, vollständige Figur, gut lesbare Kampfsilhouette, Rom-Fantasy, Monumentale sitzende Göttin Roma aus weißem Marmor, roter Mantel als magisches Licht, Helm, Speer gesenkt, Wölfin und zwei geisterhafte Zwillinge am Sockel, würdevoll. Dramatisches aber nicht fotorealistisches Licht, neutraler transparenzgeeigneter Hintergrund, keine Schrift, kein Logo, keine Gore.",
         "publishable": true,
         "aggro_radius_m": 20,
-        "respawn_scope": "GLOBAL_PERSISTENT_BY_ENCOUNTER"
+        "respawn_scope": "GLOBAL_PERSISTENT_BY_ENCOUNTER",
+        "hp": 360,
+        "atk": 29,
+        "def": 21,
+        "initiative": 10,
+        "statusChance": 0.3,
+        "combat_profile_id": "CP-UE-D1-03",
+        "behavior": {
+          "type": "AURA_COMMANDER",
+          "powerAttackEvery": 3,
+          "powerAttackMultiplier": 1.45,
+          "targetStrategy": "THREAT"
+        },
+        "abilities": [
+          "Ruf der Stadt: verstärkt sich, wenn zwei markierte Spieler dieselbe Aktion wählen.",
+          "Ortsreaktion: Zentrale sitzende Göttin; im unteren Bereich sind die Wölfin und die Zwillinge deutlich erkennbar."
+        ],
+        "reward": {
+          "fame": 75,
+          "denarii": 45,
+          "lootRarity": "SSR",
+          "rewardId": "UNIQUE_WORLD_ENEMY_REWARD_SSR"
+        },
+        "unique": true
       }
     },
     {
@@ -12128,7 +12197,30 @@
         "image_generation_prompt": "Mobile-RPG-Gegnerkonzept, vollständige Figur, gut lesbare Kampfsilhouette, Rom-Fantasy, Römischer Legionär aus grauem Reliefstein, Körper teilweise flach wie aus einer Säule geschnitten, Rechteckschild, Speer, spiralförmige Reliefbänder schweben hinter ihm. Dramatisches aber nicht fotorealistisches Licht, neutraler transparenzgeeigneter Hintergrund, keine Schrift, kein Logo, keine Gore.",
         "publishable": true,
         "aggro_radius_m": 20,
-        "respawn_scope": "GLOBAL_PERSISTENT_BY_ENCOUNTER"
+        "respawn_scope": "GLOBAL_PERSISTENT_BY_ENCOUNTER",
+        "hp": 250,
+        "atk": 23,
+        "def": 19,
+        "initiative": 9,
+        "statusChance": 0.24,
+        "combat_profile_id": "CP-UE-D1-04",
+        "behavior": {
+          "type": "FORMATION_SOLDIER",
+          "powerAttackEvery": 3,
+          "powerAttackMultiplier": 1.35,
+          "targetStrategy": "THREAT"
+        },
+        "abilities": [
+          "Reliefmarsch: ruft flache Soldatenschatten, die eine Aktionskategorie blockieren.",
+          "Ortsreaktion: Breites spiralförmiges Reliefband mit zahlreichen Soldaten- und Schlachtszenen."
+        ],
+        "reward": {
+          "fame": 50,
+          "denarii": 30,
+          "lootRarity": "SR",
+          "rewardId": "UNIQUE_WORLD_ENEMY_REWARD_SR"
+        },
+        "unique": true
       }
     },
     {
@@ -12170,7 +12262,30 @@
         "image_generation_prompt": "Mobile-RPG-Gegnerkonzept, vollständige Figur, gut lesbare Kampfsilhouette, Rom-Fantasy, Humanoider Geist aus schwarzem Schatten und goldenen Sonnenlinien, Obelisken-Silhouette als Rücken, schwebende römische Stundenmarken, keine reale Schattenposition nötig. Dramatisches aber nicht fotorealistisches Licht, neutraler transparenzgeeigneter Hintergrund, keine Schrift, kein Logo, keine Gore.",
         "publishable": true,
         "aggro_radius_m": 20,
-        "respawn_scope": "GLOBAL_PERSISTENT_BY_ENCOUNTER"
+        "respawn_scope": "GLOBAL_PERSISTENT_BY_ENCOUNTER",
+        "hp": 330,
+        "atk": 27,
+        "def": 18,
+        "initiative": 15,
+        "statusChance": 0.32,
+        "combat_profile_id": "CP-UE-D1-05",
+        "behavior": {
+          "type": "TIME_CONTROLLER",
+          "powerAttackEvery": 3,
+          "powerAttackMultiplier": 1.45,
+          "targetStrategy": "THREAT"
+        },
+        "abilities": [
+          "Schattenstunde: setzt Initiative nach sichtbarem Countdown neu.",
+          "Ortsreaktion: Monumentaler Obelisk mit Hieroglyphen; die historische Gnomon-Funktion liefert das Schattenmotiv."
+        ],
+        "reward": {
+          "fame": 75,
+          "denarii": 45,
+          "lootRarity": "SSR",
+          "rewardId": "UNIQUE_WORLD_ENEMY_REWARD_SSR"
+        },
+        "unique": true
       }
     },
     {
@@ -12212,7 +12327,30 @@
         "image_generation_prompt": "Mobile-RPG-Gegnerkonzept, vollständige Figur, gut lesbare Kampfsilhouette, Rom-Fantasy, Einzelner barocker Fassadenengel aus hellem Stein, asymmetrische leicht beschädigte Flügel, Schriftrolle, Kuppelsilhouette im Hintergrund, wachsam statt religiös verehrt. Dramatisches aber nicht fotorealistisches Licht, neutraler transparenzgeeigneter Hintergrund, keine Schrift, kein Logo, keine Gore.",
         "publishable": true,
         "aggro_radius_m": 20,
-        "respawn_scope": "GLOBAL_PERSISTENT_BY_ENCOUNTER"
+        "respawn_scope": "GLOBAL_PERSISTENT_BY_ENCOUNTER",
+        "hp": 160,
+        "atk": 18,
+        "def": 14,
+        "initiative": 16,
+        "statusChance": 0.18,
+        "combat_profile_id": "CP-UE-D1-06",
+        "behavior": {
+          "type": "AERIAL_GUARD",
+          "powerAttackEvery": 3,
+          "powerAttackMultiplier": 1.35,
+          "targetStrategy": "THREAT"
+        },
+        "abilities": [
+          "Kuppelwacht: erhält Schutz, solange kein Teammitglied eine Beobachtungs-/Schwachstellenaktion nutzt.",
+          "Ortsreaktion: Einzelne große Engelsfigur auf der linken Fassadenseite vom öffentlichen Außenpunkt aus."
+        ],
+        "reward": {
+          "fame": 35,
+          "denarii": 20,
+          "lootRarity": "R",
+          "rewardId": "UNIQUE_WORLD_ENEMY_REWARD_R"
+        },
+        "unique": true
       }
     },
     {
@@ -12254,7 +12392,30 @@
         "image_generation_prompt": "Mobile-RPG-Gegnerkonzept, vollständige Figur, gut lesbare Kampfsilhouette, Rom-Fantasy, Großer heiliger Schlangengeist aus grünem Stein und blauem Licht, um einen verwitterten Asklepiosstab gewunden, Travertin-Schiffsbug-Fragmente, ruhig und bedrohlich. Dramatisches aber nicht fotorealistisches Licht, neutraler transparenzgeeigneter Hintergrund, keine Schrift, kein Logo, keine Gore.",
         "publishable": true,
         "aggro_radius_m": 20,
-        "respawn_scope": "GLOBAL_PERSISTENT_BY_ENCOUNTER"
+        "respawn_scope": "GLOBAL_PERSISTENT_BY_ENCOUNTER",
+        "hp": 340,
+        "atk": 26,
+        "def": 20,
+        "initiative": 11,
+        "statusChance": 0.28,
+        "combat_profile_id": "CP-UE-D1-07",
+        "behavior": {
+          "type": "HEAL_DENIAL",
+          "powerAttackEvery": 3,
+          "powerAttackMultiplier": 1.45,
+          "targetStrategy": "THREAT"
+        },
+        "abilities": [
+          "Asklepios-Windung: bindet den zuletzt geheilten Spieler und kopiert einen Teil der Heilung als Barriere.",
+          "Ortsreaktion: Travertinreste eines Schiffsbugs und ein Asklepios-Relief am östlichen Inselende."
+        ],
+        "reward": {
+          "fame": 75,
+          "denarii": 45,
+          "lootRarity": "SSR",
+          "rewardId": "UNIQUE_WORLD_ENEMY_REWARD_SSR"
+        },
+        "unique": true
       }
     },
     {
@@ -12296,7 +12457,30 @@
         "image_generation_prompt": "Mobile-RPG-Gegnerkonzept, vollständige Figur, gut lesbare Kampfsilhouette, Rom-Fantasy, Schwebendes kreisförmiges Auge aus Tiberwasser, steinerner Ring wie die Mittelöffnung der Brücke, Strömungsiris, kleine Brückenbogen-Fragmente, surreal aber klar lesbar. Dramatisches aber nicht fotorealistisches Licht, neutraler transparenzgeeigneter Hintergrund, keine Schrift, kein Logo, keine Gore.",
         "publishable": true,
         "aggro_radius_m": 20,
-        "respawn_scope": "GLOBAL_PERSISTENT_BY_ENCOUNTER"
+        "respawn_scope": "GLOBAL_PERSISTENT_BY_ENCOUNTER",
+        "hp": 180,
+        "atk": 19,
+        "def": 13,
+        "initiative": 13,
+        "statusChance": 0.2,
+        "combat_profile_id": "CP-UE-D1-08",
+        "behavior": {
+          "type": "AREA_HAZARD",
+          "powerAttackEvery": 3,
+          "powerAttackMultiplier": 1.35,
+          "targetStrategy": "THREAT"
+        },
+        "abilities": [
+          "Tiberblick: beobachtet eine Aktion und spiegelt deren Statuseffekt abgeschwächt.",
+          "Ortsreaktion: Große kreisrunde Öffnung zwischen den beiden mittleren Brückenbögen."
+        ],
+        "reward": {
+          "fame": 35,
+          "denarii": 20,
+          "lootRarity": "R",
+          "rewardId": "UNIQUE_WORLD_ENEMY_REWARD_R"
+        },
+        "unique": true
       }
     },
     {
@@ -12338,7 +12522,30 @@
         "image_generation_prompt": "Mobile-RPG-Gegnerkonzept, vollständige Figur, gut lesbare Kampfsilhouette, Rom-Fantasy, Übergroße bronzene Quadriga mit vier geisterhaften Pferden, geflügelte Wagenlenkerin als abstrakte Siegesfigur, grüne Patina, weißer Monumentstein und goldener Sturm. Dramatisches aber nicht fotorealistisches Licht, neutraler transparenzgeeigneter Hintergrund, keine Schrift, kein Logo, keine Gore.",
         "publishable": true,
         "aggro_radius_m": 20,
-        "respawn_scope": "GLOBAL_PERSISTENT_BY_ENCOUNTER"
+        "respawn_scope": "GLOBAL_PERSISTENT_BY_ENCOUNTER",
+        "hp": 520,
+        "atk": 36,
+        "def": 26,
+        "initiative": 13,
+        "statusChance": 0.35,
+        "combat_profile_id": "CP-UE-D2-01",
+        "behavior": {
+          "type": "MULTI_PHASE_CHARGER",
+          "powerAttackEvery": 3,
+          "powerAttackMultiplier": 1.45,
+          "targetStrategy": "THREAT"
+        },
+        "abilities": [
+          "Quadriga-Sturm: zwei nacheinander telegraphierte Linienangriffe.",
+          "Ortsreaktion: Zwei monumentale Quadrigen an den oberen Enden des Vittoriano."
+        ],
+        "reward": {
+          "fame": 100,
+          "denarii": 60,
+          "lootRarity": "E",
+          "rewardId": "UNIQUE_WORLD_ENEMY_REWARD_E"
+        },
+        "unique": true
       }
     },
     {
@@ -12380,7 +12587,30 @@
         "image_generation_prompt": "Mobile-RPG-Gegnerkonzept, vollständige Figur, gut lesbare Kampfsilhouette, Rom-Fantasy, Zwei muskulöse steinerne Tritonen tragen gemeinsam eine große Muschelschale, Meeresschwänze, Wasserbänder, grüne Patina, dynamische spiegelbildliche Posen. Dramatisches aber nicht fotorealistisches Licht, neutraler transparenzgeeigneter Hintergrund, keine Schrift, kein Logo, keine Gore.",
         "publishable": true,
         "aggro_radius_m": 20,
-        "respawn_scope": "GLOBAL_PERSISTENT_BY_ENCOUNTER"
+        "respawn_scope": "GLOBAL_PERSISTENT_BY_ENCOUNTER",
+        "hp": 380,
+        "atk": 30,
+        "def": 22,
+        "initiative": 12,
+        "statusChance": 0.3,
+        "combat_profile_id": "CP-UE-D2-02",
+        "behavior": {
+          "type": "COORDINATED_DUO",
+          "powerAttackEvery": 3,
+          "powerAttackMultiplier": 1.45,
+          "targetStrategy": "THREAT"
+        },
+        "abilities": [
+          "Muschelhorn-Duett: starker Teamangriff, wenn beide in derselben Runde ungestört bleiben.",
+          "Ortsreaktion: Zwei große Tritonen tragen gemeinsam die obere Muschelschale."
+        ],
+        "reward": {
+          "fame": 75,
+          "denarii": 45,
+          "lootRarity": "SSR",
+          "rewardId": "UNIQUE_WORLD_ENEMY_REWARD_SSR"
+        },
+        "unique": true
       }
     },
     {
@@ -12422,7 +12652,30 @@
         "image_generation_prompt": "Mobile-RPG-Gegnerkonzept, vollständige Figur, gut lesbare Kampfsilhouette, Rom-Fantasy, Steinernes römisches Schiff als lebender Gegner, geisterhafter Steuermann am Heck, moosige Bordwand, blaues Licht in den Fugen, kleine Wellenwesen, Ganzkörper. Dramatisches aber nicht fotorealistisches Licht, neutraler transparenzgeeigneter Hintergrund, keine Schrift, kein Logo, keine Gore.",
         "publishable": true,
         "aggro_radius_m": 20,
-        "respawn_scope": "GLOBAL_PERSISTENT_BY_ENCOUNTER"
+        "respawn_scope": "GLOBAL_PERSISTENT_BY_ENCOUNTER",
+        "hp": 260,
+        "atk": 25,
+        "def": 16,
+        "initiative": 14,
+        "statusChance": 0.24,
+        "combat_profile_id": "CP-UE-D2-03",
+        "behavior": {
+          "type": "SUMMONER_VEHICLE",
+          "powerAttackEvery": 3,
+          "powerAttackMultiplier": 1.35,
+          "targetStrategy": "THREAT"
+        },
+        "abilities": [
+          "Steinerner Kurswechsel: verschiebt Zielpriorität und schützt die Seite, die dem Bug zugewandt ist.",
+          "Ortsreaktion: Großes steinernes Schiff als zentrales Brunnenobjekt."
+        ],
+        "reward": {
+          "fame": 50,
+          "denarii": 30,
+          "lootRarity": "SR",
+          "rewardId": "UNIQUE_WORLD_ENEMY_REWARD_SR"
+        },
+        "unique": true
       }
     },
     {
@@ -12464,7 +12717,30 @@
         "image_generation_prompt": "Mobile-RPG-Gegnerkonzept, vollständige Figur, gut lesbare Kampfsilhouette, Rom-Fantasy, Lebendig gewordene bronzene Caesar-Statue, Lorbeerkranz, römischer Brustpanzer und Mantel, grüne Patina, entschlossener aber nicht fotorealistischer Ausdruck, kapitolinisches Steinlicht. Dramatisches aber nicht fotorealistisches Licht, neutraler transparenzgeeigneter Hintergrund, keine Schrift, kein Logo, keine Gore.",
         "publishable": true,
         "aggro_radius_m": 20,
-        "respawn_scope": "GLOBAL_PERSISTENT_BY_ENCOUNTER"
+        "respawn_scope": "GLOBAL_PERSISTENT_BY_ENCOUNTER",
+        "hp": 400,
+        "atk": 31,
+        "def": 23,
+        "initiative": 13,
+        "statusChance": 0.32,
+        "combat_profile_id": "CP-UE-D2-04",
+        "behavior": {
+          "type": "COMMAND_DUELIST",
+          "powerAttackEvery": 3,
+          "powerAttackMultiplier": 1.45,
+          "targetStrategy": "THREAT"
+        },
+        "abilities": [
+          "Veni-Vidi-Marke: markiert den Spieler mit höchstem Angriff und fordert dessen nächste Aktion heraus.",
+          "Ortsreaktion: Monumentale Caesar-Statue am Kapitol; die Figur selbst ist der Referenzkörper."
+        ],
+        "reward": {
+          "fame": 75,
+          "denarii": 45,
+          "lootRarity": "SSR",
+          "rewardId": "UNIQUE_WORLD_ENEMY_REWARD_SSR"
+        },
+        "unique": true
       }
     },
     {
@@ -12956,6 +13232,983 @@
         "publishable": true,
         "blocks_release_until_field_test": true,
         "content_status": "APPROVED"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "enemy:quest:D1-Q01-S13",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          12.46686,
+          41.90262
+        ]
+      },
+      "properties": {
+        "feature_type": "enemy_encounter",
+        "encounter_id": "QE-D1-Q01-S13",
+        "candidate_id": "place_day_1_castel_sant_angelo",
+        "quest_id": "D1-Q01",
+        "quest_step_id": "D1-Q01-S13",
+        "combat_profile_id": "CP-QE-PASSETTO",
+        "system_type": "QUEST_ENEMY",
+        "name": "Schatten des Passetto",
+        "day": "DAY_1",
+        "cluster": "D1_VATICANO_PRATI_BORGO",
+        "description": "Ein flacher Mauerschatten löst sich aus den Schießscharten und zieht Fluchtwege wie schwarze Bänder zu.",
+        "rarity": "SR",
+        "combat_role": "CONTROL",
+        "combat_pattern": "Markiert zuerst einen Ausgang, sperrt ihn in der Folgerunde und bestraft unkoordinierte Zielwechsel.",
+        "abilities": [
+          "Mauergriff: blockiert eine Unterstützungsaktion für eine Runde.",
+          "Falscher Ausgang: legt zwei scheinbare Ziele an; Beobachtungshinweis deckt das echte auf."
+        ],
+        "phase_rule": "Optionaler Kampf nur bei Teamentscheidung SCHATTEN_STELLEN; keine zweite Phase.",
+        "target_rule": "Bevorzugt den Spieler mit der letzten Questinteraktion.",
+        "counterplay": "Siegel der Schildwacht oder Schweizergardisten-Schutzruf entfernt die erste Sperre.",
+        "status_target_rules": [
+          "MARKED_EXIT",
+          "ACTION_LOCK"
+        ],
+        "behavior": {
+          "type": "CONTROL",
+          "powerAttackEvery": 3,
+          "powerAttackMultiplier": 1.35,
+          "targetStrategy": "THREAT"
+        },
+        "hp": 255,
+        "atk": 24,
+        "def": 18,
+        "initiative": 13,
+        "statusChance": 0.27999999999999997,
+        "content_status": "APPROVED",
+        "publishable": true,
+        "aggro_radius_m": 20,
+        "respawn_scope": "QUEST_INSTANCE_NO_RESPAWN",
+        "unique": false
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "enemy:quest:D1-Q02-S11",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          12.4615874,
+          41.9003045
+        ]
+      },
+      "properties": {
+        "feature_type": "enemy_encounter",
+        "encounter_id": "QE-D1-Q02-S11",
+        "candidate_id": "place_day_1_porta_santo_spirito",
+        "quest_id": "D1-Q02",
+        "quest_step_id": "D1-Q02-S11",
+        "combat_profile_id": "CP-QE-CAVALLEGGERO",
+        "system_type": "QUEST_ENEMY",
+        "name": "Cavalleggero Pontificio",
+        "day": "DAY_1",
+        "cluster": "D1_VATICANO_PRATI_BORGO",
+        "description": "Ein päpstlicher Reitergeist senkt die Lanze und erklärt die gewählte Torordnung zur Beleidigung.",
+        "rarity": "R",
+        "combat_role": "DEFENDER",
+        "combat_pattern": "Beginnt defensiv; telegraphiert eine Lanzenlinie und kontert Angriffe auf falsche Ziele.",
+        "abilities": [
+          "Lanzenritt: starker Einzelangriff nach einer sichtbaren Vorbereitungsrunde.",
+          "Wappenschild: erhält Schutz, bis das korrekte Tor-Merkmal aktiviert wird."
+        ],
+        "phase_rule": "Bei halber Vitalität steigt er ab und verliert Reichweite, gewinnt aber Konter.",
+        "target_rule": "Zielt zuerst auf den höchsten Angriffswert.",
+        "counterplay": "Condottiere-Analyse oder richtige Torreihenfolge bricht Wappenschild.",
+        "status_target_rules": [
+          "GUARDED",
+          "TELEGRAPHED_CHARGE"
+        ],
+        "behavior": {
+          "type": "DEFENDER",
+          "powerAttackEvery": 3,
+          "powerAttackMultiplier": 1.35,
+          "targetStrategy": "HIGHEST_ATTACK"
+        },
+        "hp": 200,
+        "atk": 20,
+        "def": 16,
+        "initiative": 11,
+        "statusChance": 0.18,
+        "content_status": "APPROVED",
+        "publishable": true,
+        "aggro_radius_m": 20,
+        "respawn_scope": "QUEST_INSTANCE_NO_RESPAWN",
+        "unique": false
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "enemy:quest:D1-Q04-S11",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          12.4779346,
+          41.9110905
+        ]
+      },
+      "properties": {
+        "feature_type": "enemy_encounter",
+        "encounter_id": "QE-D1-Q04-S11",
+        "candidate_id": "place_day_1_balconata_del_pincio",
+        "quest_id": "D1-Q04",
+        "quest_step_id": "D1-Q04-S11",
+        "combat_profile_id": "CP-QE-ANTINOO",
+        "system_type": "QUEST_ENEMY",
+        "name": "Ombra di Antinoo",
+        "day": "DAY_1",
+        "cluster": "D1_POPOLO_PINCIO_SPAGNA",
+        "description": "Ein schöner, gesichtsloser Schatten erscheint zwischen Hieroglyphen und Stadtpanorama.",
+        "rarity": "SR",
+        "combat_role": "ILLUSIONIST",
+        "combat_pattern": "Erzeugt Spiegelbilder; jede richtige Ortszuordnung entfernt eines vor Kampfbeginn.",
+        "abilities": [
+          "Spiegel des Favoriten: kopiert die zuletzt eingesetzte Spielerfähigkeit abgeschwächt.",
+          "Vergessene Wölfin: teamweiter Furchteffekt, falls Tessera Lupae nicht eingesetzt wurde."
+        ],
+        "phase_rule": "Eine Phase; bei niedriger Vitalität werden Zielbilder schneller, aber fragiler.",
+        "target_rule": "Zielt auf den Spieler mit den meisten Buffs.",
+        "counterplay": "Tessera Lupae entfernt Furcht; Beobachtungsmarker entlarven Original.",
+        "status_target_rules": [
+          "ILLUSION",
+          "FEAR"
+        ],
+        "behavior": {
+          "type": "ILLUSIONIST",
+          "powerAttackEvery": 3,
+          "powerAttackMultiplier": 1.35,
+          "targetStrategy": "THREAT"
+        },
+        "hp": 255,
+        "atk": 24,
+        "def": 18,
+        "initiative": 13,
+        "statusChance": 0.27999999999999997,
+        "content_status": "APPROVED",
+        "publishable": true,
+        "aggro_radius_m": 20,
+        "respawn_scope": "QUEST_INSTANCE_NO_RESPAWN",
+        "unique": false
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "enemy:quest:D1-Q07-S09",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          12.4767399,
+          41.8993124
+        ]
+      },
+      "properties": {
+        "feature_type": "enemy_encounter",
+        "encounter_id": "QE-D1-Q07-S09",
+        "candidate_id": "place_day_1_obelisco_macuteo",
+        "quest_id": "D1-Q07",
+        "quest_step_id": "D1-Q07-S09",
+        "combat_profile_id": "CP-QE-MUMMIA",
+        "system_type": "QUEST_ENEMY",
+        "name": "Mummia dell’Iseo",
+        "day": "DAY_1",
+        "cluster": "D1_NAVONA_PANTHEON",
+        "description": "Eine kleine in Leinen gewickelte Kultfigur erwacht aus dem Obeliskschatten und sammelt verlorene Buchstaben.",
+        "rarity": "R",
+        "combat_role": "DEBUFFER",
+        "combat_pattern": "Verflucht falsche Texteingaben und baut eine Schutzschicht aus Hieroglyphen auf.",
+        "abilities": [
+          "Buchstabenraub: sperrt eine zufällige Fähigkeit bis ein Teammitglied das korrekte Wort bestätigt.",
+          "Leinenpanzer: reduziert den ersten direkten Treffer jeder Runde."
+        ],
+        "phase_rule": "Keine Phase; optionaler Kampf nach korrekter Transkription deutlich kürzer.",
+        "target_rule": "Bevorzugt Spieler mit ungenutzten Unterstützungsfähigkeiten.",
+        "counterplay": "Wachstafel AGRIPPA entfernt Leinenpanzer; Feuer-/Lichtthema unterbricht Buchstabenraub.",
+        "status_target_rules": [
+          "SILENCED_SKILL",
+          "WRAPPED_ARMOR"
+        ],
+        "behavior": {
+          "type": "DEBUFFER",
+          "powerAttackEvery": 3,
+          "powerAttackMultiplier": 1.35,
+          "targetStrategy": "THREAT"
+        },
+        "hp": 185,
+        "atk": 19,
+        "def": 13,
+        "initiative": 14,
+        "statusChance": 0.22,
+        "content_status": "APPROVED",
+        "publishable": true,
+        "aggro_radius_m": 20,
+        "respawn_scope": "QUEST_INSTANCE_NO_RESPAWN",
+        "unique": false
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "enemy:quest:D1-Q09-S11",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          12.4884786,
+          41.903662
+        ]
+      },
+      "properties": {
+        "feature_type": "enemy_encounter",
+        "encounter_id": "QE-D1-Q09-S11",
+        "candidate_id": "place_day_1_fontana_del_tritone",
+        "quest_id": "D1-Q09",
+        "quest_step_id": "D1-Q09-S11",
+        "combat_profile_id": "CP-QE-RATTO",
+        "system_type": "QUEST_ENEMY",
+        "name": "Ratto dell’Acqua Virgo",
+        "day": "DAY_1",
+        "cluster": "D1_TREVI_QUIRINALE",
+        "description": "Eine übergroße Kanalratte schüttelt Travertinstaub aus dem Fell und verteidigt gestohlene Münzen.",
+        "rarity": "R",
+        "combat_role": "SKIRMISHER",
+        "combat_pattern": "Wechselt zwischen schnellem Biss und Rückzug; baut Schmutzstapel auf, wenn das Team denselben Angriff wiederholt.",
+        "abilities": [
+          "Schmutzspritzer: teamweiter kleiner Debuff auf Heilung.",
+          "Münzflucht: erhält Ausweichen und versucht in der Folgerunde einen Denareneffekt auszulösen."
+        ],
+        "phase_rule": "Keine Phase; Hidden-Variante startet mit Ausweichen, reguläre Questvariante mit Schmutz.",
+        "target_rule": "Zielt auf den Charakter mit niedrigster aktueller Vitalität.",
+        "counterplay": "Ampulla Virgo reinigt Schmutz; abwechslungsreiche Aktionen verhindern Ausweichen.",
+        "status_target_rules": [
+          "DIRTY",
+          "HEALING_REDUCED",
+          "EVASIVE"
+        ],
+        "behavior": {
+          "type": "SKIRMISHER",
+          "powerAttackEvery": 3,
+          "powerAttackMultiplier": 1.35,
+          "targetStrategy": "LOWEST_HP"
+        },
+        "hp": 170,
+        "atk": 22,
+        "def": 13,
+        "initiative": 15,
+        "statusChance": 0.18,
+        "content_status": "APPROVED",
+        "publishable": true,
+        "aggro_radius_m": 20,
+        "respawn_scope": "QUEST_INSTANCE_NO_RESPAWN",
+        "unique": false
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "enemy:quest:D1-Q10-S11",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          12.4876143,
+          41.9006627
+        ]
+      },
+      "properties": {
+        "feature_type": "enemy_encounter",
+        "encounter_id": "QE-D1-Q10-S11",
+        "candidate_id": "place_day_1_palazzo_del_quirinale",
+        "quest_id": "D1-Q10",
+        "quest_step_id": "D1-Q10-S11",
+        "combat_profile_id": "CP-QE-CORAZZIERE",
+        "system_type": "QUEST_ENEMY",
+        "name": "Corazziere del Colle",
+        "day": "DAY_1",
+        "cluster": "D1_TREVI_QUIRINALE",
+        "description": "Ein steinerner Palastwächter tritt nur bei einer provokanten Loyalitätswahl aus der Fassadenlinie.",
+        "rarity": "SR",
+        "combat_role": "DUELIST",
+        "combat_pattern": "Fordert den stärksten Einzelkämpfer, wechselt aber das Ziel bei Schutzaktionen.",
+        "abilities": [
+          "Staatsparade: verstärkt Verteidigung, solange kein Teammitglied eine Unterstützungsaktion nutzt.",
+          "Ehrenkonter: kontert die erste schwere Attacke jeder zweiten Runde."
+        ],
+        "phase_rule": "Optionaler Kampf; keine Phasen, aber Haltung wechselt zwischen Parade und Duell.",
+        "target_rule": "Höchster Angriff, danach Supporter.",
+        "counterplay": "Team-Support bricht Parade; Condottiere kann Konter früh telegraphieren.",
+        "status_target_rules": [
+          "PARRY",
+          "CEREMONIAL_GUARD"
+        ],
+        "behavior": {
+          "type": "DUELIST",
+          "powerAttackEvery": 3,
+          "powerAttackMultiplier": 1.35,
+          "targetStrategy": "HIGHEST_ATTACK"
+        },
+        "hp": 240,
+        "atk": 27,
+        "def": 18,
+        "initiative": 14,
+        "statusChance": 0.24,
+        "content_status": "APPROVED",
+        "publishable": true,
+        "aggro_radius_m": 20,
+        "respawn_scope": "QUEST_INSTANCE_NO_RESPAWN",
+        "unique": false
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "enemy:quest:D1-Q13-S10",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          12.479938,
+          41.892202
+        ]
+      },
+      "properties": {
+        "feature_type": "enemy_encounter",
+        "encounter_id": "QE-D1-Q13-S10",
+        "candidate_id": "place_day_1_teatro_di_marcello",
+        "quest_id": "D1-Q13",
+        "quest_step_id": "D1-Q13-S10",
+        "combat_profile_id": "CP-QE-TARTARUGHE",
+        "system_type": "QUEST_ENEMY",
+        "name": "Custode delle Tartarughe",
+        "day": "DAY_1",
+        "cluster": "D1_CAMPO_REGOLA_GHETTO",
+        "description": "Vier kleine Bronzeschatten formen gemeinsam einen überraschend standhaften Wächter.",
+        "rarity": "R",
+        "combat_role": "COUNTER_TANK",
+        "combat_pattern": "Zieht sich in den Panzer zurück, wenn mehrere Spieler dasselbe Ziel fokussieren; öffnet sich nach unterschiedlichen Aktionstypen.",
+        "abilities": [
+          "Vierfacher Panzer: erhält vier Schutzmarken, eine pro sichtbarer Schildkröte.",
+          "Brunnenstoß: trifft alle, wenn keine Schutzmarke in der Runde entfernt wurde."
+        ],
+        "phase_rule": "Keine Phase; Hidden-Version besitzt alle vier Marken, Questversion kann ohne Kampf gelöst werden.",
+        "target_rule": "Teamweit, sonst letzter Angreifer.",
+        "counterplay": "Vier unterschiedliche Aktionen entfernen alle Marken; Bildhauer-Schwachstelle zählt doppelt.",
+        "status_target_rules": [
+          "SHELL_GUARD",
+          "SPLASH"
+        ],
+        "behavior": {
+          "type": "COUNTER_TANK",
+          "powerAttackEvery": 3,
+          "powerAttackMultiplier": 1.35,
+          "targetStrategy": "THREAT"
+        },
+        "hp": 200,
+        "atk": 20,
+        "def": 16,
+        "initiative": 11,
+        "statusChance": 0.18,
+        "content_status": "APPROVED",
+        "publishable": true,
+        "aggro_radius_m": 20,
+        "respawn_scope": "QUEST_INSTANCE_NO_RESPAWN",
+        "unique": false
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "enemy:quest:D1-Q16-S15",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          12.460117,
+          41.8934109
+        ]
+      },
+      "properties": {
+        "feature_type": "enemy_encounter",
+        "encounter_id": "QE-D1-Q16-S15",
+        "candidate_id": "place_day_1_monumento_ad_anita_garibaldi",
+        "quest_id": "D1-Q16",
+        "quest_step_id": "D1-Q16-S15",
+        "combat_profile_id": "CP-QE-GARIBALDINO",
+        "system_type": "QUEST_ENEMY",
+        "name": "Garibaldino delle Mura",
+        "day": "DAY_1",
+        "cluster": "D1_GIANICOLO",
+        "description": "Ein verwitterter Freiheitskämpfergeist erhebt eine rote Standarte über der Mauerlinie.",
+        "rarity": "SSR",
+        "combat_role": "COMMANDER",
+        "combat_pattern": "Ruft Erinnerungsmarken der Route auf; korrekt geordnete Stationen werden zu Team-Buffs statt gegnerischen Verstärkungen.",
+        "abilities": [
+          "Standarte halten: baut jede Runde Führung auf, bis ein Kontroll-/Schwachstellenangriff trifft.",
+          "Salve der Erinnerung: markiert zwei Spieler; beide müssen unterschiedliche defensive Antworten wählen."
+        ],
+        "phase_rule": "Bei halber Vitalität zerreißt die Standarte und er wird schneller, verliert aber Gruppenbuffs.",
+        "target_rule": "Zielt abwechselnd auf Frontlinie und Unterstützer.",
+        "counterplay": "Vollständige Routenreihenfolge gewährt Startbuff; koordinierte Rollen brechen Standarte.",
+        "status_target_rules": [
+          "RALLY",
+          "MARKED_PAIR",
+          "HASTE"
+        ],
+        "behavior": {
+          "type": "COMMANDER",
+          "powerAttackEvery": 3,
+          "powerAttackMultiplier": 1.45,
+          "targetStrategy": "THREAT"
+        },
+        "hp": 360,
+        "atk": 30,
+        "def": 22,
+        "initiative": 12,
+        "statusChance": 0.3,
+        "content_status": "APPROVED",
+        "publishable": true,
+        "aggro_radius_m": 20,
+        "respawn_scope": "QUEST_INSTANCE_NO_RESPAWN",
+        "unique": false
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "enemy:quest:D2-Q03-S10",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          12.494955,
+          41.8901133
+        ]
+      },
+      "properties": {
+        "feature_type": "enemy_encounter",
+        "encounter_id": "QE-D2-Q03-S10",
+        "candidate_id": "place_day_2_ludus_magnus",
+        "quest_id": "D2-Q03",
+        "quest_step_id": "D2-Q03-S10",
+        "combat_profile_id": "CP-QE-LUDUS",
+        "system_type": "QUEST_ENEMY",
+        "name": "Gladiator des Ludus",
+        "day": "DAY_2",
+        "cluster": "D2_FORUM_COLOSSEO",
+        "description": "Ein Trainingsgladiator tritt aus der ovalen Arena und bewertet die Formation wie ein strenger Coach.",
+        "rarity": "SR",
+        "combat_role": "TACTICAL_BRUISER",
+        "combat_pattern": "Telegraphiert Stoß, Feger oder Schilddruck; die korrekte Funktionszuordnung zeigt den ersten Angriff früh.",
+        "abilities": [
+          "Arena-Feger: trifft Frontlinie und verschiebt Initiative.",
+          "Publikumsruf: verstärkt sich, wenn das Team dreimal dieselbe Aktion wählt."
+        ],
+        "phase_rule": "Bei halber Vitalität wechselt er vom Schild zur Doppelklinge und verliert Verteidigung.",
+        "target_rule": "Frontlinie, dann niedrigste Initiative.",
+        "counterplay": "Aktionsvielfalt verhindert Publikumsruf; Condottiere-Formation reduziert Feger.",
+        "status_target_rules": [
+          "INITIATIVE_DOWN",
+          "CROWD_FAVOR"
+        ],
+        "behavior": {
+          "type": "TACTICAL_BRUISER",
+          "powerAttackEvery": 3,
+          "powerAttackMultiplier": 1.35,
+          "targetStrategy": "THREAT"
+        },
+        "hp": 240,
+        "atk": 27,
+        "def": 18,
+        "initiative": 14,
+        "statusChance": 0.24,
+        "content_status": "APPROVED",
+        "publishable": true,
+        "aggro_radius_m": 20,
+        "respawn_scope": "QUEST_INSTANCE_NO_RESPAWN",
+        "unique": false
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "enemy:quest:D2-Q04-S12",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          12.4827682,
+          41.889353
+        ]
+      },
+      "properties": {
+        "feature_type": "enemy_encounter",
+        "encounter_id": "QE-D2-Q04-S12",
+        "candidate_id": "place_day_2_arco_di_giano",
+        "quest_id": "D2-Q04",
+        "quest_step_id": "D2-Q04-S12",
+        "combat_profile_id": "CP-QE-GIANO",
+        "system_type": "QUEST_ENEMY",
+        "name": "Custode di Giano",
+        "day": "DAY_2",
+        "cluster": "D2_AVENTINO_FORUM_BOARIUM",
+        "description": "Ein viergesichtiger Torwächter dreht sich nach jeder Runde zu einer anderen Himmelsrichtung.",
+        "rarity": "SSR",
+        "combat_role": "STANCE_SWITCHER",
+        "combat_pattern": "Wechselt Schutz-, Handels-, Kult- und Täuschungshaltung; nur die zur sichtbaren Monumentform passende Antwort öffnet eine Schwachstelle.",
+        "abilities": [
+          "Vier Tore: verschließt eine Aktionskategorie für die nächste Runde.",
+          "Doppeltes Gesicht: täuscht Zieltelegraphen, falls Fakt und Legende falsch klassifiziert wurden."
+        ],
+        "phase_rule": "Vier Haltungen zyklisch; keine zusätzliche Lebensphase.",
+        "target_rule": "Zielregel wechselt je Haltung.",
+        "counterplay": "VERITAS oder richtige Klassifikation deckt echte Haltung auf; unterschiedliche Klassenaktionen öffnen Tore.",
+        "status_target_rules": [
+          "STANCE_LOCK",
+          "DECEPTION"
+        ],
+        "behavior": {
+          "type": "STANCE_SWITCHER",
+          "powerAttackEvery": 3,
+          "powerAttackMultiplier": 1.45,
+          "targetStrategy": "THREAT"
+        },
+        "hp": 365,
+        "atk": 29,
+        "def": 22,
+        "initiative": 13,
+        "statusChance": 0.33999999999999997,
+        "content_status": "APPROVED",
+        "publishable": true,
+        "aggro_radius_m": 20,
+        "respawn_scope": "QUEST_INSTANCE_NO_RESPAWN",
+        "unique": false
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "enemy:quest:D2-Q05-S10",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          12.480147,
+          41.88441
+        ]
+      },
+      "properties": {
+        "feature_type": "enemy_encounter",
+        "encounter_id": "QE-D2-Q05-S10",
+        "candidate_id": "place_day_2_fontana_del_mascherone_di_santa_sabina",
+        "quest_id": "D2-Q05",
+        "quest_step_id": "D2-Q05-S10",
+        "combat_profile_id": "CP-QE-MASCHERONE",
+        "system_type": "QUEST_ENEMY",
+        "name": "Mascherone dell’Aventino",
+        "day": "DAY_2",
+        "cluster": "D2_AVENTINO_FORUM_BOARIUM",
+        "description": "Ein riesiges steinernes Maskengesicht löst sich als schwebender Wasserspeier aus dem Brunnen.",
+        "rarity": "SR",
+        "combat_role": "AREA_CONTROL",
+        "combat_pattern": "Markiert eine Blickrichtung und flutet in der Folgerunde alle Ziele, die dieselbe Haltung behalten.",
+        "abilities": [
+          "Mundstrom: telegraphierter Flächenangriff.",
+          "Falscher Hügel: verwirrt Zielauswahl, wenn Panoramaantwort fehlt."
+        ],
+        "phase_rule": "Optionaler Kampf; bei halber Vitalität bricht die Maske und verliert Verwirrung.",
+        "target_rule": "Teamweite Reihen, priorisiert gruppierte Ziele.",
+        "counterplay": "Korrekte Palatin-Zuordnung zeigt sichere Reihe; Schutzaktionen teilen Schaden.",
+        "status_target_rules": [
+          "SOAKED",
+          "CONFUSED"
+        ],
+        "behavior": {
+          "type": "AREA_CONTROL",
+          "powerAttackEvery": 3,
+          "powerAttackMultiplier": 1.35,
+          "targetStrategy": "THREAT"
+        },
+        "hp": 255,
+        "atk": 24,
+        "def": 18,
+        "initiative": 13,
+        "statusChance": 0.27999999999999997,
+        "content_status": "APPROVED",
+        "publishable": true,
+        "aggro_radius_m": 20,
+        "respawn_scope": "QUEST_INSTANCE_NO_RESPAWN",
+        "unique": false
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "enemy:quest:D2-Q08-S09",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          12.4986395,
+          41.8823233
+        ]
+      },
+      "properties": {
+        "feature_type": "enemy_encounter",
+        "encounter_id": "QE-D2-Q08-S09",
+        "candidate_id": "place_day_2_porta_metronia",
+        "quest_id": "D2-Q08",
+        "quest_step_id": "D2-Q08-S09",
+        "combat_profile_id": "CP-QE-SCORPIONE",
+        "system_type": "QUEST_ENEMY",
+        "name": "Scorpione delle Mura",
+        "day": "DAY_2",
+        "cluster": "D2_CELIO_SAN_GIOVANNI",
+        "description": "Ein Ziegelskorpion kriecht aus der Mauerfuge und legt falsche Wegmarken.",
+        "rarity": "SR",
+        "combat_role": "ARMORED_TRAPPER",
+        "combat_pattern": "Beginnt stark gepanzert; öffnet die Scheren nach richtiger Torzustands-Zuordnung.",
+        "abilities": [
+          "Mauerklammer: bindet einen Spieler an eine defensive Aktion.",
+          "Giftiger Umweg: verzögert die nächste Teamaktion, wenn Navigationsrollen fehlen."
+        ],
+        "phase_rule": "Keine Phase; Panzerbruch ist der zentrale Zustandswechsel.",
+        "target_rule": "Zielt auf Navigator, danach niedrigste Verteidigung.",
+        "counterplay": "Latina/Metronia-Zuordnung senkt Panzer; Schweizergardist schützt Navigator.",
+        "status_target_rules": [
+          "ARMORED",
+          "BOUND",
+          "DELAYED"
+        ],
+        "behavior": {
+          "type": "ARMORED_TRAPPER",
+          "powerAttackEvery": 3,
+          "powerAttackMultiplier": 1.35,
+          "targetStrategy": "LOWEST_DEFENSE"
+        },
+        "hp": 270,
+        "atk": 25,
+        "def": 21,
+        "initiative": 10,
+        "statusChance": 0.24,
+        "content_status": "APPROVED",
+        "publishable": true,
+        "aggro_radius_m": 20,
+        "respawn_scope": "QUEST_INSTANCE_NO_RESPAWN",
+        "unique": false
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "enemy:quest:D2-Q09-S10",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          12.4972974,
+          41.8923984
+        ]
+      },
+      "properties": {
+        "feature_type": "enemy_encounter",
+        "encounter_id": "QE-D2-Q09-S10",
+        "candidate_id": "place_day_2_thermae_traianae",
+        "quest_id": "D2-Q09",
+        "quest_step_id": "D2-Q09-S10",
+        "combat_profile_id": "CP-QE-VAPORE",
+        "system_type": "QUEST_ENEMY",
+        "name": "Vapore delle Terme",
+        "day": "DAY_2",
+        "cluster": "D2_MONTI_ESQUILINO",
+        "description": "Ein humanoider Dampfgeist steigt aus den Ziegelruinen und legt feuchte Schleier über Erinnerungen.",
+        "rarity": "R",
+        "combat_role": "DOT_SUPPORT",
+        "combat_pattern": "Erzeugt Nebelstapel, die Treffer ungenauer machen; wird durch Materialcode kurz kondensiert.",
+        "abilities": [
+          "Thermenschleier: senkt Zielgenauigkeit des Teams.",
+          "Heißer Rückstrom: kleiner Schaden über Zeit auf zwei Ziele."
+        ],
+        "phase_rule": "Optionaler Kampf; keine Phase, aber Kondensation öffnet ein kurzes Burstfenster.",
+        "target_rule": "Zufällige zwei Ziele, bevorzugt ungeschützte.",
+        "counterplay": "LATERES kondensiert den Nebel; Reinigungs- und Windfähigkeiten entfernen Stapel.",
+        "status_target_rules": [
+          "OBSCURED",
+          "HEAT_DOT"
+        ],
+        "behavior": {
+          "type": "DOT_SUPPORT",
+          "powerAttackEvery": 3,
+          "powerAttackMultiplier": 1.35,
+          "targetStrategy": "THREAT"
+        },
+        "hp": 185,
+        "atk": 19,
+        "def": 13,
+        "initiative": 14,
+        "statusChance": 0.22,
+        "content_status": "APPROVED",
+        "publishable": true,
+        "aggro_radius_m": 20,
+        "respawn_scope": "QUEST_INSTANCE_NO_RESPAWN",
+        "unique": false
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "enemy:quest:D2-Q10-S07",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          12.51572,
+          41.89118
+        ]
+      },
+      "properties": {
+        "feature_type": "enemy_encounter",
+        "encounter_id": "QE-D2-Q10-S07",
+        "candidate_id": "place_day_2_porta_maggiore_aqua_claudia",
+        "quest_id": "D2-Q10",
+        "quest_step_id": "D2-Q10-S07",
+        "combat_profile_id": "CP-QE-IDRA",
+        "system_type": "QUEST_ENEMY",
+        "name": "Idra dell’Aqua Claudia",
+        "day": "DAY_2",
+        "cluster": "D2_SANTA_MARIA_MAGGIORE",
+        "description": "Eine steinerne Wasserhydra windet mehrere Hälse durch die Aquäduktkanäle.",
+        "rarity": "SSR",
+        "combat_role": "MULTI_ATTACKER",
+        "combat_pattern": "Jeder aktive Kopf bereitet einen anderen Angriff vor; die Bleiplombe entfernt vorab einen Kopf und dessen Mechanik.",
+        "abilities": [
+          "Dreifacher Wasserstoß: getrennte Ziele, klar telegraphiert.",
+          "Leitungsbruch: teamweiter Angriff, wenn zwei Köpfe dieselbe Runde ungestört bleiben."
+        ],
+        "phase_rule": "Köpfe werden mechanisch deaktiviert, nicht einzeln mit separaten HP geführt.",
+        "target_rule": "Verteilt Ziele, danach höchster Unterstützungswert.",
+        "counterplay": "Bleiplombe deaktiviert Mehrfachangriff; Schwachstellen- und Kontrollaktionen unterbrechen Leitungsbruch.",
+        "status_target_rules": [
+          "SOAKED",
+          "PRESSURE_MARK",
+          "INTERRUPTIBLE"
+        ],
+        "behavior": {
+          "type": "MULTI_ATTACKER",
+          "powerAttackEvery": 3,
+          "powerAttackMultiplier": 1.45,
+          "targetStrategy": "THREAT"
+        },
+        "hp": 350,
+        "atk": 32,
+        "def": 22,
+        "initiative": 14,
+        "statusChance": 0.3,
+        "content_status": "APPROVED",
+        "publishable": true,
+        "aggro_radius_m": 20,
+        "respawn_scope": "QUEST_INSTANCE_NO_RESPAWN",
+        "unique": false
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "enemy:quest:H-D1-01-S05",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          12.477456,
+          41.893782
+        ]
+      },
+      "properties": {
+        "feature_type": "enemy_encounter",
+        "encounter_id": "QE-H-D1-01-S05",
+        "candidate_id": "place_day_1_fontana_delle_tartarughe",
+        "quest_id": "H-D1-01",
+        "quest_step_id": "H-D1-01-S05",
+        "combat_profile_id": "CP-QE-TARTARUGHE",
+        "system_type": "QUEST_ENEMY",
+        "name": "Custode delle Tartarughe",
+        "day": "DAY_1",
+        "cluster": "D1_TREVI_QUIRINALE",
+        "description": "Vier kleine Bronzeschatten formen gemeinsam einen überraschend standhaften Wächter.",
+        "rarity": "R",
+        "combat_role": "COUNTER_TANK",
+        "combat_pattern": "Zieht sich in den Panzer zurück, wenn mehrere Spieler dasselbe Ziel fokussieren; öffnet sich nach unterschiedlichen Aktionstypen.",
+        "abilities": [
+          "Vierfacher Panzer: erhält vier Schutzmarken, eine pro sichtbarer Schildkröte.",
+          "Brunnenstoß: trifft alle, wenn keine Schutzmarke in der Runde entfernt wurde."
+        ],
+        "phase_rule": "Keine Phase; Hidden-Version besitzt alle vier Marken, Questversion kann ohne Kampf gelöst werden.",
+        "target_rule": "Teamweit, sonst letzter Angreifer.",
+        "counterplay": "Vier unterschiedliche Aktionen entfernen alle Marken; Bildhauer-Schwachstelle zählt doppelt.",
+        "status_target_rules": [
+          "SHELL_GUARD",
+          "SPLASH"
+        ],
+        "behavior": {
+          "type": "COUNTER_TANK",
+          "powerAttackEvery": 3,
+          "powerAttackMultiplier": 1.35,
+          "targetStrategy": "THREAT"
+        },
+        "hp": 200,
+        "atk": 20,
+        "def": 16,
+        "initiative": 11,
+        "statusChance": 0.18,
+        "content_status": "APPROVED",
+        "publishable": true,
+        "aggro_radius_m": 20,
+        "respawn_scope": "QUEST_INSTANCE_NO_RESPAWN",
+        "unique": false
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "enemy:quest:H-D1-02-S05",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          12.4837108,
+          41.9026109
+        ]
+      },
+      "properties": {
+        "feature_type": "enemy_encounter",
+        "encounter_id": "QE-H-D1-02-S05",
+        "candidate_id": "place_day_1_acquedotto_vergine",
+        "quest_id": "H-D1-02",
+        "quest_step_id": "H-D1-02-S05",
+        "combat_profile_id": "CP-QE-RATTO",
+        "system_type": "QUEST_ENEMY",
+        "name": "Ratto dell’Acqua Virgo",
+        "day": "DAY_1",
+        "cluster": "D1_TREVI_QUIRINALE",
+        "description": "Eine übergroße Kanalratte schüttelt Travertinstaub aus dem Fell und verteidigt gestohlene Münzen.",
+        "rarity": "R",
+        "combat_role": "SKIRMISHER",
+        "combat_pattern": "Wechselt zwischen schnellem Biss und Rückzug; baut Schmutzstapel auf, wenn das Team denselben Angriff wiederholt.",
+        "abilities": [
+          "Schmutzspritzer: teamweiter kleiner Debuff auf Heilung.",
+          "Münzflucht: erhält Ausweichen und versucht in der Folgerunde einen Denareneffekt auszulösen."
+        ],
+        "phase_rule": "Keine Phase; Hidden-Variante startet mit Ausweichen, reguläre Questvariante mit Schmutz.",
+        "target_rule": "Zielt auf den Charakter mit niedrigster aktueller Vitalität.",
+        "counterplay": "Ampulla Virgo reinigt Schmutz; abwechslungsreiche Aktionen verhindern Ausweichen.",
+        "status_target_rules": [
+          "DIRTY",
+          "HEALING_REDUCED",
+          "EVASIVE"
+        ],
+        "behavior": {
+          "type": "SKIRMISHER",
+          "powerAttackEvery": 3,
+          "powerAttackMultiplier": 1.35,
+          "targetStrategy": "LOWEST_HP"
+        },
+        "hp": 170,
+        "atk": 22,
+        "def": 13,
+        "initiative": 15,
+        "statusChance": 0.18,
+        "content_status": "APPROVED",
+        "publishable": true,
+        "aggro_radius_m": 20,
+        "respawn_scope": "QUEST_INSTANCE_NO_RESPAWN",
+        "unique": false
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "enemy:quest:H-D1-03-S05",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          12.4635989,
+          41.8847241
+        ]
+      },
+      "properties": {
+        "feature_type": "enemy_encounter",
+        "encounter_id": "QE-H-D1-03-S05",
+        "candidate_id": "place_day_1_fontana_dei_satirelli",
+        "quest_id": "H-D1-03",
+        "quest_step_id": "H-D1-03-S05",
+        "combat_profile_id": "CP-QE-SATIRELLI",
+        "system_type": "QUEST_ENEMY",
+        "name": "I Satirelli Gemelli",
+        "day": "DAY_1",
+        "cluster": "D1_TRASTEVERE_TIBER_ISLAND",
+        "description": "Zwei Satyrzwillinge kämpfen als gemeinsame Einheit und tauschen ständig Attribute.",
+        "rarity": "R",
+        "combat_role": "DUO_TRICKSTER",
+        "combat_pattern": "Einer verspottet, einer greift an; Zuordnung zeigt, welcher gerade verwundbar ist.",
+        "abilities": [
+          "Flötentaumel: zufällige Zielverwechslung.",
+          "Traubenwurf: kleiner Flächendebuff auf Initiative."
+        ],
+        "phase_rule": "Keine zweite Phase; Rollenwechsel jede Runde.",
+        "target_rule": "Zufälliges Ziel, dann schnellster Spieler.",
+        "counterplay": "Korrekte Attributzuordnung markiert den verwundbaren Zwilling.",
+        "status_target_rules": [
+          "CONFUSED",
+          "INITIATIVE_DOWN"
+        ],
+        "behavior": {
+          "type": "DUO_TRICKSTER",
+          "powerAttackEvery": 3,
+          "powerAttackMultiplier": 1.35,
+          "targetStrategy": "THREAT"
+        },
+        "hp": 180,
+        "atk": 20,
+        "def": 13,
+        "initiative": 13,
+        "statusChance": 0.18,
+        "content_status": "APPROVED",
+        "publishable": true,
+        "aggro_radius_m": 20,
+        "respawn_scope": "QUEST_INSTANCE_NO_RESPAWN",
+        "unique": false
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "enemy:quest:H-D2-02-S05",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          12.5039912,
+          41.8919766
+        ]
+      },
+      "properties": {
+        "feature_type": "enemy_encounter",
+        "encounter_id": "QE-H-D2-02-S05",
+        "candidate_id": "place_day_2_piazza_dante",
+        "quest_id": "H-D2-02",
+        "quest_step_id": "H-D2-02-S05",
+        "combat_profile_id": "CP-QE-INFERNO",
+        "system_type": "QUEST_ENEMY",
+        "name": "Custode dell’Inferno",
+        "day": "DAY_2",
+        "cluster": "D2_MONTI_ESQUILINO",
+        "description": "Ein roter Windwächter dreht den Kampfkompass und zwingt das Team zu Richtungsentscheidungen.",
+        "rarity": "SR",
+        "combat_role": "DIRECTION_CONTROLLER",
+        "combat_pattern": "Telegraphiert Nord, Ost, Süd oder West; falsche Orientierung verstärkt den nächsten Angriff.",
+        "abilities": [
+          "Gedrehte Rose: vertauscht zwei Aktionssymbole.",
+          "Verlorener Kreis: teamweiter Debuff nach zweimal falscher Richtung."
+        ],
+        "phase_rule": "Keine Phase; wird durch USCITA-Code direkt geschwächt.",
+        "target_rule": "Zielt auf zuletzt antwortenden Spieler.",
+        "counterplay": "Korrekte Windrose und Code USCITA fixieren Norden; klare Teamansage verhindert Verwechslung.",
+        "status_target_rules": [
+          "DIRECTION_SWAP",
+          "LOST"
+        ],
+        "behavior": {
+          "type": "DIRECTION_CONTROLLER",
+          "powerAttackEvery": 3,
+          "powerAttackMultiplier": 1.35,
+          "targetStrategy": "THREAT"
+        },
+        "hp": 250,
+        "atk": 25,
+        "def": 18,
+        "initiative": 12,
+        "statusChance": 0.24,
+        "content_status": "APPROVED",
+        "publishable": true,
+        "aggro_radius_m": 20,
+        "respawn_scope": "QUEST_INSTANCE_NO_RESPAWN",
+        "unique": false
       }
     }
   ]
