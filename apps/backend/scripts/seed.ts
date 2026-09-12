@@ -63,10 +63,13 @@ const GEOJSON_PATH = path.resolve(
   "../../../docs/Via_Romae_GameObjects_v0.8.geojson",
 );
 const QUEST_CONTENT_PATH = path.resolve(__dirname, "../content/quest-content-v0.10.json");
+const STORE_CONTENT_PATH = path.resolve(__dirname, "../content/store-content-v0.17.json");
 type AuthoredQuest = { type: string; [key: string]: unknown; steps: Array<{ stepId: string; [key: string]: unknown }> };
 const authoredQuests = (JSON.parse(fs.readFileSync(QUEST_CONTENT_PATH, "utf8")) as {
   quests: Record<string, AuthoredQuest>;
 }).quests;
+type StoreContent = { stores: Array<{ externalId: string; catalog: Array<{ definitionId: string; price: number }> }> };
+const storeContent = JSON.parse(fs.readFileSync(STORE_CONTENT_PATH, "utf8")) as StoreContent;
 
 const IS_PRODUCTION = process.env["NODE_ENV"] === "production";
 
@@ -227,6 +230,9 @@ async function upsertWorldObject(
 
   // Determine game type and radii based on feature_type
   const isEnemy = props.feature_type === "enemy_encounter";
+  const isStore = !isEnemy &&
+    ((props as LocationCandidateFeature["properties"] & { support_roles?: string[] }).support_roles ?? [])
+      .includes("STORE_LOCATION_CANDIDATE");
 
   const interactionRadiusM = isEnemy
     ? defaults.location_interaction_radius_m
@@ -265,7 +271,7 @@ async function upsertWorldObject(
     .insert(worldObjects)
     .values({
       externalId: feature.id,
-      type: isEnemy ? "ENEMY" : "LOCATION",
+      type: isEnemy ? "ENEMY" : isStore ? "STORE" : "LOCATION",
       name,
       day: day ?? null,
       cluster: cluster ?? null,
@@ -285,6 +291,7 @@ async function upsertWorldObject(
     .onConflictDoUpdate({
       target: worldObjects.externalId,
       set: {
+        type: isEnemy ? "ENEMY" : isStore ? "STORE" : "LOCATION",
         name,
         day: day ?? null,
         cluster: cluster ?? null,
@@ -303,6 +310,30 @@ async function upsertWorldObject(
 
   counter.imported++;
   report[typeKey] = counter;
+}
+
+/** Upsert only catalog entries whose canonical item_def was installed by migrations. */
+async function upsertStoreCatalogs(worldObjectByExternalId: Map<string, string>): Promise<void> {
+  for (const store of storeContent.stores) {
+    const storeId = worldObjectByExternalId.get(store.externalId);
+    if (!storeId) throw new Error(`Production store was not imported: ${store.externalId}`);
+
+    for (const item of store.catalog) {
+      if (!Number.isInteger(item.price) || item.price <= 0) {
+        throw new Error(`Invalid store price for ${store.externalId}/${item.definitionId}`);
+      }
+      const result = await db.execute(sql`
+        INSERT INTO store_catalog_item (id, store_id, definition_id, price)
+        SELECT gen_random_uuid(), ${storeId}::uuid, definition.key, ${item.price}
+        FROM item_def definition WHERE definition.key = ${item.definitionId}
+        ON CONFLICT (store_id, definition_id) DO UPDATE SET price = EXCLUDED.price
+        RETURNING id
+      `);
+      if (result.rows.length !== 1) {
+        throw new Error(`Store item is not defined by the production migrations: ${item.definitionId}`);
+      }
+    }
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -754,7 +785,11 @@ async function main(): Promise<void> {
     report,
   );
 
-  // ── 8. Print report ───────────────────────────────────────────────────────
+  // ── 8. Upsert production store catalogues ────────────────────────────────
+  console.log("🏺 Pass 6: Upserting production store catalogues …");
+  await upsertStoreCatalogs(worldObjectByExternalId);
+
+  // ── 9. Print report ───────────────────────────────────────────────────────
   printReport(report, totalRead, Date.now() - startMs);
   console.log("✅ Seed complete.");
   process.exit(0);
