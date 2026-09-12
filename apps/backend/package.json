@@ -25,6 +25,7 @@
     "test:combat:static": "node --test test/combat-action.static.test.mjs",
     "test:combat:calculation": "tsx --test test/combat-calculation.test.ts",
     "test:combat:integration": "tsx scripts/test-combat-action-replacement.ts",
+    "test:migrations": "node --test test/migrations.empty-database.test.mjs",
     "test": "tsx --test test/*.test.ts && node --test test/*.test.mjs"
   },
   "dependencies": {
