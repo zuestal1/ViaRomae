@@ -251,9 +251,13 @@ LOG_LEVEL=info
 VITE_API_BASE_URL=http://${SERVER_IP}:3000
 VITE_MAPTILER_API_KEY=${MAPTILER_KEY}
 VITE_GM_CLIENT_URL=http://${SERVER_IP}:5174
+FRONTEND_ORIGIN=http://${SERVER_IP}:5173
+GM_FRONTEND_ORIGIN=http://${SERVER_IP}:5174
 
 # ─── Object Storage (MinIO) ──────────────────────────────────────────────────
 S3_ENDPOINT=http://minio:9000
+S3_PUBLIC_ENDPOINT=http://${SERVER_IP}:9000
+S3_FORCE_PATH_STYLE=true
 S3_BUCKET=via-romae-media
 S3_REGION=eu-central-1
 S3_ACCESS_KEY_ID=minioadmin
@@ -281,6 +285,7 @@ echo ""
 echo "  Frontend:   http://${SERVER_IP}:5173"
 echo "  GM Client:  http://${SERVER_IP}:5174"
 echo "  Backend:    http://${SERVER_IP}:3000"
+echo "  Media API:  http://${SERVER_IP}:9000"
 echo "  MinIO UI:   http://${SERVER_IP}:9001"
 echo ""
 echo "  DB User:    postgres"
