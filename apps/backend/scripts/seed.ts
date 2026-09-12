@@ -270,10 +270,21 @@ async function upsertWorldObject(
       ? props.cluster
       : undefined;
 
+  // QUEST_ENEMY features use combat_profile_id as their lookup key (not feature.id),
+  // because quest steps reference enemies by combat_profile_id (e.g. "CP-QE-PASSETTO").
+  const isQuestEnemy = isEnemy &&
+    "system_type" in props && (props as Record<string, unknown>)["system_type"] === "QUEST_ENEMY";
+  const combatProfileId = isQuestEnemy
+    ? (props as Record<string, unknown>)["combat_profile_id"] as string | undefined
+    : undefined;
+  // QUEST_ENEMY features: use combatProfileId directly (no prefix) so it matches
+  // the target_ref stored in quest steps (e.g. "CP-QE-RATTO" not "enemy:CP-QE-RATTO").
+  const externalId = combatProfileId ? combatProfileId : feature.id;
+
   await db
     .insert(worldObjects)
     .values({
-      externalId: feature.id,
+      externalId,
       type: isEnemy ? "ENEMY" : isStore ? "STORE" : "LOCATION",
       name,
       day: day ?? null,

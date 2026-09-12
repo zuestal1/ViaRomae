@@ -614,9 +614,15 @@ async function checkPvEEncounterTrigger(opts: {
     const enemy = nearbyObjects.find((o) => o.id === transition.worldObjectId);
     if (!enemy || enemy.type !== "ENEMY") continue;
 
-    // Check if this enemy matches any DEFEAT_ENEMY target_ref
+    // Check if this enemy matches any DEFEAT_ENEMY target_ref.
+    // Flexible matching: target_ref may be stored with or without the "enemy:" prefix
+    // (e.g. quest steps use "CP-QE-RATTO" while world_object.external_id may be
+    // "enemy:CP-QE-RATTO" or just "CP-QE-RATTO").
     const matchingStep = defeatEnemySteps.find(
-      (s) => s.targetRef === enemy.externalId
+      (s) =>
+        s.targetRef === enemy.externalId ||
+        `enemy:${s.targetRef}` === enemy.externalId ||
+        s.targetRef === enemy.externalId.replace(/^enemy:/, "")
     );
 
     if (matchingStep) {
