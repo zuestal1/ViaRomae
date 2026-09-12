@@ -38,6 +38,8 @@ import {
   questRuns,
   questStations,
   questSteps,
+  questStepWaypoints,
+  questWaypointProgress,
 } from "../../db/schema/quest.js";
 import { players } from "../../db/schema/player.js";
 import { worldObjects } from "../../db/schema/world.js";
@@ -389,9 +391,22 @@ async function buildQuestRunDetail(
 
   // For REACH_LOCATION steps, enrich with the target WorldObject's name + coords
   // so the frontend can display navigation hints and a map marker.
-  async function enrichWithTarget<T extends { stepActionType: string; targetRef: string }>(
+  async function enrichWithTarget<T extends { id: string; stepActionType: string; targetRef: string }>(
     step: T,
-  ): Promise<T & { targetObjectName?: string | null; targetLat?: number | null; targetLng?: number | null }> {
+  ): Promise<T & { targetObjectName?: string | null; targetLat?: number | null; targetLng?: number | null; waypoints?: Array<{ id: string; sequence: number; targetRef: string; name: string; lat: number | null; lng: number | null; visited: boolean }> }> {
+    if (["NAVIGATION_CHALLENGE", "VISIT_MULTIPLE_LOCATIONS"].includes(step.stepActionType)) {
+      const waypointRows = await db.select({ waypoint: questStepWaypoints, progress: questWaypointProgress })
+        .from(questStepWaypoints).leftJoin(questWaypointProgress, and(
+          eq(questWaypointProgress.questRunId, run.id), eq(questWaypointProgress.waypointId, questStepWaypoints.id),
+        )).where(eq(questStepWaypoints.questStepId, step.id)).orderBy(questStepWaypoints.sequence);
+      const waypoints = await Promise.all(waypointRows.map(async ({ waypoint, progress }) => {
+        const target = await lookupWorldObjectByTargetRef(waypoint.targetRef);
+        return { id: waypoint.id, sequence: waypoint.sequence, targetRef: waypoint.targetRef,
+          name: target?.name ?? waypoint.targetRef, lat: target?.lat ?? null, lng: target?.lng ?? null, visited: Boolean(progress) };
+      }));
+      const next = waypoints.find((waypoint) => !waypoint.visited);
+      return { ...step, waypoints, targetObjectName: next?.name ?? null, targetLat: next?.lat ?? null, targetLng: next?.lng ?? null };
+    }
     if (step.stepActionType !== "REACH_LOCATION") return step;
     const wo = await lookupWorldObjectByTargetRef(step.targetRef);
     return {
@@ -1023,13 +1038,13 @@ export async function validateReachLocation(opts: {
         eq(questSteps.questDefinitionId, run.questDefinitionId),
         eq(questSteps.stepId, stepId),
         eq(questSteps.stepCategory, "OBJECTIVE"),
-        eq(questSteps.stepActionType, "REACH_LOCATION"),
+        inArray(questSteps.stepActionType, ["REACH_LOCATION", "NAVIGATION_CHALLENGE", "VISIT_MULTIPLE_LOCATIONS"]),
       ),
     );
 
   if (!step) {
     const err = new Error(
-      "Step not found or not a REACH_LOCATION step.",
+      "Step not found or not a location step.",
     ) as Error & { statusCode: number };
     err.statusCode = 404;
     throw err;
@@ -1054,8 +1069,33 @@ export async function validateReachLocation(opts: {
     };
   }
 
-  // Look up the target WorldObject
-  const targetObj = await lookupWorldObjectByTargetRef(step.targetRef);
+  const isCompound = step.stepActionType === "NAVIGATION_CHALLENGE" || step.stepActionType === "VISIT_MULTIPLE_LOCATIONS";
+  const waypointRows = isCompound ? await db.select({ waypoint: questStepWaypoints, progress: questWaypointProgress })
+    .from(questStepWaypoints).leftJoin(questWaypointProgress, and(
+      eq(questWaypointProgress.questRunId, questRunId), eq(questWaypointProgress.waypointId, questStepWaypoints.id),
+    )).where(eq(questStepWaypoints.questStepId, step.id)).orderBy(questStepWaypoints.sequence) : [];
+  if (isCompound && waypointRows.length === 0) throw httpError("Compound location step has no persisted waypoints.", 500);
+  // Navigation checkpoints are ordered. Multi-location visits accept any remaining location.
+  let selectedWaypoint = isCompound
+    ? (step.stepActionType === "NAVIGATION_CHALLENGE"
+        ? (waypointRows.find(({ progress }) => !progress)?.waypoint ?? waypointRows.at(-1)?.waypoint)
+        : undefined)
+    : undefined;
+  let targetObj = selectedWaypoint ? await lookupWorldObjectByTargetRef(selectedWaypoint.targetRef)
+    : !isCompound ? await lookupWorldObjectByTargetRef(step.targetRef) : null;
+
+  if (step.stepActionType === "VISIT_MULTIPLE_LOCATIONS") {
+    let nearest: { waypoint: typeof questStepWaypoints.$inferSelect; target: typeof worldObjects.$inferSelect; distance: number } | undefined;
+    for (const row of waypointRows.filter(({ progress }) => !progress)) {
+      const candidate = await lookupWorldObjectByTargetRef(row.waypoint.targetRef);
+      if (!candidate || candidate.lat == null || candidate.lng == null) continue;
+      const distance = await checkEffectiveDistance({ playerLat: lat, playerLng: lng, targetLat: candidate.lat,
+        targetLng: candidate.lng, accuracy, targetRadius: candidate.interactionRadiusM });
+      if (distance.withinRange) { selectedWaypoint = row.waypoint; targetObj = candidate; break; }
+      if (!nearest || distance.effectiveDistanceM < nearest.distance) nearest = { waypoint: row.waypoint, target: candidate, distance: distance.effectiveDistanceM };
+    }
+    if (!targetObj && nearest) { selectedWaypoint = nearest.waypoint; targetObj = nearest.target; }
+  }
 
   if (!targetObj || targetObj.lat == null || targetObj.lng == null) {
     const err = new Error("Target location not found or has no coordinates.") as Error & {
@@ -1093,6 +1133,19 @@ export async function validateReachLocation(opts: {
     };
   }
 
+  if (isCompound && selectedWaypoint) {
+    await db.insert(questWaypointProgress).values({ questRunId, waypointId: selectedWaypoint.id, visitedByPlayerId: playerId })
+      .onConflictDoNothing({ target: [questWaypointProgress.questRunId, questWaypointProgress.waypointId] });
+    const visitCounts = await db.select({ visited: count() }).from(questWaypointProgress)
+      .innerJoin(questStepWaypoints, eq(questWaypointProgress.waypointId, questStepWaypoints.id))
+      .where(and(eq(questWaypointProgress.questRunId, questRunId), eq(questStepWaypoints.questStepId, step.id)));
+    const visited = Number(visitCounts[0]?.visited ?? 0);
+    await db.update(objectiveProgress).set({ progressCount: Number(visited) })
+      .where(and(eq(objectiveProgress.questRunId, questRunId), eq(objectiveProgress.objectiveId, stepId)));
+    if (Number(visited) < waypointRows.length) return { stepId, status: "PENDING",
+      message: `Wegpunkt bestätigt (${visited}/${waypointRows.length}).`, questCompleted: false };
+  }
+
   const requiredMembers = Number((step.authoredContent as { successCondition?: string }).successCondition?.match(/teamMembersInRadius\s*>=\s*(\d+)/)?.[1] ?? 1);
   if (requiredMembers > 1) {
     const present = await db.select({ id: players.id }).from(players)
@@ -1104,13 +1157,17 @@ export async function validateReachLocation(opts: {
     if (present.length < requiredMembers) return { stepId, status: "FAILED", message: `${requiredMembers} lebende Teammitglieder müssen gemeinsam im Interaktionsradius sein (${present.length}/${requiredMembers}).` };
   }
 
+  if (isCompound) await db.update(objectiveProgress).set({ status: "COMPLETED", progressCount: waypointRows.length })
+    .where(and(eq(objectiveProgress.questRunId, questRunId), eq(objectiveProgress.objectiveId, stepId)));
+
   // Mark completed & broadcast
   const { allRequiredDone } = await completeObjectiveStep({
     questRunId,
     stepId,
-    stepActionType: "REACH_LOCATION",
+    stepActionType: step.stepActionType,
     run,
     playerName,
+    skipProgressWrite: isCompound,
     ...(wsHub ? { wsHub } : {}),
   });
 

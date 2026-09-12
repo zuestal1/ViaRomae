@@ -125,6 +125,7 @@
     { "idx": 30, "version": "7", "when": 1789123200001, "tag": "0018_item_quest_category", "breakpoints": true },
     { "idx": 31, "version": "7", "when": 1789123200002, "tag": "0019_gdd_items_complete", "breakpoints": true },
     { "idx": 32, "version": "7", "when": 1789123200003, "tag": "0020_confirm_seeded_classes", "breakpoints": true },
-    { "idx": 33, "version": "7", "when": 1789123200004, "tag": "0021_combat_threat", "breakpoints": true }
+    { "idx": 33, "version": "7", "when": 1789123200004, "tag": "0021_combat_threat", "breakpoints": true },
+    { "idx": 34, "version": "7", "when": 1789209600000, "tag": "0022_compound_quest_locations", "breakpoints": true }
   ]
 }

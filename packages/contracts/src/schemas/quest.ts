@@ -46,6 +46,8 @@ export type FlowPhase = z.infer<typeof FlowPhaseSchema>;
 /** Concrete action the player must perform. Maps to `step_action_type` DB enum. */
 export const StepActionTypeSchema = z.enum([
   "REACH_LOCATION",
+  "NAVIGATION_CHALLENGE",
+  "VISIT_MULTIPLE_LOCATIONS",
   "ANSWER_QUESTION",
   "SOLVE_PUZZLE",
   "DEFEAT_ENEMY",
@@ -150,6 +152,10 @@ export const QuestStepSchema = z.object({
   targetLat: z.number().nullable().optional(),
   /** Longitude of the target WorldObject (REACH_LOCATION steps only). */
   targetLng: z.number().nullable().optional(),
+  waypoints: z.array(z.object({
+    id: z.string().uuid(), sequence: z.number().int(), targetRef: z.string(),
+    name: z.string(), lat: z.number().nullable(), lng: z.number().nullable(), visited: z.boolean(),
+  })).optional(),
   instruction: z.string().optional(),
   successCondition: z.string().optional(),
   onFailure: z.string().optional(),
@@ -277,7 +283,7 @@ export type AvailableQuestsResponse = z.infer<
 /** Returned by step-completion endpoints (reach, answer, complete). */
 export const StepResultSchema = z.object({
   stepId: z.string(),
-  status: z.enum(["COMPLETED", "FAILED"]),
+  status: z.enum(["PENDING", "COMPLETED", "FAILED"]),
   /** Human-readable feedback for the player. */
   message: z.string(),
   /** True when this step completed the last required objective. */
