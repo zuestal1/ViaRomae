@@ -1,4 +1,4 @@
-# Load secrets with: docker compose -f docker-compose.production.yml --env-file .env.production up -d
+# AWS S3 production stack. Deploy through: ./deploy.sh production
 version: "3.9"
 
 services:
@@ -8,7 +8,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       POSTGRES_DB: ${POSTGRES_DB:-jugendleiter2026}
     ports:
       - "127.0.0.1:5432:5432"  # Nur localhost (sensible DB)
@@ -30,8 +30,8 @@ services:
       dockerfile: docker/Dockerfile.backend
     restart: unless-stopped
     environment:
-      DATABASE_URL: ${DATABASE_URL}
-      JWT_SECRET: ${JWT_SECRET}
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       PORT: 3000
       HOST: 0.0.0.0
       NODE_ENV: production
@@ -46,6 +46,11 @@ services:
       S3_SECRET_KEY: ${S3_SECRET_KEY}
       S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID}
       S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
+      S3_ENDPOINT: ${S3_ENDPOINT:?S3_ENDPOINT is required}
+      S3_BUCKET: ${S3_BUCKET:?S3_BUCKET is required}
+      S3_REGION: ${S3_REGION:?S3_REGION is required}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?S3_ACCESS_KEY_ID is required}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?S3_SECRET_ACCESS_KEY is required}
     ports:
       - "0.0.0.0:3000:3000"  # Von überall erreichbar
     depends_on:
@@ -58,10 +63,6 @@ services:
       roster-import:
         condition: service_completed_successfully
       release-preflight:
-        condition: service_completed_successfully
-      minio:
-        condition: service_healthy
-      minio-init:
         condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
@@ -249,8 +250,6 @@ services:
 
 volumes:
   postgres_data:
-    driver: local
-  minio_data:
     driver: local
 
 networks:

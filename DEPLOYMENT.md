@@ -23,7 +23,9 @@ der nachgelagerte Preflight prüft dieselben Werte gegen die Datenbank. Damit
 kann keine Sollzahl unabhängig vom freigegebenen Roster geändert werden.
 
 ```bash
-docker compose -f docker-compose.production.yml --env-file .env.production run --rm release-preflight
+./deploy.sh production
+# Danach Exit-Code der bereits ausgeführten Prüfung kontrollieren:
+docker compose --env-file .env.production -f docker-compose.production.yml ps -a release-preflight
 ```
 
 Ein fehlgeschlagener Preflight ist ein harter Release-Blocker; das Event darf
@@ -80,9 +82,7 @@ dadurch unerwartete zusätzliche Spieler oder Teams auf.
 3. Den Status der One-shot-Services prüfen; nur Exit-Code 0 ist freigegeben.
 
 ```bash
-docker compose -f docker-compose.production.yml --env-file .env.production build
-docker compose -f docker-compose.production.yml --env-file .env.production up -d
-docker compose -f docker-compose.production.yml --env-file .env.production ps -a migrate seed-content roster-import release-preflight
+./deploy.sh production
 ```
 
 ### Update einer bereits eingerichteten Eventdatenbank
@@ -95,10 +95,9 @@ docker compose -f docker-compose.production.yml --env-file .env.production ps -a
 3. Erst nach erfolgreichem Preflight die langlebigen Services aktualisieren.
 
 ```bash
-docker compose -f docker-compose.production.yml --env-file .env.production exec -T postgres pg_dump -U "${POSTGRES_USER:-postgres}" "${POSTGRES_DB:-jugendleiter2026}" > "backups/pre-update-$(date +%F-%H%M%S).sql"
-docker compose -f docker-compose.production.yml --env-file .env.production build
-docker compose -f docker-compose.production.yml --env-file .env.production up --force-recreate migrate seed-content roster-import release-preflight
-docker compose -f docker-compose.production.yml --env-file .env.production up -d backend frontend gm-client
+# Zuerst Backup mit der unten dokumentierten, zur Variante passenden $COMPOSE-Auswahl.
+$COMPOSE exec -T postgres pg_dump -U "${POSTGRES_USER:-postgres}" "${POSTGRES_DB:-jugendleiter2026}" > "backups/pre-update-$(date +%F-%H%M%S).sql"
+./deploy.sh production
 ```
 
 Soll das Roster geändert werden, zuerst die neue Datei separat freigeben,
@@ -176,35 +175,38 @@ git checkout main  # oder production branch
 
 ```bash
 # Production .env erstellen
-cp .env.example .env.production
+cp .env.production.example .env.production
 
 # Environment-Datei editieren
 nano .env.production
 ```
 
-**Wichtige Variablen anpassen:**
+**Storage-Variante und Pflichtvariablen festlegen:**
 
-```bash
-# ─── Database ────────────────────────────────────────────────────────────────
-DATABASE_URL=postgresql://postgres:SECURE_PASSWORD@postgres:5432/jugendleiter2026
+Es gibt genau einen unterstützten Einstiegspunkt: `./deploy.sh production`. Das
+Skript liest `STORAGE_PROVIDER` und wählt **entweder** die reine AWS-Datei
+`docker-compose.production.yml` **oder** zusätzlich das MinIO-Overlay
+`docker-compose.production.minio.yml`. Es validiert alle Pflichtwerte und die
+Rosterdatei, bevor `docker compose build` oder `docker compose up` läuft. Direkte
+`docker compose up`-Aufrufe sind deshalb für Produktionsdeployments nicht
+unterstützt.
 
-# ─── Auth ────────────────────────────────────────────────────────────────────
-JWT_SECRET=<GENERIERE EINEN SICHEREN KEY MIT 32+ ZEICHEN>
+Gemeinsam erforderlich sind `DATABASE_URL`, `POSTGRES_PASSWORD`, ein mindestens
+32 Zeichen langes `JWT_SECRET`, alle `VITE_*`-Werte, die Rosterfreigabe sowie:
 
 # ─── S3 / Object Storage ─────────────────────────────────────────────────────
 S3_ENDPOINT=https://s3.eu-central-1.amazonaws.com
 S3_PUBLIC_ENDPOINT=https://s3.eu-central-1.amazonaws.com
 S3_FORCE_PATH_STYLE=false
+```dotenv
 S3_BUCKET=jlw2026-media-production
-S3_ACCESS_KEY=<YOUR_AWS_ACCESS_KEY>
-S3_SECRET_KEY=<YOUR_AWS_SECRET_KEY>
 S3_REGION=eu-central-1
+S3_ENDPOINT=https://s3.eu-central-1.amazonaws.com
+S3_ACCESS_KEY_ID=<AWS-ACCESS-KEY-ID>
+S3_SECRET_ACCESS_KEY=<AWS-SECRET-ACCESS-KEY>
+```
 
-# ─── Backend ─────────────────────────────────────────────────────────────────
-PORT=3000
-HOST=0.0.0.0
-NODE_ENV=production
-LOG_LEVEL=info
+Für **AWS S3** gilt:
 
 # ─── Frontend URLs ───────────────────────────────────────────────────────────
 VITE_API_BASE_URL=https://api.jlw2026.example.com
@@ -217,6 +219,31 @@ For MinIO, keep the Docker endpoint internal (`S3_ENDPOINT=http://minio:9000`),
 set `S3_PUBLIC_ENDPOINT=https://media.jlw2026.example.com`, and use
 `S3_FORCE_PATH_STYLE=true`. The public proxy must preserve the signed Host header
 and bucket/object path. Never replace the hostname in a URL after it was signed.
+```dotenv
+STORAGE_PROVIDER=aws
+```
+
+`MINIO_ROOT_USER` und `MINIO_ROOT_PASSWORD` dürfen dabei nicht gesetzt sein.
+`backend` hat in dieser Variante keine Abhängigkeit von `minio` oder
+`minio-init`.
+
+Für **MinIO** müssen Bucket, interner Endpoint, Root-Zugang und die identischen
+Backend-Credentials verbindlich gesetzt werden:
+
+```dotenv
+STORAGE_PROVIDER=minio
+S3_ENDPOINT=http://minio:9000
+S3_BUCKET=via-romae-media
+S3_REGION=eu-central-1
+MINIO_ROOT_USER=<ZUFÄLLIGER-MINIO-BENUTZER>
+MINIO_ROOT_PASSWORD=<ZUFÄLLIGES-PASSWORT-MIT-MINDESTENS-8-ZEICHEN>
+S3_ACCESS_KEY_ID=<GLEICH-WIE-MINIO_ROOT_USER>
+S3_SECRET_ACCESS_KEY=<GLEICH-WIE-MINIO_ROOT_PASSWORD>
+```
+
+Das Deploy-Skript prüft Gleichheit, Passwortlänge und Platzhalter. `minio-init`
+legt `S3_BUCKET` idempotent an. Die MinIO-Ports sind nur an localhost gebunden;
+externer Zugriff sollte ausschließlich abgesichert erfolgen.
 
 **JWT Secret generieren:**
 ```bash
@@ -256,61 +283,62 @@ aws s3api put-bucket-cors --bucket jlw2026-media-production --cors-configuration
 
 #### Option B: MinIO (Self-Hosted S3-kompatibel)
 
-```bash
-# MinIO Container in docker-compose.yml bereits enthalten
-# Siehe Abschnitt "Docker Compose starten"
-```
+MinIO wird nur bei `STORAGE_PROVIDER=minio` durch das Deploy-Skript aus dem
+separaten Overlay zugeschaltet und der Bucket durch `minio-init` angelegt.
 
 ---
 
 ## 🐳 Docker Deployment
 
-### 1. Docker-Images bauen
+### Validieren, bauen und starten
+
+Nach dem Bearbeiten von `.env.production` wird immer derselbe Befehl verwendet:
 
 ```bash
-# Production Build starten
-docker compose -f docker-compose.production.yml build
-
-# Oder einzeln bauen:
-docker compose -f docker-compose.production.yml build backend
-docker compose -f docker-compose.production.yml build frontend
-docker compose -f docker-compose.production.yml build gm-client
+chmod +x deploy.sh
+./deploy.sh production
 ```
 
-### 2. Services starten
+Das Skript bricht mit einer deutschsprachigen Fehlermeldung ab, bevor Container
+gestartet werden, wenn die Storage-Auswahl ungültig oder ein Pflichtwert fehlt.
+Es zeigt anschließend den Status der vier One-shot-Release-Dienste. Nur Exit-Code
+0 für alle vier gibt das Release frei.
+
+Für reine Diagnosebefehle muss dieselbe Dateikombination wie beim Deployment
+verwendet werden:
 
 ```bash
-# Alle Services im Hintergrund starten
-docker compose -f docker-compose.production.yml up -d
+# AWS
+COMPOSE="docker compose --env-file .env.production -f docker-compose.production.yml"
 
-# Logs ansehen
-docker compose -f docker-compose.production.yml logs -f
+# MinIO (anstelle der Zeile oben)
+COMPOSE="docker compose --env-file .env.production -f docker-compose.production.yml -f docker-compose.production.minio.yml"
 
-# Nur bestimmte Services ansehen
-docker compose -f docker-compose.production.yml logs -f backend
+$COMPOSE ps
+$COMPOSE logs -f backend
 ```
 
 ### 3. Datenbank migrieren
 
 ```bash
 # Warten bis PostgreSQL bereit ist
-docker compose -f docker-compose.production.yml exec postgres pg_isready
+$COMPOSE exec postgres pg_isready
 
 # Migrationen ausführen
-docker compose -f docker-compose.production.yml exec backend sh -c "cd /app/apps/backend && node_modules/.bin/drizzle-kit migrate"
+$COMPOSE exec backend sh -c "cd /app/apps/backend && node_modules/.bin/drizzle-kit migrate"
 
 # ODER mit direktem Zugriff:
-docker compose -f docker-compose.production.yml exec backend npm run db:migrate
+$COMPOSE exec backend npm run db:migrate
 ```
 
 ### 4. Seed-Daten importieren (Optional)
 
 ```bash
 # Test-Account erstellen
-docker compose -f docker-compose.production.yml exec backend npm run db:seed
+$COMPOSE exec backend npm run db:seed
 
 # GeoJSON-Daten importieren
-docker compose -f docker-compose.production.yml exec backend npm run seed
+$COMPOSE exec backend npm run seed
 ```
 
 ---
@@ -445,7 +473,7 @@ sudo certbot renew --dry-run
 
 ```bash
 # Docker Container Status
-docker compose -f docker-compose.production.yml ps
+$COMPOSE ps
 
 # Backend Health
 curl http://localhost:3000/health
@@ -460,7 +488,7 @@ curl http://localhost:5174
 curl https://gm.jlw2026.example.com
 
 # PostgreSQL
-docker compose -f docker-compose.production.yml exec postgres psql -U postgres -d jugendleiter2026 -c "SELECT version();"
+$COMPOSE exec postgres psql -U postgres -d jugendleiter2026 -c "SELECT version();"
 
 # WebSocket über den öffentlichen Spieler-vHost (erwartet HTTP 101)
 WS_TOKEN=<player-jwt> PLAYER_BASE_URL=https://jlw2026.example.com \
@@ -475,13 +503,13 @@ WS_TOKEN=<player-jwt> PLAYER_BASE_URL=https://jlw2026.example.com \
 
 ```bash
 # Alle Services
-docker compose -f docker-compose.production.yml logs -f
+$COMPOSE logs -f
 
 # Nur Backend
-docker compose -f docker-compose.production.yml logs -f backend
+$COMPOSE logs -f backend
 
 # Nur Frontend
-docker compose -f docker-compose.production.yml logs -f frontend
+$COMPOSE logs -f frontend
 
 # Nginx
 sudo tail -f /var/log/nginx/access.log
@@ -522,13 +550,8 @@ cd /opt/jlw2026
 # Neuesten Code pullen
 git pull origin main
 
-# Images neu bauen
-docker compose -f docker-compose.production.yml build
-
-# Services neu starten (Zero-Downtime mit Blue-Green Deployment)
-docker compose -f docker-compose.production.yml up -d --no-deps --build backend
-docker compose -f docker-compose.production.yml up -d --no-deps --build frontend
-docker compose -f docker-compose.production.yml up -d --no-deps --build gm-client
+# Auswahl validieren, Images bauen, Release-Kette ausführen und Dienste starten
+./deploy.sh production
 
 # Alte Images aufräumen
 docker image prune -f
@@ -538,10 +561,10 @@ docker image prune -f
 
 ```bash
 # Neue Migrationen ausführen
-docker compose -f docker-compose.production.yml exec backend npm run db:migrate
+$COMPOSE exec backend npm run db:migrate
 
 # Backup vor Migration (empfohlen!)
-docker compose -f docker-compose.production.yml exec postgres pg_dump -U postgres jugendleiter2026 > backup_$(date +%Y%m%d_%H%M%S).sql
+$COMPOSE exec postgres pg_dump -U postgres jugendleiter2026 > backup_$(date +%Y%m%d_%H%M%S).sql
 ```
 
 ### Backup & Restore
@@ -549,19 +572,19 @@ docker compose -f docker-compose.production.yml exec postgres pg_dump -U postgre
 #### Datenbank Backup
 ```bash
 # Backup erstellen
-docker compose -f docker-compose.production.yml exec postgres pg_dump -U postgres -Fc jugendleiter2026 > backup.dump
+$COMPOSE exec postgres pg_dump -U postgres -Fc jugendleiter2026 > backup.dump
 
 # Oder als SQL:
-docker compose -f docker-compose.production.yml exec postgres pg_dump -U postgres jugendleiter2026 > backup.sql
+$COMPOSE exec postgres pg_dump -U postgres jugendleiter2026 > backup.sql
 ```
 
 #### Datenbank Restore
 ```bash
 # Von .dump Datei:
-docker compose -f docker-compose.production.yml exec -T postgres pg_restore -U postgres -d jugendleiter2026 < backup.dump
+$COMPOSE exec -T postgres pg_restore -U postgres -d jugendleiter2026 < backup.dump
 
 # Von .sql Datei:
-docker compose -f docker-compose.production.yml exec -T postgres psql -U postgres -d jugendleiter2026 < backup.sql
+$COMPOSE exec -T postgres psql -U postgres -d jugendleiter2026 < backup.sql
 ```
 
 #### S3 Media Backup
@@ -581,27 +604,27 @@ aws s3 sync ./media-backup/ s3://jlw2026-media-production
 
 ```bash
 # Logs ansehen
-docker compose -f docker-compose.production.yml logs backend
+$COMPOSE logs backend
 
 # Container neu starten
-docker compose -f docker-compose.production.yml restart backend
+$COMPOSE restart backend
 
 # Volumes zurücksetzen (⚠️ ACHTUNG: Löscht Daten!)
-docker compose -f docker-compose.production.yml down -v
-docker compose -f docker-compose.production.yml up -d
+$COMPOSE down -v
+./deploy.sh production
 ```
 
 ### Datenbankverbindung fehlgeschlagen
 
 ```bash
 # PostgreSQL Status prüfen
-docker compose -f docker-compose.production.yml exec postgres pg_isready
+$COMPOSE exec postgres pg_isready
 
 # Connection String prüfen
-docker compose -f docker-compose.production.yml exec backend env | grep DATABASE_URL
+$COMPOSE exec backend env | grep DATABASE_URL
 
 # PostgreSQL Logs
-docker compose -f docker-compose.production.yml logs postgres
+$COMPOSE logs postgres
 ```
 
 ### Nginx Fehler
@@ -675,7 +698,7 @@ Vor dem Go-Live:
 
 ```bash
 # postgresql.conf anpassen (in Docker Volume)
-docker compose -f docker-compose.production.yml exec postgres bash
+$COMPOSE exec postgres bash
 
 # /var/lib/postgresql/data/postgresql.conf
 shared_buffers = 256MB
@@ -709,30 +732,30 @@ location /api/v1/public/ {
 ```bash
 # ─── Docker ──────────────────────────────────────────────────────────────────
 # Alle Services neu starten
-docker compose -f docker-compose.production.yml restart
+$COMPOSE restart
 
 # Nur einen Service neu starten
-docker compose -f docker-compose.production.yml restart backend
+$COMPOSE restart backend
 
 # Services stoppen
-docker compose -f docker-compose.production.yml down
+$COMPOSE down
 
 # Services mit Volume-Cleanup stoppen
-docker compose -f docker-compose.production.yml down -v
+$COMPOSE down -v
 
 # ─── Logs ────────────────────────────────────────────────────────────────────
 # Live Logs
-docker compose -f docker-compose.production.yml logs -f
+$COMPOSE logs -f
 
 # Letzte 100 Zeilen
-docker compose -f docker-compose.production.yml logs --tail=100
+$COMPOSE logs --tail=100
 
 # ─── Database ────────────────────────────────────────────────────────────────
 # PostgreSQL Shell
-docker compose -f docker-compose.production.yml exec postgres psql -U postgres -d jugendleiter2026
+$COMPOSE exec postgres psql -U postgres -d jugendleiter2026
 
 # Query ausführen
-docker compose -f docker-compose.production.yml exec postgres psql -U postgres -d jugendleiter2026 -c "SELECT COUNT(*) FROM teams;"
+$COMPOSE exec postgres psql -U postgres -d jugendleiter2026 -c "SELECT COUNT(*) FROM teams;"
 
 # ─── Monitoring ──────────────────────────────────────────────────────────────
 # Container Stats
