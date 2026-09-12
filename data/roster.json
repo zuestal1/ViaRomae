@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "approvalId": "JLW-PFAEFFIKON-2026-09-12",
+  "expectedPlayerCount": 13,
+  "expectedTeamCount": 4,
+  "teams": [
+    { "name": "Squadra Aquila", "inventoryCapacity": 40 },
+    { "name": "Squadra Leone",  "inventoryCapacity": 40 },
+    { "name": "Squadra Lupo",   "inventoryCapacity": 40 },
+    { "name": "Squadra Drago",  "inventoryCapacity": 40 }
+  ],
+  "accounts": [
+    { "role": "GM",     "username": "gm_lorenz",  "accessCode": "GMlorenz2026"  },
+
+    { "role": "PLAYER", "username": "madonna",    "accessCode": "Marion2026",   "team": "Squadra Aquila" },
+    { "role": "PLAYER", "username": "carlo",      "accessCode": "Karli2026",    "team": "Squadra Aquila" },
+    { "role": "PLAYER", "username": "sofia",      "accessCode": "Sophia2026",   "team": "Squadra Aquila" },
+
+    { "role": "PLAYER", "username": "alessandro", "accessCode": "Alex2026",     "team": "Squadra Leone" },
+    { "role": "PLAYER", "username": "anna",       "accessCode": "Anja2026",     "team": "Squadra Leone" },
+    { "role": "PLAYER", "username": "diana",      "accessCode": "Didi2026",     "team": "Squadra Leone" },
+    { "role": "PLAYER", "username": "giulia",     "accessCode": "Jil_2026",     "team": "Squadra Leone" },
+
+    { "role": "PLAYER", "username": "gianluca",   "accessCode": "Gianluca2026", "team": "Squadra Lupo" },
+    { "role": "PLAYER", "username": "emilia",     "accessCode": "Emilie2026",   "team": "Squadra Lupo" },
+    { "role": "PLAYER", "username": "chiara",     "accessCode": "Chiara2026",   "team": "Squadra Lupo" },
+
+    { "role": "PLAYER", "username": "lorenzo",    "accessCode": "Lorenz2026",   "team": "Squadra Drago" },
+    { "role": "PLAYER", "username": "rebecca",    "accessCode": "Rebekka2026",  "team": "Squadra Drago" },
+    { "role": "PLAYER", "username": "eliana",     "accessCode": "Eliane2026",   "team": "Squadra Drago" }
+  ]
+}
