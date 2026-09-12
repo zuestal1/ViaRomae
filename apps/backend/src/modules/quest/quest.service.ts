@@ -303,18 +303,26 @@ async function resolvePlayer(accountId: string): Promise<{
 async function lookupWorldObjectByTargetRef(
   targetRef: string,
 ): Promise<(typeof worldObjects.$inferSelect) | null> {
-  // Try direct match first (handles enemy_encounter refs like "enemy:UE-D1-01").
+  // Try direct match first (handles refs that already carry a prefix like "enemy:UE-D1-01").
   let [wo] = await db
     .select()
     .from(worldObjects)
     .where(eq(worldObjects.externalId, targetRef));
 
   if (!wo) {
-    // Try prefixed with "location:"
+    // Try prefixed with "location:" (location_candidate features).
     [wo] = await db
       .select()
       .from(worldObjects)
       .where(eq(worldObjects.externalId, `location:${targetRef}`));
+  }
+
+  if (!wo) {
+    // Try prefixed with "enemy:" (QUEST_ENEMY features store external_id as "enemy:<combat_profile_id>").
+    [wo] = await db
+      .select()
+      .from(worldObjects)
+      .where(eq(worldObjects.externalId, `enemy:${targetRef}`));
   }
 
   return wo ?? null;

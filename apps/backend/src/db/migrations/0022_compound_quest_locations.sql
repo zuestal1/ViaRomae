@@ -1,6 +1,7 @@
 ALTER TYPE "step_action_type" ADD VALUE IF NOT EXISTS 'NAVIGATION_CHALLENGE';
+--> statement-breakpoint
 ALTER TYPE "step_action_type" ADD VALUE IF NOT EXISTS 'VISIT_MULTIPLE_LOCATIONS';
-
+--> statement-breakpoint
 CREATE TABLE IF NOT EXISTS "quest_step_waypoint" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
   "quest_step_id" uuid NOT NULL REFERENCES "quest_step"("id") ON DELETE CASCADE,
@@ -8,7 +9,7 @@ CREATE TABLE IF NOT EXISTS "quest_step_waypoint" (
   "target_ref" varchar(128) NOT NULL,
   CONSTRAINT "uq_quest_step_waypoint_sequence" UNIQUE("quest_step_id", "sequence")
 );
-
+--> statement-breakpoint
 CREATE TABLE IF NOT EXISTS "quest_waypoint_progress" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
   "quest_run_id" uuid NOT NULL REFERENCES "quest_run"("id") ON DELETE CASCADE,
