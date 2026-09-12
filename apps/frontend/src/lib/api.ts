@@ -2,17 +2,31 @@
  * Typed API client – thin fetch wrapper.
  * Uses the shared @jlw/contracts types for request/response shapes.
  */
-const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") ?? "";
+const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/+$/, "") ?? "";
+
+export type ApiTransport = "http" | "websocket";
 
 /**
  * API root shared by all frontend clients. A configured value may either be a
  * host (for example `https://api.example.com`) or the complete `/api/v1` root.
  */
-export const API_BASE = configuredBaseUrl
-  ? configuredBaseUrl.endsWith("/api/v1")
-    ? configuredBaseUrl
-    : `${configuredBaseUrl}/api/v1`
-  : "/api/v1";
+export function getApiBaseUrl(transport: ApiTransport = "http"): string {
+  const httpBase = configuredBaseUrl
+    ? configuredBaseUrl.endsWith("/api/v1")
+      ? configuredBaseUrl
+      : `${configuredBaseUrl}/api/v1`
+    : "/api/v1";
+
+  if (transport === "http") return httpBase;
+
+  // Relative API URLs use the current origin (Vite proxy in development and
+  // nginx in same-origin production). Absolute API URLs retain their host.
+  const websocketBase = new URL(httpBase, window.location.origin);
+  websocketBase.protocol = websocketBase.protocol === "https:" ? "wss:" : "ws:";
+  return websocketBase.href.replace(/\/$/, "");
+}
+
+export const API_BASE = getApiBaseUrl();
 
 async function request<T>(
   path: string,

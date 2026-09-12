@@ -14,6 +14,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "../contexts/auth.context.js";
+import { API_BASE, getApiBaseUrl } from "../lib/api.js";
 import type {
   PvPChallengeEscapedEvent,
   PvPChallengeStartedEvent,
@@ -161,7 +162,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     try {
       const since = lastEventTimestamp.current;
       const response = await fetch(
-        `/api/v1/ws/events?since=${encodeURIComponent(since)}`,
+        `${API_BASE}/ws/events?since=${encodeURIComponent(since)}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -307,12 +308,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
       
       // Construct WebSocket URL with JWT token as query param
       // (browsers can't set Authorization header on WebSocket upgrade)
-      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      // In dev: use window.location.host (Vite dev server) – Vite proxies
-      // WebSocket connections via the `/api` rule (ws: true in vite.config.ts).
-      // In prod: same host as the frontend.
-      const host = window.location.host;
-      const url = `${protocol}//${host}/api/v1/geo/ws?token=${token}`;
+      const url = `${getApiBaseUrl("websocket")}/geo/ws?token=${encodeURIComponent(token)}`;
       
       log("Connecting to:", url.replace(token, "***"));
       
