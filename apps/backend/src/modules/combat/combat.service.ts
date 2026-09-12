@@ -1262,7 +1262,10 @@ async function resolvePvEQuestVictory(combat: CombatInstance, teamId: string, ws
     JOIN world_object wo ON wo.id=${enemy.entityId}::uuid
     LEFT JOIN objective_progress op ON op.quest_run_id=qr.id AND op.objective_id=qs.step_id
     WHERE p.id=${player.entityId}::uuid AND qs.step_action_type='DEFEAT_ENEMY'
-      AND qs.flow_phase='OBJECTIVE' AND qs.target_ref=wo.external_id
+      AND qs.flow_phase='OBJECTIVE'
+      AND (qs.target_ref=wo.external_id
+        OR CONCAT('enemy:',qs.target_ref)=wo.external_id
+        OR qs.target_ref=REPLACE(wo.external_id,'enemy:',''))
       AND COALESCE(op.status,'PENDING')<>'COMPLETED'
       AND qs.sequence=(SELECT MIN(next.sequence) FROM quest_step next
         LEFT JOIN objective_progress next_op ON next_op.quest_run_id=qr.id AND next_op.objective_id=next.step_id
