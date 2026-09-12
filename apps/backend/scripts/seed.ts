@@ -164,6 +164,7 @@ function mapStepActionType(raw: string): string {
   const aliases: Record<string, string> = {
     TAKE_PHOTO: "UPLOAD_MEDIA", TAKE_VIDEO: "UPLOAD_MEDIA", COLLECT_MEDIA: "UPLOAD_MEDIA",
     SUBMIT_FOR_REVIEW: "TEAM_DECISION", BOSS_PARTICIPATION: "DEFEAT_ENEMY",
+    DEFEAT_ENEMY: "REACH_LOCATION",
   };
   raw = aliases[raw] ?? raw;
   const allowed = [
@@ -270,16 +271,10 @@ async function upsertWorldObject(
       ? props.cluster
       : undefined;
 
-  // QUEST_ENEMY features use combat_profile_id as their lookup key (not feature.id),
-  // because quest steps reference enemies by combat_profile_id (e.g. "CP-QE-PASSETTO").
-  // We store as "enemy:<combat_profile_id>" for consistency with regular enemies.
-  // The quest service's lookupWorldObjectByTargetRef tries the "enemy:" prefix as a fallback.
-  const isQuestEnemy = isEnemy &&
-    "system_type" in props && (props as Record<string, unknown>)["system_type"] === "QUEST_ENEMY";
-  const combatProfileId = isQuestEnemy
-    ? (props as Record<string, unknown>)["combat_profile_id"] as string | undefined
-    : undefined;
-  const externalId = combatProfileId ? `enemy:${combatProfileId}` : feature.id;
+  // QUEST_ENEMY features use feature.id directly as externalId
+  // (e.g. "enemy:quest:H-D1-02-S05"). Quest steps reference enemies via the same
+  // feature.id, so lookupWorldObjectByTargetRef finds them with a direct match.
+  const externalId = feature.id;
 
   await db
     .insert(worldObjects)

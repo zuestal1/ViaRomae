@@ -500,32 +500,7 @@ function QuestTimerView({ timer, runtime, disabled, onStart }: {
   </div>;
 }
 
-// ── Engage Enemy Button (self-contained with own state) ──────────────────────
-
-function EngageEnemyButton({ runId, stepId }: { runId: string; stepId: string }) {
-  const [loading, setLoading] = useState(false);
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  return (
-    <div className="flex flex-col gap-2">
-      <p className="text-xs text-white/50">Besiegt den markierten Gegner im Kampf, um diesen Schritt abzuschließen.</p>
-      <button
-        disabled={loading}
-        onClick={() => {
-          setLoading(true);
-          setMsg(null);
-          api.post<{ combatId: string }>(`/quests/runs/${runId}/steps/${stepId}/engage`, {})
-            .then(() => setMsg({ ok: true, text: "⚔️ Kampf gestartet! Das Kampf-Interface öffnet sich gleich." }))
-            .catch((err: unknown) => setMsg({ ok: false, text: err instanceof Error ? err.message : "Fehler beim Starten des Kampfes." }))
-            .finally(() => setLoading(false));
-        }}
-        className="w-full rounded-xl bg-red-700 py-3 text-sm font-bold text-white disabled:opacity-50"
-      >
-        {loading ? "Starte Kampf…" : "⚔️ Kampf starten"}
-      </button>
-      {msg && <p className={`text-xs ${msg.ok ? "text-emerald-300" : "text-red-300"}`}>{msg.text}</p>}
-    </div>
-  );
-}
+// EngageEnemyButton removed – DEFEAT_ENEMY steps are now handled as REACH_LOCATION
 
 // ── Active view ───────────────────────────────────────────────────────────────
 
@@ -722,9 +697,11 @@ function ActiveView({
             </div>
           )}
 
-          {/* DEFEAT_ENEMY */}
+          {/* DEFEAT_ENEMY – treated as proximity check (no combat required) */}
           {step.stepActionType === "DEFEAT_ENEMY" && (
-            <EngageEnemyButton runId={run.id} stepId={step.stepId} />
+            <p className="text-sm text-amber-300/80">
+              📍 Nähert euch dem markierten Ort auf der Karte. Der Schritt wird automatisch abgeschlossen, sobald ihr nahe genug seid.
+            </p>
           )}
           {step.stepActionType === "USE_ITEM"&&<div className="flex flex-col gap-2">{questItems.map(item=><button key={item.id} disabled={isLoading} onClick={()=>onQuestItem(item.id)} className="w-full rounded-xl bg-[#cd7f32] py-3 text-sm font-bold text-[#1a1a2e]">{item.name??item.definitionId} abgeben</button>)}{questItems.length===0&&<p className="text-sm text-amber-300">Das benötigte Questitem ({step.targetRef}) fehlt im Teaminventar.</p>}</div>}
 
@@ -1067,7 +1044,7 @@ function stepEmoji(actionType: string): string {
     case "VISIT_MULTIPLE_LOCATIONS": return "🗺️";
     case "ANSWER_QUESTION":    return "❓";
     case "SOLVE_PUZZLE":       return "🧩";
-    case "DEFEAT_ENEMY":       return "⚔️";
+    case "DEFEAT_ENEMY":       return "📍";
     case "UPLOAD_MEDIA":       return "📸";
     case "TALK_TO_NPC":        return "💬";
     case "ACCEPT_QUEST":       return "✋";
@@ -1082,7 +1059,7 @@ function stepLabel(actionType: string): string {
     case "VISIT_MULTIPLE_LOCATIONS": return "Mehrere Orte besuchen";
     case "ANSWER_QUESTION":    return "Frage beantworten";
     case "SOLVE_PUZZLE":       return "Rätsel lösen";
-    case "DEFEAT_ENEMY":       return "Gegner besiegen";
+    case "DEFEAT_ENEMY":       return "Ort besuchen";
     case "UPLOAD_MEDIA":       return "Foto hochladen";
     case "TALK_TO_NPC":        return "Mit NPC sprechen";
     case "ACCEPT_QUEST":       return "Quest annehmen";
