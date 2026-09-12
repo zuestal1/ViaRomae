@@ -227,6 +227,8 @@ export async function startPvECombat(opts: {
   const playerCombatants = await Promise.all(
     teamPlayers.map(async (player) => {
       const stats = await getPlayerStats(player);
+      const rawHp = Math.min(player.hpCurrent, stats.hpMax);
+      const hpCurrent = Number.isFinite(rawHp) && rawHp > 0 ? rawHp : player.hpCurrent || 100;
       const results = await db
         .insert(combatants)
         .values({
@@ -234,7 +236,7 @@ export async function startPvECombat(opts: {
           entityType: "PLAYER",
           entityId: player.id,
           teamId: player.teamId,
-          hpCurrent: Math.min(player.hpCurrent, stats.hpMax),
+          hpCurrent,
         })
         .returning();
       const combatant = results[0];
